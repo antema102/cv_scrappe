@@ -1,3 +1,17 @@
 my_custom_profile
 downloaded_files
 __pycache__
+*.pyc
+
+# Node
+node_modules/
+backend/node_modules/
+
+# Build
+backend/dist/
+dist/
+
+# Env
+.env
+.env.local
+.env.*.local

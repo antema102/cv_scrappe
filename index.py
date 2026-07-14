@@ -1,8 +1,19 @@
-from seleniumbase import SB
+import os
 
-with SB(uc=True, test=True, locale="en") as sb:
-    sb.activate_cdp_mode()
-    sb.goto("https://www.emploi.ci")
-    sb.sleep(10)
-    sb.solve_captcha()
-    sb.sleep(10)
+from emploi_ma_scraper import EmploiMaScraper
+
+# URL du backend Node.js — laisser vide pour désactiver l'envoi API
+API_URL: str | None = os.getenv("SCRAPER_API_URL", "http://localhost:3000")
+
+
+def main() -> None:
+    scraper = EmploiMaScraper(api_url=API_URL)
+    result = scraper.scrape_all()
+
+    print(f"Offres traitées     : {len(result['jobs'])}")
+    print(f"Entreprises nouvelles: {len(result['new_companies'])}")
+    print(f"Cache entreprises   : {scraper.company_store.count()}")
+
+
+if __name__ == "__main__":
+    main()
