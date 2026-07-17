@@ -28,19 +28,23 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-// GET /api/jobs — liste paginée
+// GET /api/jobs — liste paginée (optionnel: ?company_id=xxx)
 router.get("/", async (req: Request, res: Response): Promise<void> => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(
-      100,
+      500,
       Math.max(1, parseInt(req.query.limit as string) || 20)
     );
     const skip = (page - 1) * limit;
 
+    const filter: Record<string, unknown> = {};
+    if (req.query.company_id) filter.company_id = req.query.company_id;
+    if (req.query.country) filter['company_profile.country'] = req.query.country;
+
     const [jobs, total] = await Promise.all([
-      Job.find({}, { __v: 0 }).skip(skip).limit(limit).sort({ createdAt: -1 }),
-      Job.countDocuments(),
+      Job.find(filter, { __v: 0 }).skip(skip).limit(limit).sort({ createdAt: -1 }),
+      Job.countDocuments(filter),
     ]);
 
     res.json({ total, page, limit, jobs });

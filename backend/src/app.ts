@@ -4,6 +4,7 @@ import cors from "cors";
 import connectDB from "./config/db";
 import jobsRouter from "./routes/jobs.routes";
 import companiesRouter from "./routes/companies.routes";
+import cvsRouter from "./routes/cv.routes";
 
 const app = express();
 const PORT = process.env.PORT ?? 3000;
@@ -15,6 +16,7 @@ app.use(express.json({ limit: "10mb" }));
 
 app.use("/api/jobs", jobsRouter);
 app.use("/api/companies", companiesRouter);
+app.use("/api/cvs", cvsRouter);
 
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 

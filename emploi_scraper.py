@@ -139,6 +139,27 @@ class ApiClient:
         except Exception:
             return False
 
+    def cv_exists(self, global_id: str) -> bool:
+        try:
+            resp = self._requests.get(
+                f"{self.base_url}/api/cvs/{global_id}/exists",
+                timeout=10,
+            )
+            return bool(resp.json().get("exists", False))
+        except Exception:
+            return False
+
+    def upsert_cv(self, cv: dict) -> None:
+        try:
+            resp = self._requests.post(
+                f"{self.base_url}/api/cvs",
+                json=cv,
+                timeout=15,
+            )
+            resp.raise_for_status()
+        except Exception as exc:
+            print(f"[API] Erreur CV {cv.get('id')}: {exc}")
+
 
 class EmploiMaScraper:
     def __init__(self, api_url: str | None = None) -> None:
