@@ -15,12 +15,14 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import requests
 from selenium.common.exceptions import StaleElementReferenceException
 from seleniumbase import SB
 from scrapers.common.browser_helpers import maybe_solve_captcha
@@ -34,17 +36,22 @@ OUTPUT_DIR = PROJECT_ROOT / "downloaded_files"
 PROFILE_DIR = PROJECT_ROOT / "my_custom_profile_3"
 EMAILS_FILE = OUTPUT_DIR / "company_emails.json"
 
+# URL du backend — surchargeable via variable d'environnement SCRAPER_API_URL
+BACKEND_URL: str = os.getenv("SCRAPER_API_URL", "http://localhost:3000")
+
 GOOGLE_AI_MODE_URL = "https://www.google.com/search?udm=50&hl=fr"
 
-DELAY_BETWEEN_SEARCHES: float = 5.0
+DELAY_BETWEEN_SEARCHES: float = 2.0
 MAX_RETRIES: int = 3
-BATCH_SIZE: int = 10
+BATCH_SIZE: int = 5000
 
 # ---------------------------------------------------------------------------
 # Regex email
 # ---------------------------------------------------------------------------
 
 _EMAIL_RE = re.compile(r'\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,7}\b')
+# Numéros de téléphone : séquence de chiffres avec séparateurs optionnels, 8–16 chiffres au total
+_PHONE_RE = re.compile(r'(?<!\w)\+?[\d][\d\s()\-./]{6,20}[\d](?!\w)')
 
 _FAKE_EXTENSIONS = frozenset({
     ".png", ".jpg", ".jpeg", ".gif", ".svg", ".css", ".js",
@@ -436,6 +443,20 @@ class GoogleAiEmailExtractor:
                 result.append(email)
         return result
 
+    def extract_phone_numbers(self, text: str) -> list[str]:
+        """Extrait et dédoublonne les numéros de téléphone depuis un texte brut."""
+        seen: dict[str, None] = {}
+        result: list[str] = []
+        for raw in _PHONE_RE.findall(text):
+            raw = raw.strip()
+            digits = re.sub(r'\D', '', raw)
+            if not (7 <= len(digits) <= 15):
+                continue
+            if digits not in seen:
+                seen[digits] = None
+                result.append(raw)
+        return result
+
     def extract_website(self, text: str) -> str:
         """Extrait le premier site web officiel depuis la réponse IA."""
         _URL_RE = re.compile(
@@ -505,6 +526,7 @@ class GoogleAiEmailExtractor:
 
                 response_text = self.extract_response(sb, response_element)
                 emails = self.extract_emails(response_text)
+                phone_numbers = self.extract_phone_numbers(response_text)
                 website = self.extract_website(response_text) or company.get("website", "")
                 now = datetime.now(timezone.utc).isoformat()
 
@@ -514,14 +536,16 @@ class GoogleAiEmailExtractor:
                     "website": website,
                     "email": emails[0] if emails else "",
                     "all_emails": emails,
+                    "phone_numbers": phone_numbers,
                     "source": "google_ai_mode",
                     "google_ai_response": response_text[:3000],
                     "created_at": now,
                     "updated_at": now,
                 }
                 log.info(
-                    "  → %d email(s) : %s",
+                    "  → %d email(s) : %s | %d téléphone(s)",
                     len(emails), ", ".join(emails) if emails else "(aucun)",
+                    len(phone_numbers),
                 )
                 
                 return result
@@ -643,6 +667,11 @@ class GoogleAiEmailExtractor:
                             processed += 1
                             if result.get("email"):
                                 found_emails += 1
+                            send_contact_info_to_backend(
+                                company_id=result["company_id"],
+                                emails=result.get("all_emails", []),
+                                phone_numbers=result.get("phone_numbers", []),
+                            )
                         else:
                             if cid:
 
@@ -663,6 +692,7 @@ class GoogleAiEmailExtractor:
                                         ),
                                         "email": "",
                                         "all_emails": [],
+                                        "phone_numbers": [],
                                         "source": "google_ai_mode",
                                         "google_ai_response": "",
                                         "created_at": now,
@@ -706,60 +736,119 @@ class GoogleAiEmailExtractor:
         }
 
 # ---------------------------------------------------------------------------
-# Chargement des entreprises depuis les fichiers JSON
+# Récupération des entreprises depuis le backend
 # ---------------------------------------------------------------------------
-def load_companies(
-    country_code: str | None = None,
+
+def fetch_companies_from_backend(
+    country: str | None = None,
     company_id: str | None = None,
+    limit: int = 0,
 ) -> list[dict[str, Any]]:
     """
-    Charge les entreprises depuis les fichiers downloaded_files/companies_*.json.
+    Récupère les entreprises à scraper depuis le backend API.
+
+    Filtre côté backend (?scrape=1) :
+    - entreprises avec website non vide
+    - entreprises sans emails encore scrapés
 
     Args:
-        country_code: code pays (ex: 'senegal') — tous les pays si None
-        company_id:   filtrer sur un identifiant précis
+        country:    nom de pays tel que stocké en base (ex: 'Algérie') — tous si None
+        company_id: filtrer sur un identifiant précis
+        limit:      nombre max (0 = backend décide, défaut 10000)
 
     Returns:
-        Liste de dicts entreprises avec au minimum 'company_id' et 'name'.
+        Liste de dicts entreprises avec au minimum 'company_id', 'name', 'website'.
     """
-    companies: dict[str, dict[str, Any]] = {}
+    log.info("Récupération des entreprises depuis le backend (%s)...",BACKEND_URL)
 
-    if country_code:
-        files = [OUTPUT_DIR / f"companies_{country_code}.json"]
-    else:
-        files = sorted(OUTPUT_DIR.glob("companies_*.json"))
+    params: dict[str, Any] = {"scrape": "1"}
+    if limit > 0:
+        params["limit"] = limit
+    if country:
+        params["country"] = country
 
-    for path in files:
-        if not path.exists():
-            log.warning("Fichier introuvable : %s", path)
-            continue
+    try:
+        response = requests.get(
+            f"{BACKEND_URL}/api/companies",
+            params=params,
+            timeout=30,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except requests.exceptions.ConnectionError as exc:
+        log.error("Connexion au backend impossible (%s) : %s", BACKEND_URL, exc)
+        return []
+    except requests.exceptions.Timeout:
+        log.error("Timeout lors de la connexion au backend (%s)", BACKEND_URL)
+        return []
+    except requests.exceptions.HTTPError as exc:
+        log.error("Erreur HTTP backend : %s", exc)
+        return []
+    except Exception as exc:
+        log.error("Erreur inattendue récupération entreprises : %s", exc)
+        return []
 
-        try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as exc:
-            log.error("Impossible de lire %s : %s", path, exc)
-            continue
-
-        if isinstance(raw, dict):
-            for cid, data in raw.items():
-                if isinstance(data, dict):
-                    data.setdefault("company_id", cid)
-                    companies[cid] = data
-        elif isinstance(raw, list):
-            for data in raw:
-                if isinstance(data, dict):
-                    cid = str(data.get("company_id", ""))
-                    if cid:
-                        companies[cid] = data
-
-    log.info("%d entreprises chargées", len(companies))
-    result = list(companies.values())
+    companies: list[dict[str, Any]] = data.get("companies", [])
+    if not isinstance(companies, list):
+        log.error("Format inattendu de la réponse backend : %s", type(companies))
+        return []
 
     if company_id:
-        result = [c for c in result if str(c.get("company_id", "")) == company_id]
-        log.info("Filtre company_id=%r → %d entreprise(s)", company_id, len(result))
+        companies = [c for c in companies if str(c.get("company_id", "")) == company_id]
+        log.info("Filtre company_id=%r → %d entreprise(s)", company_id, len(companies))
 
-    return result
+    log.info(
+        "%d entreprises récupérées (total disponible côté backend : %d)",
+        len(companies),
+        data.get("total", len(companies)),
+    )
+    return companies
+
+
+# ---------------------------------------------------------------------------
+# Envoi des résultats de scraping au backend
+# ---------------------------------------------------------------------------
+
+def send_contact_info_to_backend(
+    company_id: str,
+    emails: list[str],
+    phone_numbers: list[str],
+    max_retries: int = 3,
+) -> bool:
+    """
+    Envoie les emails et numéros de téléphone scrapés via
+    PATCH /api/companies/:company_id/contact.
+
+    Retourne True si le backend confirme l'enregistrement, False sinon.
+    """
+    if not emails and not phone_numbers:
+        return True  # rien à envoyer
+
+    url = f"{BACKEND_URL}/api/companies/{company_id}/contact"
+    payload: dict[str, Any] = {"emails": emails, "phone_numbers": phone_numbers}
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            resp = requests.patch(url, json=payload, timeout=15)
+            resp.raise_for_status()
+            log.info("Résultats enregistrés pour company_id=%s", company_id)
+            return True
+        except requests.exceptions.HTTPError as exc:
+            log.error(
+                "[%d/%d] Erreur HTTP envoi backend company_id=%s : %s",
+                attempt, max_retries, company_id, exc,
+            )
+            break  # erreur HTTP (4xx/5xx) → pas de retry
+        except requests.exceptions.RequestException as exc:
+            log.warning(
+                "[%d/%d] Erreur réseau envoi backend company_id=%s : %s",
+                attempt, max_retries, company_id, exc,
+            )
+            if attempt < max_retries:
+                time.sleep(2 * attempt)
+
+    log.error("Échec envoi backend pour company_id=%s", company_id)
+    return False
 
 # ---------------------------------------------------------------------------
 # CLI
@@ -782,8 +871,8 @@ Exemples :
     )
     parser.add_argument(
         "--country",
-        metavar="CODE",
-        help="Code pays (ex: senegal, maroc, kenya) — tous si omis",
+        metavar="NOM",
+        help="Filtrer par nom de pays tel que stocké en base (ex: 'Algérie', 'Sénégal') — tous si omis",
     )
     parser.add_argument(
         "--company-id",
@@ -794,7 +883,7 @@ Exemples :
         "--output",
         metavar="FICHIER",
         default=str(EMAILS_FILE),
-        help=f"Fichier JSON de sortie (défaut : {EMAILS_FILE})",
+        help=f"Fichier JSON de cache local secondaire (défaut : {EMAILS_FILE})",
     )
     parser.add_argument(
         "--delay",
@@ -827,18 +916,19 @@ Exemples :
     args = parser.parse_args()
 
     store = EmailStore(Path(args.output))
-    companies = load_companies(
-        country_code=args.country,
+    companies = fetch_companies_from_backend(
+        country=args.country,
         company_id=args.company_id,
+        limit=args.limit,
     )
 
     if not companies:
-        log.error("Aucune entreprise trouvée. Vérifiez --country ou le dossier downloaded_files/")
+        log.error(
+            "Aucune entreprise trouvée. "
+            "Vérifiez le backend (%s) ou les filtres --country/--company-id",
+            BACKEND_URL,
+        )
         return
-
-    if args.limit > 0:
-        companies = companies[: args.limit]
-        log.info("Limite appliquée : %d entreprises", len(companies))
 
     extractor = GoogleAiEmailExtractor(
         store=store,

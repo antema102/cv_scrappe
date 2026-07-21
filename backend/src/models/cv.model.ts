@@ -36,7 +36,7 @@ const cvSchema = new Schema<ICv>(
   },
   {
     timestamps: true,
-    collection: "cvs",
+    collection: "cvs_scrappe",
   }
 );
 

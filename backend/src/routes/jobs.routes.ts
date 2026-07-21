@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import Job from "../models/job.model";
+import JobPublication from "../models/job_publication.model";
 
 const router = Router();
 
@@ -66,5 +67,29 @@ router.get("/:job_id", async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({ error: (err as Error).message });
   }
 });
+
+// POST /api/jobs/:job_id/publication — enregistre la date de publication (scraper)
+router.post(
+  "/:job_id/publication",
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { job_id } = req.params;
+      const { published_at } = req.body as { published_at?: string | null };
+
+      const doc = await JobPublication.findOneAndUpdate(
+        { job_id },
+        {
+          job_id,
+          published_at: published_at ? new Date(published_at) : null,
+        },
+        { upsert: true, new: true, runValidators: true }
+      );
+
+      res.status(201).json(doc);
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  }
+);
 
 export default router;

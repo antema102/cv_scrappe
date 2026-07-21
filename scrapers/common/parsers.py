@@ -112,7 +112,20 @@ def extract_job_sections(soup: BeautifulSoup) -> list[dict[str, Any]]:
     return sections
 
 
+_PUBLISHED_RE = re.compile(r"\b(\d{2})\.(\d{2})\.(\d{4})\b")
+
+
+def _parse_published_at(text: str) -> str | None:
+    """Extrait une date DD.MM.YYYY et la retourne en ISO 8601 (YYYY-MM-DD), ou None."""
+    m = _PUBLISHED_RE.search(text)
+    if not m:
+        return None
+    return f"{m.group(3)}-{m.group(2)}-{m.group(1)}"
+
+
 def build_job_detail(soup: BeautifulSoup, job_url: str) -> dict[str, Any]:
+    pub_elem = soup.select_one(".page-application-details p")
+    pub_text = normalize_text(pub_elem.get_text(" ", strip=True)) if pub_elem else ""
     return {
         "job_url": job_url,
         "headline": first_text(soup, "h3.job-title"),
@@ -129,6 +142,7 @@ def build_job_detail(soup: BeautifulSoup, job_url: str) -> dict[str, Any]:
             if normalize_text(item.get_text(" ", strip=True))
         ],
         "sections": extract_job_sections(soup),
+        "published_at": _parse_published_at(pub_text),
     }
 
 

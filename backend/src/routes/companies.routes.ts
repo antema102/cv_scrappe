@@ -30,17 +30,21 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
 });
 
 // GET /api/companies — liste paginée avec filtres + job_count
+// ?scrape=1 : retourne les entreprises avec website et sans emails (pour le scraper)
 router.get("/", async (req: Request, res: Response): Promise<void> => {
   try {
+    const isScrape = req.query.scrape === "1";
+    const maxLimit = isScrape ? 10000 : 500;
+    const defaultLimit = isScrape ? 10000 : 24;
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(
-      500,
-      Math.max(1, parseInt(req.query.limit as string) || 24)
+      maxLimit,
+      Math.max(1, parseInt(req.query.limit as string) || defaultLimit)
     );
     const skip = (page - 1) * limit;
 
     const filter: Record<string, unknown> = {};
-    if (req.query.search) {
+    if (!isScrape && req.query.search) {
       filter.$or = [
         { name: { $regex: req.query.search, $options: "i" } },
         { sector: { $regex: req.query.search, $options: "i" } },
@@ -51,13 +55,34 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
     if (req.query.country) filter.country = req.query.country;
     if (req.query.sector) filter.sector = req.query.sector;
 
+    if (isScrape) {
+      filter.website = {
+        $exists: true,
+        $nin: ["", "non disponible", "non disponible.", "n/a", "na", "null", "none"],
+      };
+      filter.$or = [
+        { emails: { $exists: false } },
+        { emails: { $size: 0 } },
+      ];
+    }
+
+    const projection = isScrape
+      ? { __v: 0, description: 0, logo_url: 0, emails: 0, phone_numbers: 0 }
+      : { __v: 0 };
+
     const [companies, total] = await Promise.all([
-      Company.find(filter, { __v: 0 })
+      Company.find(filter, projection)
         .skip(skip)
         .limit(limit)
         .sort({ createdAt: -1 }),
       Company.countDocuments(filter),
     ]);
+
+    // En mode scraper, pas besoin de job_count
+    if (isScrape) {
+      res.json({ total, page, limit, companies });
+      return;
+    }
 
     // Compter les offres d'emploi par company_id en une seule requête
     const companyIds = companies.map((c) => c.company_id);
@@ -94,6 +119,85 @@ router.get(
         return;
       }
       res.json(company);
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  }
+);
+
+// PATCH /api/companies/:company_id/contact — merge emails + téléphones (scraper)
+router.patch(
+  "/:company_id/contact",
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { company_id } = req.params;
+      const { emails, phone_numbers } = req.body as {
+        emails?: unknown;
+        phone_numbers?: unknown;
+      };
+
+      // Validation : au moins un des deux champs requis
+      if (emails === undefined && phone_numbers === undefined) {
+        res.status(400).json({ error: "emails ou phone_numbers est requis" });
+        return;
+      }
+
+      // Validation des types
+      if (
+        emails !== undefined &&
+        (!Array.isArray(emails) || emails.some((e) => typeof e !== "string"))
+      ) {
+        res.status(400).json({ error: "emails doit être un tableau de chaînes" });
+        return;
+      }
+      if (
+        phone_numbers !== undefined &&
+        (!Array.isArray(phone_numbers) ||
+          phone_numbers.some((p) => typeof p !== "string"))
+      ) {
+        res
+          .status(400)
+          .json({ error: "phone_numbers doit être un tableau de chaînes" });
+        return;
+      }
+
+      const cleanEmails = ((emails as string[] | undefined) ?? []).map((e) =>
+        e.trim().toLowerCase()
+      ).filter(Boolean);
+
+      const cleanPhones = ((phone_numbers as string[] | undefined) ?? []).map(
+        (p) => p.trim()
+      ).filter(Boolean);
+
+      // $addToSet avec $each : MongoDB dédoublonne nativement
+      const update: Record<string, unknown> = {};
+      if (cleanEmails.length > 0)
+        update["emails"] = { $each: cleanEmails };
+      if (cleanPhones.length > 0)
+        update["phone_numbers"] = { $each: cleanPhones };
+
+      if (Object.keys(update).length === 0) {
+        res.status(400).json({ error: "Aucune donnée valide à enregistrer" });
+        return;
+      }
+
+      const company = await Company.findOneAndUpdate(
+        { company_id },
+        { $addToSet: update },
+        { new: true, runValidators: true }
+      );
+
+      if (!company) {
+        res.status(404).json({ error: "Entreprise introuvable" });
+        return;
+      }
+
+      res.json({
+        success: true,
+        company_id,
+        emails_added: cleanEmails.length,
+        phone_numbers_added: cleanPhones.length,
+      });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }

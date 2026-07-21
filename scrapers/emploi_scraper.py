@@ -118,6 +118,17 @@ class ApiClient:
         except Exception as exc:
             print(f"[API] Erreur job {job.get('job_id')}: {exc}")
 
+    def upsert_job_publication(self, job_id: str, published_at: str | None) -> None:
+        try:
+            resp = self._requests.post(
+                f"{self.base_url}/api/jobs/{job_id}/publication",
+                json={"published_at": published_at},
+                timeout=10,
+            )
+            resp.raise_for_status()
+        except Exception as exc:
+            print(f"[API] Erreur publication {job_id}: {exc}")
+
     def upsert_company(self, company: dict[str, Any]) -> None:
         try:
             resp = self._requests.post(

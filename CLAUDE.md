@@ -91,3 +91,17 @@ cd frontend && npm run dev           # Dashboard React sur :5173
 - Ne pas appeler `sb` hors du bloc `with SB(...) as sb:`
 - Ne pas modifier `emploi_scraper.py` pour la logique métier — c'est uniquement utilitaire
 - Ne pas dupliquer la logique URL — tout passe par `CountryConfig`
+
+
+"""
+email_extractor.py
+==================
+Extrait automatiquement les emails d'entreprises via le Mode IA de Google Search.
+Compatible Shadow DOM (Google AI Mode utilise des shadow roots ouverts).
+
+Utilisation :
+    python -m scrapers.email_extractor                        # toutes les entreprises
+    python -m scrapers.email_extractor --country senegal      # un pays
+    python -m scrapers.email_extractor --limit 20             # 20 premières
+    python -m scrapers.email_extractor --company-id abc123    # une seule entreprise
+"""

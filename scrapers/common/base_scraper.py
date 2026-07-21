@@ -7,7 +7,7 @@ from typing import Any
 from bs4 import BeautifulSoup
 from seleniumbase import SB
 
-from emploi_scraper import ApiClient, JsonStore
+from scrapers.emploi_scraper import ApiClient, JsonStore
 
 from .browser_helpers import maybe_solve_captcha
 from .country_config import PROFILE_DIR, OUTPUT_DIR, CountryConfig
@@ -52,7 +52,7 @@ class BaseJobScraper:
                     locale="en",
                     user_data_dir=str(PROFILE_DIR),
                     disable_js=False,
-                    headless=True,
+                    headless=False,
                 ) as sb:
                     sb.activate_cdp_mode()
                     self._run_session(sb, all_jobs, all_new_companies)
@@ -234,6 +234,7 @@ class BaseJobScraper:
                 self.job_store.set(listing.job_id, job_payload)
                 if self.api_client:
                     self.api_client.upsert_job(job_payload)
+                self._save_job_publication(listing.job_id, detail.get("published_at"))
 
             page += 1
 
@@ -263,10 +264,19 @@ class BaseJobScraper:
             return {
                 "job_url": job_url, "headline": "", "description": "",
                 "qualifications": [], "criteria": {}, "skills": [], "sections": [],
+                "published_at": None,
             }
 
         return build_job_detail(self._get_soup(sb), job_url)
+    
+    # ------------------------------------------------------------------
+    # Publications d'une offre
+    # ------------------------------------------------------------------
 
+    def _save_job_publication(self, job_id: str, published_at: str | None) -> None:
+        """Enregistre la date de publication d'une offre dans le backend."""
+        if self.api_client:
+            self.api_client.upsert_job_publication(job_id, published_at)
     # ------------------------------------------------------------------
     # Helpers navigation
     # ------------------------------------------------------------------

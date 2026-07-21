@@ -48,4 +48,4 @@ const jobSchema = new Schema<IJob>(
   { timestamps: true }
 );
 
-export default mongoose.model<IJob>("Job", jobSchema);
+export default mongoose.model<IJob>("Job", jobSchema, "jobs_scrappe");

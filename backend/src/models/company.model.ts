@@ -10,6 +10,8 @@ export interface ICompany extends Document {
   website?: string;
   description?: string;
   logo_url?: string;
+  emails?: string[];
+  phone_numbers?: string[];
 }
 
 const companySchema = new Schema<ICompany>(
@@ -23,8 +25,14 @@ const companySchema = new Schema<ICompany>(
     website: String,
     description: String,
     logo_url: String,
+    emails: { type: [String], default: [] },
+    phone_numbers: { type: [String], default: [] },
   },
   { timestamps: true }
 );
 
-export default mongoose.model<ICompany>("Company", companySchema);
+export default mongoose.model<ICompany>(
+  "Company",
+  companySchema,
+  "companies_scrappe"
+);
