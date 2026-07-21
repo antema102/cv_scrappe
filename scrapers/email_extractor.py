@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from selenium.common.exceptions import StaleElementReferenceException
 from seleniumbase import SB
 from scrapers.common.browser_helpers import maybe_solve_captcha
 
@@ -85,13 +86,15 @@ _INPUT_CSS: list[str] = [
 _RESPONSE_CSS: list[str] = [
     "div.mZJni.Dn7Fzd",  # conteneur réponse IA (confirmé)
 ]
+# Sélecteur unique du conteneur de réponse — utilisé pour find_elements() + WebElement direct
+_RESPONSE_SEL: str = _RESPONSE_CSS[0]
 # Indicateurs de chargement IA (leur disparition = streaming terminé)
 _LOADING_CSS: list[str] = [
     ".EHAKZe",
     "[data-is-streaming='true']",
     "[aria-label*='chargement']",
     "[aria-label*='loading']",
-    "[aria-busy='true']",
+    " ",
 ]
 
 # Bannière de consentement Google
@@ -279,27 +282,35 @@ class GoogleAiEmailExtractor:
     # Attente de la réponse IA
     # ------------------------------------------------------------------
 
-    def wait_for_response(self, sb: SB, max_wait: int = 45) -> str | None:
+    def wait_for_response(self, sb: SB, previous_count: int, max_wait: int = 45) -> Any | None:
         """
-        Attend que la réponse IA soit complètement générée.
-        1. Attend l'apparition d'un conteneur de réponse
-        2. Attend la disparition des indicateurs de chargement
-        3. Stabilité du texte (détection fin de streaming)
-        Retourne le sélecteur CSS du conteneur, ou None.
+        Attend l'apparition d'un NOUVEAU conteneur de réponse.
+        Compare le nombre courant d'éléments _RESPONSE_SEL avec `previous_count`.
+        Retourne le dernier WebElement (réponse à la dernière requête), ou None si timeout.
         """
-        # Étape 1 : conteneur de réponse visible
-        response_selector: str | None = None
-        for sel in _RESPONSE_CSS:
-            try:
-                sb.wait_for_element_visible(sel, timeout=25)
-                response_selector = sel
-                log.info("Conteneur réponse détecté : %s", sel)
-                break
-            except Exception:
-                continue
+        # Étape 1 : attendre qu'un nouvel élément apparaisse
+        deadline = time.time() + max_wait
+        response_element: Any | None = None
 
-        if not response_selector:
-            log.warning("Aucun conteneur de réponse détecté")
+        while time.time() < deadline:
+            try:
+                elements = sb.find_elements(_RESPONSE_SEL)
+                if len(elements) > previous_count:
+                    response_element = elements[-1]
+                    log.info(
+                        "Nouveau conteneur détecté (count %d → %d)",
+                        previous_count, len(elements),
+                    )
+                    break
+            except Exception:
+                pass
+            time.sleep(0.5)
+
+        if response_element is None:
+            log.warning(
+                "Aucun nouveau conteneur de réponse apparu (timeout %ds)", max_wait
+            )
+            return None
 
         # Étape 2 : disparition des indicateurs de chargement
         for sel in _LOADING_CSS:
@@ -310,31 +321,47 @@ class GoogleAiEmailExtractor:
             except Exception:
                 continue
 
-        # Étape 3 : stabilité du texte (fin de streaming)
-        target = response_selector or "body"
-        self._wait_text_stable(sb, target, max_wait=max_wait)
-        return response_selector
+        # Étape 3 : stabilité du texte sur CE WebElement précis
+        response_element = self._wait_element_text_stable(
+            sb, response_element, max_wait=max_wait
+        )
+        return response_element
 
-    def _wait_text_stable(
+    def _wait_element_text_stable(
         self,
         sb: SB,
-        selector: str,
+        element: Any,
         max_wait: int = 30,
-        stable_for: float = 2.5,
+        stable_for: float = 3.0,
         poll: float = 1.0,
-    ) -> None:
+    ) -> Any:
         """
-        Attend que le texte d'un sélecteur cesse de changer.
-        Utilisé pour détecter la fin du streaming de la réponse IA.
+        Attend que le texte d'un WebElement précis cesse de changer.
+        Opère sur l'élément directement (pas via sélecteur CSS) pour éviter
+        de lire le mauvais élément en cas de multiples réponses dans la page.
+        Gère StaleElementReferenceException en récupérant le dernier élément.
         Le sleep ici est intentionnel : nécessaire pour le polling.
+        Retourne l'élément courant (potentiellement re-fetché).
         """
         prev = ""
         stable_elapsed = 0.0
         total_elapsed = 0.0
+        current_element = element
 
         while total_elapsed < max_wait:
             try:
-                current = sb.get_text(selector)
+                current = current_element.text
+            except StaleElementReferenceException:
+                # Google a remplacé le nœud DOM — récupérer le dernier élément
+                try:
+                    elements = sb.find_elements(_RESPONSE_SEL)
+                    if elements:
+                        current_element = elements[-1]
+                        current = current_element.text
+                    else:
+                        current = ""
+                except Exception:
+                    current = ""
             except Exception:
                 current = ""
 
@@ -342,7 +369,7 @@ class GoogleAiEmailExtractor:
                 stable_elapsed += poll
                 if stable_elapsed >= stable_for:
                     log.info("Réponse stable (%.1fs inchangée)", stable_elapsed)
-                    return
+                    return current_element
             else:
                 stable_elapsed = 0.0
                 prev = current
@@ -351,48 +378,40 @@ class GoogleAiEmailExtractor:
             total_elapsed += poll
 
         log.warning("Timeout stabilité texte (%ds)", max_wait)
+        return current_element
 
     # ------------------------------------------------------------------
     # Extraction de la réponse
     # ------------------------------------------------------------------
 
-    def extract_response(self, sb: SB, response_selector: str | None) -> str:
+    def extract_response(self, sb: SB, response_element: Any | None) -> str:
         """
-        Récupère le texte brut de la réponse IA.
-        N'utilise pas BeautifulSoup ni sb.get_page_source().
-        Stratégies :
-          1. sb.get_text(selector) sur le conteneur détecté
-          2. sb.get_text() sur les sélecteurs de réponse connus
-          3. Shadow DOM JS (::shadow SB puis JS récursif)
-          4. Tout le texte de la page via JS (Shadow DOM inclus)
+        Récupère le texte brut depuis le WebElement précis de la dernière réponse IA.
+        Utilise element.text directement — jamais sb.get_text("div.mZJni.Dn7Fzd") —
+        pour garantir que c'est bien la réponse correspondant à la dernière requête.
+        Gère StaleElementReferenceException en récupérant le dernier élément connu.
         """
-        # 1. Sélecteur détecté par wait_for_response
-        if response_selector:
-            try:
-                text = sb.get_text(response_selector)
-                if text and len(text) > 30:
-                    return text[:5000]
-            except Exception:
-                pass
+        if response_element is None:
+            log.warning("Aucun élément de réponse fourni")
+            return ""
 
-        for sel in _RESPONSE_CSS:
-            try:
-                text = sb.get_text(sel)
-                if text and len(text) > 30:
-                    return text[:5000]
-            except Exception:
-                pass
-
-        for sel in _RESPONSE_CSS:
-            text = self._sd_text(sb, sel)
+        try:
+            text = response_element.text
             if text and len(text) > 30:
                 return text[:5000]
+        except StaleElementReferenceException:
+            try:
+                elements = sb.find_elements(_RESPONSE_SEL)
+                if elements:
+                    text = elements[-1].text
+                    if text and len(text) > 30:
+                        return text[:5000]
+            except Exception:
+                pass
+        except Exception:
+            pass
 
-        text = self._full_page_text(sb)
-        if text:
-            return text[:5000]
-
-        log.warning("Aucun texte de réponse extrait")
+        log.warning("Impossible d'extraire le texte de la réponse IA")
         return ""
 
     # ------------------------------------------------------------------
@@ -465,13 +484,26 @@ class GoogleAiEmailExtractor:
             try:
                 self._ensure_ai_mode(sb)
 
+                # Compter les conteneurs existants AVANT d'envoyer la requête
+                try:
+                    previous_count = len(sb.find_elements(_RESPONSE_SEL))
+                except Exception:
+                    previous_count = 0
+
                 if not self.send_query(sb, query):
                     continue
 
-                response_selector = self.wait_for_response(sb)
+                response_element = self.wait_for_response(sb, previous_count)
+                if response_element is None:
+                    log.warning(
+                        "  [%d/%d] Pas de nouvelle réponse reçue",
+                        attempt, self.max_retries,
+                    )
+                    continue
+
                 maybe_solve_captcha(sb)
 
-                response_text = self.extract_response(sb, response_selector)
+                response_text = self.extract_response(sb, response_element)
                 emails = self.extract_emails(response_text)
                 website = self.extract_website(response_text) or company.get("website", "")
                 now = datetime.now(timezone.utc).isoformat()
