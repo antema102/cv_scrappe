@@ -52,7 +52,7 @@ class BaseJobScraper:
                     locale="en",
                     user_data_dir=str(PROFILE_DIR),
                     disable_js=False,
-                    headless=False,
+                    headless=True,
                 ) as sb:
                     sb.activate_cdp_mode()
                     self._run_session(sb, all_jobs, all_new_companies)

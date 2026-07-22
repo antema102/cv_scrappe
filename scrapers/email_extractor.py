@@ -647,7 +647,7 @@ class GoogleAiEmailExtractor:
                     locale="fr",
                     user_data_dir=str(PROFILE_DIR),
                     disable_js=False,
-                    headless=False,
+                    headless=True,
                 ) as sb:
                     sb.activate_cdp_mode()
                     self.open_ai_mode(sb)
