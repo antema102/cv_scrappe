@@ -5,7 +5,7 @@ import os
 
 from scrapers import BaseJobScraper, COUNTRIES, download_country_cvs
 
-API_URL: str | None = os.getenv("SCRAPER_API_URL", "http://localhost:3000")
+API_URL: str | None = os.getenv("SCRAPER_API_URL", "http://localhost:3500")
 
 
 def run_country(code: str) -> None:

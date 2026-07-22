@@ -37,7 +37,7 @@ PROFILE_DIR = PROJECT_ROOT / "my_custom_profile_3"
 EMAILS_FILE = OUTPUT_DIR / "company_emails.json"
 
 # URL du backend — surchargeable via variable d'environnement SCRAPER_API_URL
-BACKEND_URL: str = os.getenv("SCRAPER_API_URL", "http://localhost:3000")
+BACKEND_URL: str = os.getenv("SCRAPER_API_URL", "http://localhost:3500")
 
 GOOGLE_AI_MODE_URL = "https://www.google.com/search?udm=50&hl=fr"
 
@@ -538,7 +538,7 @@ class GoogleAiEmailExtractor:
                     "all_emails": emails,
                     "phone_numbers": phone_numbers,
                     "source": "google_ai_mode",
-                    "google_ai_response": response_text[:3000],
+                    "google_ai_response": response_text[:3500],
                     "created_at": now,
                     "updated_at": now,
                 }

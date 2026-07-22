@@ -21,7 +21,7 @@ from scrapers.common.country_config import (
 )
 
 _MAX_CLOUDFLARE_RETRIES = 3
-_API_URL = os.getenv("SCRAPER_API_URL", "http://localhost:3000")
+_API_URL = os.getenv("SCRAPER_API_URL", "http://localhost:3500")
 
 
 # ---------------------------------------------------------------------------

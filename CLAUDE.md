@@ -17,7 +17,7 @@ cv_scrappe/
 │       ├── parsers.py              # Fonctions BS4 pures — reçoivent (soup, config)
 │       └── base_scraper.py        # BaseJobScraper(config, api_url) — toute la logique Selenium
 ├── backend/src/
-│   ├── app.ts                      # Express + MongoDB :3000
+│   ├── app.ts                      # Express + MongoDB :3500
 │   ├── models/ job.model.ts, company.model.ts
 │   └── routes/ jobs.routes.ts, companies.routes.ts
 └── frontend/src/
@@ -72,13 +72,13 @@ python index.py                      # tous les pays
 python index.py --country burkina    # un seul pays
 python index.py --list               # liste les codes
 
-cd backend && npm run dev            # API Node.js sur :3000
+cd backend && npm run dev            # API Node.js sur :3500
 cd frontend && npm run dev           # Dashboard React sur :5173
 ```
 
 ## Frontend — points clés
 
-- **Proxy Vite** : `/api` → `http://localhost:3000` (configuré dans `vite.config.ts`)
+- **Proxy Vite** : `/api` → `http://localhost:3500` (configuré dans `vite.config.ts`)
 - **Tailwind v4** : import unique `@import "tailwindcss"` dans `index.css`, plugin `@tailwindcss/vite`
 - **Filtres** : côté client — `filterCompanies()` dans `companiesService.ts`
 - **Stats** : agrégées depuis les réponses API (`total` + `getUniqueCountries/Sectors`)

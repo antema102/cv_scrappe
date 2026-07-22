@@ -7,7 +7,7 @@ import companiesRouter from "./routes/companies.routes";
 import cvsRouter from "./routes/cv.routes";
 
 const app = express();
-const PORT = process.env.PORT ?? 3000;
+const PORT = process.env.PORT ?? 3500;
 
 connectDB();
 
