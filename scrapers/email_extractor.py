@@ -34,6 +34,7 @@ from scrapers.common.browser_helpers import maybe_solve_captcha
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = PROJECT_ROOT / "downloaded_files"
 PROFILE_DIR = PROJECT_ROOT / "my_custom_profile_3"
+FALLBACK_PROFILE = PROJECT_ROOT / "my_custom_profile_1"
 EMAILS_FILE = OUTPUT_DIR / "company_emails.json"
 
 # URL du backend — surchargeable via variable d'environnement SCRAPER_API_URL
@@ -41,9 +42,9 @@ BACKEND_URL: str = os.getenv("SCRAPER_API_URL", "http://localhost:3500")
 
 GOOGLE_AI_MODE_URL = "https://www.google.com/search?udm=50&hl=fr"
 
-DELAY_BETWEEN_SEARCHES: float = 2.0
+DELAY_BETWEEN_SEARCHES: float = 0
 MAX_RETRIES: int = 3
-BATCH_SIZE: int = 5000
+BATCH_SIZE: int = 10000
 
 # ---------------------------------------------------------------------------
 # Regex email
@@ -86,7 +87,7 @@ log = logging.getLogger(__name__)
 _INPUT_CSS: list[str] = [
     "textarea[placeholder='Posez une question']",
     "div.Txyg0d > textarea",
-    "textarea",    # textarea conversation AI Mode (confirmé)
+    "textarea",
 ]
 
 # Conteneur réponse IA — role/aria d'abord, classes ensuite
@@ -631,6 +632,7 @@ class GoogleAiEmailExtractor:
         found_emails = 0
         failed = 0
         batch_num = 0
+        current_profile = PROFILE_DIR
 
         while pending:
             batch = pending[: self.batch_size]
@@ -645,13 +647,15 @@ class GoogleAiEmailExtractor:
                 with SB(
                     uc=True,
                     locale="fr",
-                    user_data_dir=str(PROFILE_DIR),
+                    user_data_dir=str(current_profile),
                     disable_js=False,
-                    headless=True,
+                    headless=False,
                 ) as sb:
                     sb.activate_cdp_mode()
                     self.open_ai_mode(sb)
-                    for idx, company in enumerate(batch, 1):
+                    consecutive_failures = 0
+                    for company_idx, company in enumerate(batch):
+                        idx = company_idx + 1
                         result = self.process_company(
                             sb,
                             company
@@ -663,6 +667,7 @@ class GoogleAiEmailExtractor:
                             )
                         ).strip()
                         if result is not None:
+                            consecutive_failures = 0
                             self.save_result(result)
                             processed += 1
                             if result.get("email"):
@@ -700,6 +705,22 @@ class GoogleAiEmailExtractor:
                                     }
                                 )
                             failed += 1
+                            consecutive_failures += 1
+                            if consecutive_failures >= 1:
+                                next_profile = (
+                                    FALLBACK_PROFILE
+                                    if current_profile == PROFILE_DIR
+                                    else PROFILE_DIR
+                                )
+                                log.warning(
+                                    "3 échecs consécutifs sur le conteneur de réponse IA "
+                                    "— basculement vers %s",
+                                    next_profile.name,
+                                )
+                                remaining = batch[company_idx + 1:]
+                                pending = list(remaining) + pending
+                                current_profile = next_profile
+                                break
 
                         if idx < len(batch):
                             log.info(
