@@ -290,7 +290,7 @@ class GoogleAiEmailExtractor:
     # Attente de la réponse IA
     # ------------------------------------------------------------------
 
-    def wait_for_response(self, sb: SB, previous_count: int, max_wait: int = 45) -> Any | None:
+    def wait_for_response(self, sb: SB, previous_count: int, max_wait: int = 10) -> Any | None:
         """
         Attend l'apparition d'un NOUVEAU conteneur de réponse.
         Compare le nombre courant d'éléments _RESPONSE_SEL avec `previous_count`.
@@ -339,7 +339,7 @@ class GoogleAiEmailExtractor:
         self,
         sb: SB,
         element: Any,
-        max_wait: int = 30,
+        max_wait: int = 10,
         stable_for: float = 3.0,
         poll: float = 1.0,
     ) -> Any:
