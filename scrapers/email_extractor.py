@@ -113,6 +113,15 @@ _CONSENT_CSS: list[str] = [
     ".QS5gu.sy4vM",
 ]
 
+class _SkippedSentinel:
+    """Valeur retournée par process_company() quand l'entreprise est ignorée volontairement.
+    Distincte de None (= vrai échec de traitement) pour ne pas polluer les compteurs d'échecs."""
+    __slots__ = ()
+    def __repr__(self) -> str:
+        return "SKIPPED"
+
+_SKIPPED = _SkippedSentinel()
+
 # ---------------------------------------------------------------------------
 # EmailStore — cache JSON (pattern JsonStore du projet)
 # ---------------------------------------------------------------------------
@@ -484,23 +493,53 @@ class GoogleAiEmailExtractor:
     # ------------------------------------------------------------------
     # Traitement d'une entreprise
     # ------------------------------------------------------------------
-
     def process_company(self, sb: SB, company: dict[str, Any]) -> dict[str, Any] | None:
         """
         Traite une entreprise sans quitter Google AI Mode.
         open_ai_mode() est appelé une seule fois dans run() avant la boucle.
-        Ici on se contente de taper la requête dans le textarea existant.
+        
+        Retourne :
+            - dict          → succès
+            - _SKIPPED      → entreprise ignorée volontairement (website invalide) — PAS un échec
+            - None          → vrai échec de traitement Google AI Mode
+
+
         """
         company_id = str(company.get("company_id", "")).strip()
         company_name = str(company.get("name", "")).strip()
         website = str(company.get("website", "")).strip()
+        website_lower = website.casefold()
 
-        if not company_id or not company_name:
-            log.warning("Entreprise ignorée — id ou nom manquant : %s", company)
-            return None
+        if (
+            not company_id
+            or not company_name
+            or not website
+            or website_lower in {
+                "",
+                "non disponible",
+                "non disponible.",
+                "n/a",
+                "na",
+                "null",
+                "none",
+                "not available",
+                "not available.",
+            }
+        ):
+            log.info(
+                "Entreprise ignorée — website invalide : %s (website=%r)",
+                company_name,
+                website,
+            )
+            return _SKIPPED
 
         query = f":{website} email"
-        log.info("Traitement : %s (id=%s)", company_name, company_id)
+
+        log.info(
+            "Traitement : %s (id=%s)",
+            company_name,
+            company_id,
+        )
 
         for attempt in range(1, self.max_retries + 1):
             try:
@@ -516,10 +555,12 @@ class GoogleAiEmailExtractor:
                     continue
 
                 response_element = self.wait_for_response(sb, previous_count)
+
                 if response_element is None:
                     log.warning(
                         "  [%d/%d] Pas de nouvelle réponse reçue",
-                        attempt, self.max_retries,
+                        attempt,
+                        self.max_retries,
                     )
                     continue
 
@@ -528,13 +569,18 @@ class GoogleAiEmailExtractor:
                 response_text = self.extract_response(sb, response_element)
                 emails = self.extract_emails(response_text)
                 phone_numbers = self.extract_phone_numbers(response_text)
-                website = self.extract_website(response_text) or company.get("website", "")
+
+                website_result = (
+                    self.extract_website(response_text)
+                    or company.get("website", "")
+                )
+
                 now = datetime.now(timezone.utc).isoformat()
 
                 result: dict[str, Any] = {
                     "company_id": company_id,
                     "company_name": company_name,
-                    "website": website,
+                    "website": website_result,
                     "email": emails[0] if emails else "",
                     "all_emails": emails,
                     "phone_numbers": phone_numbers,
@@ -543,17 +589,26 @@ class GoogleAiEmailExtractor:
                     "created_at": now,
                     "updated_at": now,
                 }
+
                 log.info(
                     "  → %d email(s) : %s | %d téléphone(s)",
-                    len(emails), ", ".join(emails) if emails else "(aucun)",
+                    len(emails),
+                    ", ".join(emails) if emails else "(aucun)",
                     len(phone_numbers),
                 )
-                
+
                 return result
 
             except Exception as exc:
-                log.error("  [%d/%d] Erreur : %s", attempt, self.max_retries, exc)
+                log.error(
+                    "  [%d/%d] Erreur : %s",
+                    attempt,
+                    self.max_retries,
+                    exc,
+                )
+
                 maybe_solve_captcha(sb)
+
                 if attempt < self.max_retries:
                     sb.wait_for_ready_state_complete()
 
@@ -585,6 +640,7 @@ class GoogleAiEmailExtractor:
         skipped_cache = 0
         skipped_no_website = 0
         pending: list[dict[str, Any]] = []
+
         for company in companies:
 
             cid = str(company.get("company_id", "")).strip()
@@ -649,24 +705,21 @@ class GoogleAiEmailExtractor:
                     locale="fr",
                     user_data_dir=str(current_profile),
                     disable_js=False,
-                    headless=False,
+                    headless=True,
                 ) as sb:
                     sb.activate_cdp_mode()
                     self.open_ai_mode(sb)
                     consecutive_failures = 0
                     for company_idx, company in enumerate(batch):
                         idx = company_idx + 1
-                        result = self.process_company(
-                            sb,
-                            company
-                        )
-                        cid = str(
-                            company.get(
-                                "company_id",
-                                ""
-                            )
-                        ).strip()
-                        if result is not None:
+                        result = self.process_company(sb,company)
+                        cid = str(company.get("company_id","")).strip()
+
+                        if result is _SKIPPED:
+                            # Website invalide → skip silencieux, aucun compteur d'échec touché
+                            skipped_no_website += 1
+
+                        elif result is not None:
                             consecutive_failures = 0
                             self.save_result(result)
                             processed += 1
@@ -678,12 +731,9 @@ class GoogleAiEmailExtractor:
                                 phone_numbers=result.get("phone_numbers", []),
                             )
                         else:
+                            # Vrai échec Google AI Mode — comportement inchangé
                             if cid:
-
-                                now = datetime.now(
-                                    timezone.utc
-                                ).isoformat()
-
+                                now = datetime.now(timezone.utc).isoformat()
                                 self.save_result(
                                     {
                                         "company_id": cid,
