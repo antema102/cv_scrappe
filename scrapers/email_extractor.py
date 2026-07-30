@@ -16,8 +16,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+import random
 import re
 import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -26,6 +28,7 @@ import requests
 from selenium.common.exceptions import StaleElementReferenceException
 from seleniumbase import SB
 from scrapers.common.browser_helpers import maybe_solve_captcha
+from scrapers.emploi_scraper import JsonStore
 
 # ---------------------------------------------------------------------------
 # Chemins & configuration
@@ -44,7 +47,26 @@ GOOGLE_AI_MODE_URL = "https://www.google.com/search?udm=50&hl=fr"
 
 DELAY_BETWEEN_SEARCHES: float = 0
 MAX_RETRIES: int = 3
-BATCH_SIZE: int = 10000
+
+# Taille d'une page lors de la récupération paginée des entreprises depuis le
+# backend (celui-ci plafonne à 10000 résultats par requête en mode ?scrape=1 —
+# voir backend/src/routes/companies.routes.ts). CompanyBatchFetcher boucle sur
+# autant de pages que nécessaire pour tout récupérer, sans jamais matérialiser
+# l'ensemble en mémoire (un batch = une page = une session navigateur).
+FETCH_PAGE_SIZE: int = 5000
+FETCH_MAX_RETRIES: int = 3
+
+# Retry réseau intelligent : backoff exponentiel plafonné + jitter, uniquement
+# pour les erreurs transitoires (timeout, connexion, 429, 500, 502, 503, 504).
+# Les erreurs définitives (401, 403, 404, ...) échouent immédiatement.
+RETRY_BASE_DELAY: float = 1.0
+RETRY_MAX_DELAY: float = 30.0
+RETRY_JITTER: float = 0.5
+_TRANSIENT_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
+
+# Progression persistée (reprise après interruption) — un fichier par job_id,
+# clé = "{country}::{page_size}" (voir CompanyBatchFetcher).
+PROGRESS_DIR = OUTPUT_DIR
 
 # ---------------------------------------------------------------------------
 # Regex email
@@ -65,6 +87,12 @@ _BLACKLISTED_DOMAINS = frozenset({
 _BLACKLISTED_PREFIXES = frozenset({
     "noreply", "no-reply", "donotreply", "do-not-reply",
     "mailer", "bounce", "postmaster",
+})
+
+# Pré-filtre grossier utilisé par run() avant même d'appeler process_company()
+# (qui applique sa propre liste, légèrement plus large, sur chaque entreprise).
+_PREFILTER_INVALID_WEBSITE_VALUES = frozenset({
+    "", "non disponible", "non disponible.", "n/a", "na", "null", "none",
 })
 
 # ---------------------------------------------------------------------------
@@ -184,12 +212,10 @@ class GoogleAiEmailExtractor:
         store: EmailStore,
         delay: float = DELAY_BETWEEN_SEARCHES,
         max_retries: int = MAX_RETRIES,
-        batch_size: int = BATCH_SIZE,
     ) -> None:
         self.store = store
         self.delay = delay
         self.max_retries = max_retries
-        self.batch_size = batch_size
 
 
     # ------------------------------------------------------------------
@@ -616,178 +642,231 @@ class GoogleAiEmailExtractor:
         return None
 
     # ------------------------------------------------------------------
-    # Boucle principale
+    # Filtrage d'un batch (cache / website invalide)
     # ------------------------------------------------------------------
 
-    def run(self, companies: list[dict[str, Any]]) -> dict[str, int]:
-        """
-        Traite une liste d'entreprises par batch (un navigateur par batch).
-        Ignore :
-        - entreprises déjà présentes dans le cache
-        - entreprises sans website exploitable
-        Retourne :
-        {
-            total,
-            processed,
-            found_emails,
-            skipped_cache,
-            skipped_no_website,
-            failed
-        }
-        """
-        total = len(companies)
-        print(f"total companies: {total}")
+    def _filter_batch(
+        self, batch: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], int, int]:
+        """Retire du batch les entreprises déjà en cache ou sans website exploitable."""
+        pending: list[dict[str, Any]] = []
         skipped_cache = 0
         skipped_no_website = 0
-        pending: list[dict[str, Any]] = []
 
-        for company in companies:
-
+        for company in batch:
             cid = str(company.get("company_id", "")).strip()
             if self.store.has(cid):
                 skipped_cache += 1
                 continue
 
-            website = str(
-                company.get("website", "")
-
-            ).strip().lower()
-
-            if website in (
-                "",
-                "non disponible",
-                "non disponible.",
-                "n/a",
-                "na",
-                "null",
-                "none",
-            ):
+            website = str(company.get("website", "")).strip().lower()
+            if website in _PREFILTER_INVALID_WEBSITE_VALUES:
                 skipped_no_website += 1
                 continue
 
             pending.append(company)
 
-        if skipped_cache:
-            log.info(
-                "%d entreprises déjà traitées (cache)",
-                skipped_cache
-            )
+        return pending, skipped_cache, skipped_no_website
 
-        if skipped_no_website:
-            log.info(
-                "%d entreprises ignorées (website absent/non disponible)",
-                skipped_no_website
-            )
+    # ------------------------------------------------------------------
+    # Boucle principale
+    # ------------------------------------------------------------------
 
-        log.info(
-            "Démarrage — %d entreprises à traiter",
-            len(pending)
-        )
+    def run(self, fetcher: CompanyBatchFetcher) -> dict[str, int]:
+        """
+        Traite les entreprises fournies par `fetcher`, batch par batch — un
+        batch = une page récupérée du backend = une session navigateur.
+        Ne matérialise jamais l'ensemble des entreprises en mémoire (streaming).
 
+        Ignore :
+        - entreprises déjà présentes dans le cache
+        - entreprises sans website exploitable
+
+        Reprend automatiquement à la dernière page traitée si `fetcher` a une
+        progression persistée (voir CompanyBatchFetcher).
+
+        Retourne :
+        { total, processed, found_emails, skipped_cache, skipped_no_website, failed }
+        """
         processed = 0
         found_emails = 0
         failed = 0
+        skipped_cache = 0
+        skipped_no_website = 0
         batch_num = 0
         current_profile = PROFILE_DIR
+        batch_durations: list[float] = []
 
-        while pending:
-            batch = pending[: self.batch_size]
-            pending = pending[self.batch_size :]
-            batch_num += 1
-            log.info(
-                "[BATCH %d] %d entreprises",
-                batch_num,
-                len(batch)
+        raw_batch = fetcher.fetch_next_batch()
+        if raw_batch is None:
+            log.error(
+                "Aucune entreprise à traiter. Vérifiez le backend (%s) ou les "
+                "filtres --country/--company-id.",
+                BACKEND_URL,
             )
-            try:
-                with SB(
-                    uc=True,
-                    locale="fr",
-                    user_data_dir=str(current_profile),
-                    disable_js=False,
-                    headless=True,
-                ) as sb:
-                    sb.activate_cdp_mode()
-                    self.open_ai_mode(sb)
-                    consecutive_failures = 0
-                    for company_idx, company in enumerate(batch):
-                        idx = company_idx + 1
-                        result = self.process_company(sb,company)
-                        cid = str(company.get("company_id","")).strip()
+            return {
+                "total": fetcher.total or 0,
+                "processed": 0, "found_emails": 0,
+                "skipped_cache": 0, "skipped_no_website": 0, "failed": 0,
+            }
 
-                        if result is _SKIPPED:
-                            # Website invalide → skip silencieux, aucun compteur d'échec touché
-                            skipped_no_website += 1
+        while raw_batch is not None:
+            batch_num += 1
+            batch_start = time.monotonic()
+            total_batches = fetcher.total_batches()
 
-                        elif result is not None:
-                            consecutive_failures = 0
-                            self.save_result(result)
-                            processed += 1
-                            if result.get("email"):
-                                found_emails += 1
-                            send_contact_info_to_backend(
-                                company_id=result["company_id"],
-                                emails=result.get("all_emails", []),
-                                phone_numbers=result.get("phone_numbers", []),
-                            )
+            pending, batch_skipped_cache, batch_skipped_no_website = self._filter_batch(raw_batch)
+            skipped_cache += batch_skipped_cache
+            skipped_no_website += batch_skipped_no_website
+
+            log.info(
+                "[BATCH %d/%s] %d entreprise(s) reçue(s) — %d à traiter "
+                "(cache=%d, sans website=%d)",
+                batch_num, total_batches or "?", len(raw_batch),
+                len(pending), batch_skipped_cache, batch_skipped_no_website,
+            )
+
+            batch_processed = 0
+            batch_failed = 0
+
+            while pending:
+                try:
+                    with SB(
+                        uc=True,
+                        locale="fr",
+                        user_data_dir=str(current_profile),
+                        disable_js=False,
+                        headless=True,
+                    ) as sb:
+                        sb.activate_cdp_mode()
+                        self.open_ai_mode(sb)
+                        consecutive_failures = 0
+
+                        for company_idx, company in enumerate(pending):
+                            idx = company_idx + 1
+                            result = self.process_company(sb, company)
+                            cid = str(company.get("company_id", "")).strip()
+
+                            if result is _SKIPPED:
+                                # Website invalide → skip silencieux, aucun compteur d'échec touché
+                                skipped_no_website += 1
+
+                            elif result is not None:
+                                consecutive_failures = 0
+                                self.save_result(result)
+                                processed += 1
+                                batch_processed += 1
+                                if result.get("email"):
+                                    found_emails += 1
+                                send_contact_info_to_backend(
+                                    company_id=result["company_id"],
+                                    emails=result.get("all_emails", []),
+                                    phone_numbers=result.get("phone_numbers", []),
+                                )
+                            else:
+                                # Vrai échec Google AI Mode — comportement inchangé
+                                if cid:
+                                    now = datetime.now(timezone.utc).isoformat()
+                                    self.save_result(
+                                        {
+                                            "company_id": cid,
+                                            "company_name": company.get("name", ""),
+                                            "website": company.get("website", ""),
+                                            "email": "",
+                                            "all_emails": [],
+                                            "phone_numbers": [],
+                                            "source": "google_ai_mode",
+                                            "google_ai_response": "",
+                                            "created_at": now,
+                                            "updated_at": now,
+                                        }
+                                    )
+                                failed += 1
+                                batch_failed += 1
+                                consecutive_failures += 1
+                                if consecutive_failures >= 1:
+                                    next_profile = (
+                                        FALLBACK_PROFILE
+                                        if current_profile == PROFILE_DIR
+                                        else PROFILE_DIR
+                                    )
+                                    log.warning(
+                                        "3 échecs consécutifs sur le conteneur de réponse IA "
+                                        "— basculement vers %s",
+                                        next_profile.name,
+                                    )
+                                    remaining = pending[company_idx + 1:]
+                                    pending = list(remaining)
+                                    current_profile = next_profile
+                                    break
+
+                            if idx < len(pending):
+                                log.info("Pause %.1fs...", self.delay)
+                                time.sleep(self.delay)
                         else:
-                            # Vrai échec Google AI Mode — comportement inchangé
-                            if cid:
-                                now = datetime.now(timezone.utc).isoformat()
-                                self.save_result(
-                                    {
-                                        "company_id": cid,
-                                        "company_name": company.get(
-                                            "name",
-                                            ""
-                                        ),
-                                        "website": company.get(
-                                            "website",
-                                            ""
-                                        ),
-                                        "email": "",
-                                        "all_emails": [],
-                                        "phone_numbers": [],
-                                        "source": "google_ai_mode",
-                                        "google_ai_response": "",
-                                        "created_at": now,
-                                        "updated_at": now,
-                                    }
-                                )
-                            failed += 1
-                            consecutive_failures += 1
-                            if consecutive_failures >= 1:
-                                next_profile = (
-                                    FALLBACK_PROFILE
-                                    if current_profile == PROFILE_DIR
-                                    else PROFILE_DIR
-                                )
-                                log.warning(
-                                    "3 échecs consécutifs sur le conteneur de réponse IA "
-                                    "— basculement vers %s",
-                                    next_profile.name,
-                                )
-                                remaining = batch[company_idx + 1:]
-                                pending = list(remaining) + pending
-                                current_profile = next_profile
-                                break
+                            pending = []
 
-                        if idx < len(batch):
-                            log.info(
-                                "Pause %.1fs...",
-                                self.delay
-                            )
-                            time.sleep(
-                                self.delay
-                            )
+                except Exception as exc:
+                    log.error("[SESSION] Erreur navigateur : %s", exc)
+                    failed += len(pending)
+                    batch_failed += len(pending)
+                    pending = []
+                    time.sleep(10)
 
-            except Exception as exc:
-                log.error(
-                    "[SESSION] Erreur navigateur : %s",
-                    exc
+            fetcher.mark_batch_done()
+
+            duration = time.monotonic() - batch_start
+            batch_durations.append(duration)
+            avg_duration = sum(batch_durations) / len(batch_durations)
+            remaining_batches = (total_batches - batch_num) if total_batches else None
+            eta = (
+                avg_duration * remaining_batches
+                if remaining_batches and remaining_batches > 0 else None
+            )
+            percent = (
+                fetcher.estimated_total_processed() / fetcher.total * 100
+                if fetcher.total else 0.0
+            )
+
+            log.info(
+                "[BATCH %d/%s] terminé en %.1fs — traitées=%d, échecs=%d "
+                "(cumulé : traitées=%d, ignorées=%d, échecs=%d) — %.1f%% — "
+                "moyenne=%.1fs/batch%s",
+                batch_num, total_batches or "?", duration,
+                batch_processed, batch_failed,
+                processed, skipped_cache + skipped_no_website, failed,
+                percent, avg_duration,
+                f", ETA≈{eta:.0f}s" if eta is not None else "",
+            )
+
+            raw_batch = fetcher.fetch_next_batch()
+
+        if fetcher.failed:
+            log.warning(
+                "Flux interrompu par une erreur réseau — relancer le script "
+                "reprendra automatiquement à la page suivante"
+            )
+        else:
+            fetcher.reset_progress()
+
+        total_available = fetcher.total or 0
+        # Estimation incluant les entreprises déjà couvertes lors d'un lancement
+        # précédent (reprise) — comparer uniquement processed+skipped+failed de
+        # CE lancement au total backend produirait un faux écart après reprise.
+        total_accounted = fetcher.estimated_total_processed() if fetcher.total else 0
+        if total_available and not fetcher.failed:
+            if total_accounted < total_available:
+                log.warning(
+                    "Vérification finale : écart détecté — environ %d entreprise(s) "
+                    "couverte(s) (cumul, reprise incluse) contre %d annoncée(s) par "
+                    "le backend (delta≈%d)",
+                    total_accounted, total_available, total_available - total_accounted,
                 )
-                failed += len(batch)
-                time.sleep(10)
+            else:
+                log.info(
+                    "Vérification finale OK — %d/%d entreprises couvertes (reprise incluse)",
+                    total_accounted, total_available,
+                )
 
         log.info(
             "Terminé — traités=%d | emails=%d | cache=%d | sans website=%d | échecs=%d",
@@ -798,7 +877,7 @@ class GoogleAiEmailExtractor:
             failed,
         )
         return {
-            "total": total,
+            "total": total_available,
             "processed": processed,
             "found_emails": found_emails,
             "skipped_cache": skipped_cache,
@@ -807,71 +886,321 @@ class GoogleAiEmailExtractor:
         }
 
 # ---------------------------------------------------------------------------
+# Retry réseau intelligent
+# ---------------------------------------------------------------------------
+
+def _is_transient_error(exc: Exception) -> bool:
+    """
+    Timeout/connexion : transitoire (réessayable).
+    HTTPError : seulement 429/500/502/503/504 sont transitoires — le reste
+    (401, 403, 404, ...) est une erreur définitive, jamais réessayée.
+    """
+    if isinstance(exc, (requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+        return True
+    if isinstance(exc, requests.exceptions.HTTPError):
+        status = exc.response.status_code if exc.response is not None else None
+        return status in _TRANSIENT_STATUS_CODES
+    return False
+
+
+def _retry_delay(attempt: int) -> float:
+    """Backoff exponentiel plafonné + jitter aléatoire (évite les retries synchronisés)."""
+    exponential = min(RETRY_MAX_DELAY, RETRY_BASE_DELAY * (2 ** (attempt - 1)))
+    return exponential + random.uniform(0, RETRY_JITTER)
+
+
+# ---------------------------------------------------------------------------
 # Récupération des entreprises depuis le backend
 # ---------------------------------------------------------------------------
+
+def _fetch_companies_page(
+    params: dict[str, Any],
+    max_retries: int = FETCH_MAX_RETRIES,
+) -> tuple[list[dict[str, Any]], int | None]:
+    """
+    Récupère une seule page depuis le backend.
+
+    Retry avec backoff exponentiel + jitter uniquement sur erreurs transitoires
+    (timeout, connexion, 429, 500, 502, 503, 504). Les erreurs définitives
+    (401, 403, 404, ...) échouent immédiatement, sans retry.
+
+    Retourne (companies, total). `total` vaut None en cas d'échec définitif ou
+    de réponse mal formée — signal d'arrêt pour l'appelant.
+    """
+    page = params.get("page")
+    last_exc: Exception | None = None
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = requests.get(f"{BACKEND_URL}/api/companies", params=params, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+        except Exception as exc:
+            last_exc = exc
+            if not _is_transient_error(exc):
+                log.error("Erreur définitive backend (page %s) : %s", page, exc)
+                return [], None
+            log.warning(
+                "[%d/%d] Erreur transitoire backend (page %s) : %s",
+                attempt, max_retries, page, exc,
+            )
+            if attempt < max_retries:
+                time.sleep(_retry_delay(attempt))
+            continue
+        else:
+            companies = data.get("companies", [])
+            if not isinstance(companies, list):
+                log.error("Format inattendu de la réponse backend : %s", type(companies))
+                return [], None
+            return companies, int(data.get("total", len(companies)))
+
+    log.error(
+        "Abandon de la page %s après %d tentative(s) (dernière erreur : %s)",
+        page, max_retries, last_exc,
+    )
+    return [], None
+
+
+@dataclass(slots=True)
+class _FetchState:
+    page: int = 1
+    total: int | None = None
+    exhausted: bool = False
+    failed: bool = False
+
+
+class CompanyBatchFetcher:
+    """
+    Récupère les entreprises à scraper depuis le backend page par page, en
+    streaming — sans jamais matérialiser l'ensemble en mémoire.
+
+    Persiste la progression (dernière page entièrement traitée) via JsonStore
+    pour reprendre automatiquement après interruption sans re-télécharger les
+    pages déjà traitées. Dédoublonne les company_id au sein d'un même passage
+    (au cas où le backend renverrait accidentellement des doublons entre pages,
+    par exemple si le jeu de données change pendant l'exécution).
+
+    Utilisation :
+        fetcher = CompanyBatchFetcher(country=..., page_size=..., job_id="...")
+        while True:
+            batch = fetcher.fetch_next_batch()
+            if batch is None:
+                break
+            ... traiter entièrement le batch ...
+            fetcher.mark_batch_done()
+        if not fetcher.failed:
+            fetcher.reset_progress()
+    """
+
+    def __init__(
+        self,
+        country: str | None = None,
+        company_id: str | None = None,
+        limit: int = 0,
+        page_size: int = FETCH_PAGE_SIZE,
+        resume: bool = True,
+        job_id: str = "default",
+    ) -> None:
+        self.country = country
+        self.company_id = company_id
+        self.limit = limit
+        self.page_size = page_size
+
+        self._resumable = resume and not company_id
+        self._progress = (
+            JsonStore(PROGRESS_DIR / f"fetch_progress_{job_id}.json")
+            if self._resumable else None
+        )
+        self._progress_key = f"{country or 'all'}::{page_size}"
+
+        self._state = _FetchState()
+        self._seen_ids: set[str] = set()
+        self._yielded = 0
+
+        if self._progress is not None:
+            saved = self._progress.get(self._progress_key)
+            last_completed = int((saved or {}).get("last_completed_page", 0))
+            if last_completed > 0:
+                self._state.page = last_completed + 1
+                log.info(
+                    "[RESUME] Reprise à la page %d (pays=%s, page_size=%d)",
+                    self._state.page, country or "all", page_size,
+                )
+
+        # Page de départ de CE lancement — sert à estimer, lors de la
+        # vérification finale, combien d'entreprises ont déjà été traitées
+        # lors d'un lancement précédent (voir run()).
+        self.initial_page = self._state.page
+
+    @property
+    def total(self) -> int | None:
+        return self._state.total
+
+    @property
+    def yielded(self) -> int:
+        return self._yielded
+
+    @property
+    def failed(self) -> bool:
+        return self._state.failed
+
+    def estimated_total_processed(self) -> int:
+        """
+        Nombre d'entreprises couvertes au total, y compris lors d'un lancement
+        précédent en cas de reprise (self._yielded ne compte que ce que CE
+        fetcher a rendu depuis sa création). Utilisé pour le % de progression
+        et la vérification finale, qui doivent rester cohérents après reprise.
+        """
+        already_covered = (self.initial_page - 1) * self.page_size
+        return already_covered + self._yielded
+
+    def total_batches(self) -> int | None:
+        if self._state.total is None:
+            return None
+        effective_total = min(self._state.total, self.limit) if self.limit > 0 else self._state.total
+        return max(1, -(-effective_total // self.page_size))  # division entière arrondie au sup.
+
+    def fetch_next_batch(self) -> list[dict[str, Any]] | None:
+        """Récupère la prochaine page non encore traitée. None = flux épuisé."""
+        if self._state.exhausted:
+            return None
+        if self.limit > 0 and self._yielded >= self.limit:
+            self._state.exhausted = True
+            return None
+
+        params: dict[str, Any] = {
+            "scrape": "1",
+            "page": self._state.page,
+            "limit": self.page_size,
+        }
+        if self.country:
+            params["country"] = self.country
+
+        companies, total = _fetch_companies_page(params)
+
+        if total is None:
+            self._state.exhausted = True
+            self._state.failed = True
+            log.error(
+                "Flux d'entreprises interrompu par une erreur réseau définitive "
+                "à la page %d — un nouveau lancement reprendra à cette page",
+                self._state.page,
+            )
+            return None
+
+        self._state.total = total
+
+        if not companies:
+            self._state.exhausted = True
+            return None
+
+        unique: list[dict[str, Any]] = []
+        for company in companies:
+            cid = str(company.get("company_id", "")).strip()
+            if cid:
+                if cid in self._seen_ids:
+                    continue
+                self._seen_ids.add(cid)
+            unique.append(company)
+
+        if self.company_id:
+            unique = [c for c in unique if str(c.get("company_id", "")) == self.company_id]
+            if unique:
+                self._state.exhausted = True  # trouvée — inutile de paginer plus loin
+
+        if self.limit > 0:
+            unique = unique[: self.limit - self._yielded]
+
+        self._yielded += len(unique)
+
+        # Détection de fin de flux basée sur le numéro de page absolu (et non
+        # sur self._yielded, qui ne reflète que ce que CE fetcher a rendu —
+        # après une reprise, il ne compte pas les pages déjà traitées lors
+        # d'un lancement précédent). Évite une requête HTTP inutile pour une
+        # page finale vide quand la dernière page réelle est pleine.
+        if len(companies) < self.page_size:
+            self._state.exhausted = True
+        elif self._state.total is not None:
+            last_page_number = -(-self._state.total // self.page_size)
+            if self._state.page >= last_page_number:
+                self._state.exhausted = True
+
+        return unique
+
+    def mark_batch_done(self) -> None:
+        """À appeler une fois le batch retourné par fetch_next_batch() entièrement traité."""
+        if self._progress is not None:
+            self._progress.set(
+                self._progress_key,
+                {
+                    "last_completed_page": self._state.page,
+                    "total": self._state.total,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+        self._state.page += 1
+
+    def reset_progress(self) -> None:
+        """
+        Efface la progression persistée — à appeler une fois le flux
+        entièrement épuisé avec succès, pour qu'un futur lancement reparte de
+        la première page (les entreprises déjà traitées auront de toute façon
+        disparu du filtre ?scrape=1 côté backend une fois leurs emails enregistrés).
+        """
+        if self._progress is not None:
+            self._progress.set(
+                self._progress_key,
+                {
+                    "last_completed_page": 0,
+                    "total": None,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+
 
 def fetch_companies_from_backend(
     country: str | None = None,
     company_id: str | None = None,
     limit: int = 0,
+    page_size: int = FETCH_PAGE_SIZE,
 ) -> list[dict[str, Any]]:
     """
-    Récupère les entreprises à scraper depuis le backend API.
+    Récupère en une fois la totalité des entreprises correspondant aux filtres
+    (pagine automatiquement en interne via CompanyBatchFetcher, avec le même
+    retry intelligent). Conservée pour un usage ponctuel où tout tenir en
+    mémoire est acceptable ; pour un traitement en flux avec reprise sur
+    incident, utiliser directement CompanyBatchFetcher (voir run()).
 
     Filtre côté backend (?scrape=1) :
     - entreprises avec website non vide
     - entreprises sans emails encore scrapés
-
-    Args:
-        country:    nom de pays tel que stocké en base (ex: 'Algérie') — tous si None
-        company_id: filtrer sur un identifiant précis
-        limit:      nombre max (0 = backend décide, défaut 10000)
-
-    Returns:
-        Liste de dicts entreprises avec au minimum 'company_id', 'name', 'website'.
     """
-    log.info("Récupération des entreprises depuis le backend (%s)...",BACKEND_URL)
+    log.info("Récupération des entreprises depuis le backend (%s)...", BACKEND_URL)
 
-    params: dict[str, Any] = {"scrape": "1"}
-    if limit > 0:
-        params["limit"] = limit
-    if country:
-        params["country"] = country
-
-    try:
-        response = requests.get(
-            f"{BACKEND_URL}/api/companies",
-            params=params,
-            timeout=30,
-        )
-        response.raise_for_status()
-        data = response.json()
-    except requests.exceptions.ConnectionError as exc:
-        log.error("Connexion au backend impossible (%s) : %s", BACKEND_URL, exc)
-        return []
-    except requests.exceptions.Timeout:
-        log.error("Timeout lors de la connexion au backend (%s)", BACKEND_URL)
-        return []
-    except requests.exceptions.HTTPError as exc:
-        log.error("Erreur HTTP backend : %s", exc)
-        return []
-    except Exception as exc:
-        log.error("Erreur inattendue récupération entreprises : %s", exc)
-        return []
-
-    companies: list[dict[str, Any]] = data.get("companies", [])
-    if not isinstance(companies, list):
-        log.error("Format inattendu de la réponse backend : %s", type(companies))
-        return []
+    fetcher = CompanyBatchFetcher(
+        country=country, company_id=company_id, limit=limit,
+        page_size=page_size, resume=False,
+    )
+    companies: list[dict[str, Any]] = []
+    while True:
+        batch = fetcher.fetch_next_batch()
+        if batch is None:
+            break
+        companies.extend(batch)
+        fetcher.mark_batch_done()
 
     if company_id:
-        companies = [c for c in companies if str(c.get("company_id", "")) == company_id]
         log.info("Filtre company_id=%r → %d entreprise(s)", company_id, len(companies))
+    elif fetcher.total is not None and limit <= 0 and len(companies) < fetcher.total:
+        log.warning(
+            "Récupération incomplète : %d/%d entreprises obtenues côté backend",
+            len(companies), fetcher.total,
+        )
 
     log.info(
-        "%d entreprises récupérées (total disponible côté backend : %d)",
+        "%d entreprises récupérées (total disponible côté backend : %s)",
         len(companies),
-        data.get("total", len(companies)),
+        fetcher.total if fetcher.total is not None else "inconnu",
     )
     return companies
 
@@ -890,6 +1219,8 @@ def send_contact_info_to_backend(
     Envoie les emails et numéros de téléphone scrapés via
     PATCH /api/companies/:company_id/contact.
 
+    Retry intelligent (backoff + jitter) sur erreurs transitoires uniquement ;
+    échec immédiat sur erreur définitive (401/403/404/...).
     Retourne True si le backend confirme l'enregistrement, False sinon.
     """
     if not emails and not phone_numbers:
@@ -904,19 +1235,18 @@ def send_contact_info_to_backend(
             resp.raise_for_status()
             log.info("Résultats enregistrés pour company_id=%s", company_id)
             return True
-        except requests.exceptions.HTTPError as exc:
-            log.error(
-                "[%d/%d] Erreur HTTP envoi backend company_id=%s : %s",
-                attempt, max_retries, company_id, exc,
-            )
-            break  # erreur HTTP (4xx/5xx) → pas de retry
-        except requests.exceptions.RequestException as exc:
+        except Exception as exc:
+            if not _is_transient_error(exc):
+                log.error(
+                    "Erreur définitive envoi backend company_id=%s : %s", company_id, exc,
+                )
+                return False
             log.warning(
-                "[%d/%d] Erreur réseau envoi backend company_id=%s : %s",
+                "[%d/%d] Erreur transitoire envoi backend company_id=%s : %s",
                 attempt, max_retries, company_id, exc,
             )
             if attempt < max_retries:
-                time.sleep(2 * attempt)
+                time.sleep(_retry_delay(attempt))
 
     log.error("Échec envoi backend pour company_id=%s", company_id)
     return False
@@ -973,9 +1303,12 @@ Exemples :
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=BATCH_SIZE,
+        default=FETCH_PAGE_SIZE,
         metavar="N",
-        help=f"Entreprises par session navigateur (défaut : {BATCH_SIZE})",
+        help=(
+            "Entreprises par batch (récupération backend + session navigateur), "
+            f"défaut : {FETCH_PAGE_SIZE}"
+        ),
     )
     parser.add_argument(
         "--retries",
@@ -984,30 +1317,29 @@ Exemples :
         metavar="N",
         help=f"Tentatives max par entreprise (défaut : {MAX_RETRIES})",
     )
+    parser.add_argument(
+        "--no-resume",
+        action="store_true",
+        help="Ignorer la progression persistée et repartir de la première page",
+    )
     args = parser.parse_args()
 
     store = EmailStore(Path(args.output))
-    companies = fetch_companies_from_backend(
+    fetcher = CompanyBatchFetcher(
         country=args.country,
         company_id=args.company_id,
         limit=args.limit,
+        page_size=args.batch_size,
+        resume=not args.no_resume,
+        job_id="google_ai_mode",
     )
-
-    if not companies:
-        log.error(
-            "Aucune entreprise trouvée. "
-            "Vérifiez le backend (%s) ou les filtres --country/--company-id",
-            BACKEND_URL,
-        )
-        return
 
     extractor = GoogleAiEmailExtractor(
         store=store,
         delay=args.delay,
         max_retries=args.retries,
-        batch_size=args.batch_size,
     )
-    extractor.run(companies)
+    extractor.run(fetcher)
 
 
 if __name__ == "__main__":

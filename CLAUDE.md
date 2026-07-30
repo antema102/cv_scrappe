@@ -1,107 +1,118 @@
-# CLAUDE.md — Contexte projet pour l'IA
+# CLAUDE.md
 
-Ce fichier permet à l'IA de comprendre le projet sans lire tous les fichiers.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Architecture en un coup d'œil
+Ce fichier documente le projet en français (langue du code et des logs) pour rester cohérent avec le reste du repo.
+
+## Vue d'ensemble
+
+Trois sous-systèmes indépendants qui communiquent via une API REST :
+
+1. **Scraper Python** (racine + `scrapers/`) — scrape des offres d'emploi et profils d'entreprises sur 35 sites africains de type "emploi.xx" (plateforme Drupal générique), via SeleniumBase en mode CDP (contourne Cloudflare/captcha).
+2. **Backend Node.js/Express** (`backend/`) — API REST + MongoDB, reçoit les données du scraper et les sert au frontend.
+3. **Frontend React** (`frontend/`) — dashboard de visualisation (Vite + Tailwind v4).
+
+Le scraper ne dépend jamais du frontend ; il pousse ses données au backend via HTTP (`SCRAPER_API_URL`) et/ou les persiste en local dans `downloaded_files/*.json`.
+
+## Commandes
+
+### Scraper (Python)
+```bash
+python index.py                              # tous les pays
+python index.py --country burkina            # un seul pays (voir scrapers/countries.py pour les codes)
+python index.py --list                       # liste les codes pays disponibles
+
+python index.py --download-cvs                                        # CV emploi.ma, session anonyme
+python index.py --download-cvs --country maroc --cv-cookie "k=v; k2=v2"  # avec cookie de session
+python -m scrapers.email_extractor --country senegal --limit 20       # extraction d'emails via Google AI Mode
+python setup_profil.py --profil 1            # ouvre Chrome pour connecter manuellement un profil persistant
+```
+Dépendances : `pip install seleniumbase beautifulsoup4 requests`. Pas de suite de tests automatisés dans ce dépôt — la validation se fait en exécutant le scraper sur un pays et en inspectant les fichiers `downloaded_files/`.
+
+Variable d'environnement clé : `SCRAPER_API_URL` (défaut `http://localhost:3500`). La mettre à vide désactive l'envoi vers le backend et bascule sur cache JSON local uniquement.
+
+### Backend (`backend/`)
+```bash
+npm run dev     # ts-node src/app.ts — API sur :3500
+npm run build   # tsc
+npm start       # node dist/app.js
+```
+
+### Frontend (`frontend/`)
+```bash
+npm run dev       # Vite dev server, proxy /api -> http://localhost:3500
+npm run build      # tsc -b && vite build
+npm run lint       # eslint .
+npm run preview
+```
+
+## Architecture du scraper
 
 ```
-cv_scrappe/
-├── index.py                        # CLI : python index.py [--country CODE] [--list]
-├── emploi_scraper.py               # JsonStore + ApiClient (partagés)
-├── scrapers/
-│   ├── countries.py                # COUNTRIES dict — 35 pays configurés
-│   └── common/
-│       ├── country_config.py       # CountryConfig dataclass (frozen) — toute la logique URL
-│       ├── models.py               # JobListing, CompanyProfile (dataclasses slots=True)
-│       ├── helpers.py              # normalize_text, extract_job_id, html_text, first_text
-│       ├── parsers.py              # Fonctions BS4 pures — reçoivent (soup, config)
-│       └── base_scraper.py        # BaseJobScraper(config, api_url) — toute la logique Selenium
-├── backend/src/
-│   ├── app.ts                      # Express + MongoDB :3500
-│   ├── models/ job.model.ts, company.model.ts
-│   └── routes/ jobs.routes.ts, companies.routes.ts
-└── frontend/src/
-    ├── api/          config.ts, companies.ts, jobs.ts
-    ├── types/        company.ts, job.ts, api.ts
-    ├── services/     companiesService.ts, jobsService.ts
-    ├── hooks/        useCompanies.ts, useJobs.ts, useStats.ts
-    ├── utils/        formatDate.ts
-    ├── components/
-    │   ├── ui/       Badge, Card, Input, Select, Button, Skeleton
-    │   ├── layout/   Header
-    │   └── dashboard/ StatsCard, CompanyCard, JobCard, SearchFilters, CompanyGrid, RecentJobs
-    └── pages/        Dashboard.tsx
+scrapers/
+├── countries.py                 # dict COUNTRIES: code -> CountryConfig (35 pays)
+├── cv_downloader.py             # téléchargement PDF des CV via CDP Network.loadNetworkResource
+├── email_extractor.py           # extraction d'emails/téléphones via Google AI Mode (shadow DOM)
+├── emploi_scraper.py            # JsonStore + ApiClient (utilitaires partagés, réutilisés par base_scraper)
+└── common/
+    ├── country_config.py        # CountryConfig (frozen dataclass) — toutes les URLs + CvDownloadPattern
+    ├── models.py                 # JobListing, CompanyProfile (dataclasses slots=True)
+    ├── helpers.py                # normalize_text, extract_job_id, html_text, first_text
+    ├── parsers.py                 # fonctions BS4 pures — reçoivent (soup, config)
+    ├── browser_helpers.py        # maybe_solve_captcha(sb)
+    ├── cv_parser.py               # extraire_infos_cv(path) — extraction texte/emails/téléphones depuis un PDF
+    └── base_scraper.py           # BaseJobScraper(config, api_url) — orchestration Selenium principale
 ```
 
-## Responsabilités clés
+`scrapers/emploi_scraper.py` définit `JsonStore` (cache JSON par `job_id`/`company_id`) et `ApiClient` (POST vers le backend) ; `base_scraper.py` les importe (`from scrapers.emploi_scraper import ApiClient, JsonStore`). Ce fichier contient aussi une classe `EmploiMaScraper` historique câblée en dur sur emploi.cg — code legacy, ne pas l'utiliser comme référence pour du nouveau pays ; passer par `CountryConfig` + `BaseJobScraper`.
 
-| Fichier | Rôle | Modifier si… |
-|---|---|---|
-| `scrapers/countries.py` | Config des 35 pays | Ajouter/modifier un pays |
-| `common/country_config.py` | URLs + extract_id | Changer la structure d'URL de la plateforme |
-| `common/parsers.py` | Sélecteurs CSS HTML | Le site change son HTML |
-| `common/base_scraper.py` | Flux de scraping | Changer la logique de navigation |
-| `emploi_scraper.py` | JsonStore, ApiClient | Changer le stockage ou l'API |
+### Flux principal (`BaseJobScraper.scrape_all`)
+1. `_scrape_recruiter_list` : parcourt les pages de `recruiters_url`, collecte les entreprises (id + nom).
+2. Pour chaque entreprise : `_get_or_scrape_company` (cache-first) puis, si `has_jobs`, `_scrape_company_jobs` qui pagine les offres et scrape chaque détail via `_scrape_job_detail`.
+3. Chaque offre/entreprise nouvellement scrapée est écrite dans le `JsonStore` local **et** poussée au backend si `api_client` est configuré.
+4. `CloudflareBlockError` déclenche une pause de 5 min puis relance toute la session Selenium (pas juste la page).
 
-## Patterns importants
+### Patterns importants
+- **Cache** : `JsonStore` — clé = `job_id` ou `company_id` ; `job_already_scraped` interroge le backend en priorité (`api_client.job_exists`), sinon le cache local.
+- **Skip** : offre déjà connue → ignorée ; entreprise sans offres (`has_jobs=False`, détecté via présence d'un lien `is_recruiter_nid`) → pas de scraping de ses jobs.
+- **Retry** : 3 tentatives sur pages détail/entreprise, 5 sur pages listing, `refresh()` + `maybe_solve_captcha` entre chaque tentative.
+- **CDP mode** : `sb.activate_cdp_mode()` requis dès l'ouverture — ne jamais lire `sb.driver.page_source`, toujours `sb.get_page_source()`.
+- **Pagination** : `?page=N`, `get_total_pages()` cherche `li.pager-item a[title='...']` (titre FR/EN selon le pays).
+- **Sortie fichiers** : `downloaded_files/jobs_{code}.json`, `companies_{code}.json`, `cv_files/{code}/`, `company_emails.json`.
+- **Profils Chrome persistants** : `my_custom_profile*` (créés/connectés via `setup_profil.py`), utilisés pour garder des sessions authentifiées entre lancements (ex. Google AI Mode pour `email_extractor.py`).
 
-- **Cache** : `JsonStore` (JSON fichier) — clé = `job_id` ou `company_id`
-- **Skip** : offre déjà en cache → ignorée ; entreprise sans offres (`has_jobs=False`) → pas de navigation
-- **Retry** : 3 tentatives sur pages détail/entreprise, 5 sur pages listing
-- **Captcha** : `sb.solve_captcha()` appelé silencieusement à chaque retry
-- **CDP mode** : `sb.activate_cdp_mode()` requis — ne jamais utiliser `sb.driver.page_source`
-- **Pagination** : `?page=N` — `get_total_pages()` cherche `li.pager-item a[title='...']` (FR + EN)
-- **Sortie** : `downloaded_files/jobs_{code}.json` et `companies_{code}.json` par pays
-
-## CountryConfig — champs
-
+### CountryConfig — champs clés
 ```python
 CountryConfig(
-    code="burkina",                          # clé dans COUNTRIES, préfixe fichiers
+    code="burkina",                       # clé dans COUNTRIES, préfixe des fichiers de sortie
     base_url="https://www.emploiburkina.com",
     jobs_search_path="/recherche-jobs-burkina-faso",
-    recruiters_path="/employer",           # ou "/recruiters" (EN)
-    recruiter_path_prefix="/recruiter/",     # ou "/recruiter/" (EN)
+    recruiters_path="/employer",          # "/recruteurs" (FR) ou "/recruiters" (EN)
+    recruiter_path_prefix="/recruiter/",  # "/recruteur/" (FR) ou "/recruiter/" (EN)
+    cv_storage_path="/sites/default/files/private/cv/",  # optionnel, pour cv_downloader
+    cv_patterns=(...),                    # optionnel, motifs de nommage des CV PDF
 )
 ```
+Ajouter un pays = ajouter une entrée dans `scrapers/countries.py` ; tout le reste (URLs, extraction d'ID, pagination) suit automatiquement via les propriétés/méthodes de `CountryConfig`.
 
-## Commandes utiles
+## Backend (`backend/src/`)
 
-```bash
-python index.py                      # tous les pays
-python index.py --country burkina    # un seul pays
-python index.py --list               # liste les codes
+- `app.ts` — Express, CORS, middleware de log de chaque requête, monte `/api/jobs`, `/api/companies`, `/api/cvs`, `/health`. Port via `process.env.PORT` (défaut 3500).
+- `models/` — Mongoose : `job.model.ts`, `company.model.ts`, `job_publication.model.ts` (historique de publication d'une offre), `cv.model.ts`.
+- `routes/` — `jobs.routes.ts`, `companies.routes.ts`, `cv.routes.ts` ; c'est l'API que consomment à la fois le scraper Python (upserts) et le frontend (lecture).
+- `config/db.ts` — connexion MongoDB.
 
-cd backend && npm run dev            # API Node.js sur :3500
-cd frontend && npm run dev           # Dashboard React sur :5173
-```
+## Frontend (`frontend/src/`)
 
-## Frontend — points clés
+- **Proxy dev** : `/api` → `http://localhost:3500` (dans `vite.config.ts`) ; en prod, `API_BASE_URL` vient de `VITE_API_URL`.
+- **Tailwind v4** : un seul `@import "tailwindcss"` dans `index.css`, plugin `@tailwindcss/vite` (pas de `tailwind.config.js` classique).
+- Couches : `api/` (fetch bruts) → `services/` (logique métier, ex. `filterCompanies()` côté client dans `companiesService.ts`) → `hooks/` (`useCompanies`, `useJobs`, `useStats`) → `components/` (`ui/` génériques, `layout/`, `dashboard/`) → `pages/` (`Dashboard.tsx`, `CompanyDetail.tsx`).
+- Pas de pagination serveur pour l'instant : le dashboard fetch avec une grosse limite (ex. 500 entreprises) et filtre/pagine côté client.
+- Icônes : `lucide-react`.
 
-- **Proxy Vite** : `/api` → `http://localhost:3500` (configuré dans `vite.config.ts`)
-- **Tailwind v4** : import unique `@import "tailwindcss"` dans `index.css`, plugin `@tailwindcss/vite`
-- **Filtres** : côté client — `filterCompanies()` dans `companiesService.ts`
-- **Stats** : agrégées depuis les réponses API (`total` + `getUniqueCountries/Sectors`)
-- **Pagination** : non gérée côté UI pour l'instant — fetch limit=500 entreprises
-- **Icônes** : `lucide-react`
+## À ne pas faire
 
-## Ce qu'il ne faut PAS faire
-
-- Ne pas utiliser `sb.driver.page_source` en mode CDP → utiliser `sb.get_page_source()`
-- Ne pas appeler `sb` hors du bloc `with SB(...) as sb:`
-- Ne pas modifier `emploi_scraper.py` pour la logique métier — c'est uniquement utilitaire
-- Ne pas dupliquer la logique URL — tout passe par `CountryConfig`
-
-
-"""
-email_extractor.py
-==================
-Extrait automatiquement les emails d'entreprises via le Mode IA de Google Search.
-Compatible Shadow DOM (Google AI Mode utilise des shadow roots ouverts).
-
-Utilisation :
-    python -m scrapers.email_extractor                        # toutes les entreprises
-    python -m scrapers.email_extractor --country senegal      # un pays
-    python -m scrapers.email_extractor --limit 20             # 20 premières
-    python -m scrapers.email_extractor --company-id abc123    # une seule entreprise
-"""
+- Ne pas utiliser `sb.driver.page_source` en mode CDP → toujours `sb.get_page_source()`.
+- Ne pas appeler `sb` en dehors du bloc `with SB(...) as sb:`.
+- Ne pas dupliquer la logique d'URL/extraction d'ID pays — tout passe par `CountryConfig`.
+- Ne pas prendre `scrapers/emploi_scraper.py::EmploiMaScraper` comme modèle pour un nouveau scraper — c'est du code legacy spécifique à un site ; le chemin courant est `BaseJobScraper` + `CountryConfig`.

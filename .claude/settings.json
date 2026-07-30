@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m py_compile scrapers/emails_website.py)",
+      "Bash(python -)",
+      "Bash(python -m py_compile scrapers/email_extractor.py scrapers/emails_website.py)",
+      "Bash(python -m scrapers.email_extractor --help)",
+      "Bash(python -m scrapers.emails_website --help)",
+      "Bash(python -m pyflakes scrapers/email_extractor.py scrapers/emails_website.py)",
+      "Bash(pip install *)"
+    ]
+  }
+}
