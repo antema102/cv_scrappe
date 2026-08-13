@@ -7,13 +7,14 @@ interface Options {
   search?: string;
   country?: string;
   sector?: string;
+  missingEmail?: boolean;
   page?: number;
 }
 
 export const COMPANIES_PER_PAGE = 24;
 
 export function useCompanies(options: Options = {}) {
-  const { search, country, sector, page = 1 } = options;
+  const { search, country, sector, missingEmail, page = 1 } = options;
 
   // Données paginées + filtrées côté serveur (pour la grille)
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -33,11 +34,11 @@ export function useCompanies(options: Options = {}) {
   // Rechargement à chaque changement de filtre ou de page
   useEffect(() => {
     setLoading(true);
-    fetchCompanies(page, COMPANIES_PER_PAGE, { search, country, sector })
+    fetchCompanies(page, COMPANIES_PER_PAGE, { search, country, sector, missingEmail })
       .then(res => { setCompanies(res.companies); setTotal(res.total); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [page, search, country, sector]);
+  }, [page, search, country, sector, missingEmail]);
 
   const totalPages = Math.max(1, Math.ceil(total / COMPANIES_PER_PAGE));
 

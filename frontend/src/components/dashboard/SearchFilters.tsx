@@ -1,21 +1,25 @@
+import { MailX } from 'lucide-react';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
+import { Button } from '../ui/Button';
 
 interface SearchFiltersProps {
   search: string;
   country: string;
   sector: string;
+  missingEmail: boolean;
   countries: string[];
   sectors: string[];
   onSearch: (v: string) => void;
   onCountry: (v: string) => void;
   onSector: (v: string) => void;
+  onMissingEmail: (v: boolean) => void;
 }
 
 export function SearchFilters({
-  search, country, sector,
+  search, country, sector, missingEmail,
   countries, sectors,
-  onSearch, onCountry, onSector,
+  onSearch, onCountry, onSector, onMissingEmail,
 }: SearchFiltersProps) {
   return (
     <div className="flex flex-col sm:flex-row gap-3">
@@ -43,6 +47,16 @@ export function SearchFilters({
         <option value="">Tous les secteurs</option>
         {sectors.map(s => <option key={s} value={s}>{s}</option>)}
       </Select>
+      <Button
+        type="button"
+        variant={missingEmail ? 'primary' : 'secondary'}
+        onClick={() => onMissingEmail(!missingEmail)}
+        className="shrink-0"
+        title="Entreprises avec un site actif mais sans email connu"
+      >
+        <MailX className="w-4 h-4" />
+        Sans email
+      </Button>
     </div>
   );
 }

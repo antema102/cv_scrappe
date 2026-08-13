@@ -8,6 +8,7 @@ export interface Stats {
   totalJobs: number;
   totalCountries: number;
   totalSectors: number;
+  companiesMissingEmail: number;
 }
 
 export function useStats() {
@@ -15,13 +16,18 @@ export function useStats() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([fetchCompanies(1, 500), fetchJobs(1, 1)])
-      .then(([companiesRes, jobsRes]) => {
+    Promise.all([
+      fetchCompanies(1, 500),
+      fetchJobs(1, 1),
+      fetchCompanies(1, 1, { missingEmail: true }),
+    ])
+      .then(([companiesRes, jobsRes, missingEmailRes]) => {
         setStats({
           totalCompanies: companiesRes.total,
           totalJobs: jobsRes.total,
           totalCountries: getUniqueCountries(companiesRes.companies).length,
           totalSectors: getUniqueSectors(companiesRes.companies).length,
+          companiesMissingEmail: missingEmailRes.total,
         });
       })
       .catch(console.error)

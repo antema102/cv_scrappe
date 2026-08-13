@@ -93,6 +93,7 @@ _BLACKLISTED_PREFIXES = frozenset({
 # (qui applique sa propre liste, légèrement plus large, sur chaque entreprise).
 _PREFILTER_INVALID_WEBSITE_VALUES = frozenset({
     "", "non disponible", "non disponible.", "n/a", "na", "null", "none",
+    "not available", "not available.",
 })
 
 # ---------------------------------------------------------------------------

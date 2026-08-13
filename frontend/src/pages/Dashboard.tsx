@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Building2, Briefcase, Globe, Layers } from 'lucide-react';
+import { Building2, Briefcase, Globe, Layers, MailX } from 'lucide-react';
 import { StatsCard } from '../components/dashboard/StatsCard';
 import { SearchFilters } from '../components/dashboard/SearchFilters';
 import { CompanyGrid } from '../components/dashboard/CompanyGrid';
@@ -16,10 +16,11 @@ export function Dashboard() {
   const [search, setSearch] = useState('');
   const [country, setCountry] = useState('');
   const [sector, setSector] = useState('');
+  const [missingEmail, setMissingEmail] = useState(false);
   const [page, setPage] = useState(1);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
 
-  const { companies, allCompanies, total, totalPages, loading: loadingCompanies } = useCompanies({ search, country, sector, page });
+  const { companies, allCompanies, total, totalPages, loading: loadingCompanies } = useCompanies({ search, country, sector, missingEmail, page });
   const { jobs, loading: loadingJobs } = useRecentJobs(15);
   const { stats, loading: loadingStats } = useStats();
 
@@ -30,6 +31,7 @@ export function Dashboard() {
   function handleSearch(v: string) { setSearch(v); setPage(1); }
   function handleCountry(v: string) { setCountry(v); setPage(1); }
   function handleSector(v: string) { setSector(v); setPage(1); }
+  function handleMissingEmail(v: boolean) { setMissingEmail(v); setPage(1); }
 
   if (selectedCompany) {
     return <CompanyDetail company={selectedCompany} onBack={() => setSelectedCompany(null)} />;
@@ -39,7 +41,7 @@ export function Dashboard() {
     <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-8 space-y-8">
 
       {/* Cartes statistiques */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <StatsCard
           title="Entreprises"
           value={stats?.totalCompanies ?? 0}
@@ -68,6 +70,13 @@ export function Dashboard() {
           iconBg="bg-amber-50"
           loading={loadingStats}
         />
+        <StatsCard
+          title="Sans email (site actif)"
+          value={stats?.companiesMissingEmail ?? 0}
+          icon={<MailX className="w-5 h-5 text-rose-600" />}
+          iconBg="bg-rose-50"
+          loading={loadingStats}
+        />
       </div>
 
       {/* Corps : entreprises + offres récentes */}
@@ -87,11 +96,13 @@ export function Dashboard() {
             search={search}
             country={country}
             sector={sector}
+            missingEmail={missingEmail}
             countries={countries}
             sectors={sectors}
             onSearch={handleSearch}
             onCountry={handleCountry}
             onSector={handleSector}
+            onMissingEmail={handleMissingEmail}
           />
           <CompanyGrid companies={companies} loading={loadingCompanies} onSelect={setSelectedCompany} />
           <Pagination

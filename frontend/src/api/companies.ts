@@ -5,6 +5,7 @@ interface CompanyFilters {
   search?: string;
   country?: string;
   sector?: string;
+  missingEmail?: boolean;
 }
 
 export async function fetchCompanies(
@@ -16,6 +17,7 @@ export async function fetchCompanies(
   if (filters.search) params.set('search', filters.search);
   if (filters.country) params.set('country', filters.country);
   if (filters.sector) params.set('sector', filters.sector);
+  if (filters.missingEmail) params.set('missingEmail', '1');
   const res = await fetch(`${API_BASE_URL}/api/companies?${params.toString()}`);
   if (!res.ok) throw new Error(`Erreur API companies: HTTP ${res.status}`);
   return res.json();

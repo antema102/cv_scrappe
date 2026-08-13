@@ -29,11 +29,21 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+// Valeurs de "website" considérées comme absentes/invalides — insensible à la
+// casse et aux espaces superflus (le champ contient parfois "Not available",
+// "Non disponible.", etc. selon le site source). Miroir de _INVALID_WEBSITE_VALUES
+// dans scrapers/emails_website.py.
+const INVALID_WEBSITE_REGEX =
+  /^\s*(non disponible\.?|n\/a|na|null|none|not available\.?)?\s*$/i;
+
 // GET /api/companies — liste paginée avec filtres + job_count
 // ?scrape=1 : retourne les entreprises avec website et sans emails (pour le scraper)
+// ?missingEmail=1 : même condition (website valide et non vide, sans email), mais
+// composable avec search/country/sector et paginée normalement (pour le dashboard)
 router.get("/", async (req: Request, res: Response): Promise<void> => {
   try {
     const isScrape = req.query.scrape === "1";
+    const missingEmail = req.query.missingEmail === "1";
     const maxLimit = isScrape ? 10000 : 500;
     const defaultLimit = isScrape ? 10000 : 24;
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
@@ -44,26 +54,36 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
     const skip = (page - 1) * limit;
 
     const filter: Record<string, unknown> = {};
+    const andConditions: Record<string, unknown>[] = [];
+
     if (!isScrape && req.query.search) {
-      filter.$or = [
-        { name: { $regex: req.query.search, $options: "i" } },
-        { sector: { $regex: req.query.search, $options: "i" } },
-        { city: { $regex: req.query.search, $options: "i" } },
-        { country: { $regex: req.query.search, $options: "i" } },
-      ];
+      andConditions.push({
+        $or: [
+          { name: { $regex: req.query.search, $options: "i" } },
+          { sector: { $regex: req.query.search, $options: "i" } },
+          { city: { $regex: req.query.search, $options: "i" } },
+          { country: { $regex: req.query.search, $options: "i" } },
+        ],
+      });
     }
     if (req.query.country) filter.country = req.query.country;
     if (req.query.sector) filter.sector = req.query.sector;
 
-    if (isScrape) {
+    if (isScrape || missingEmail) {
       filter.website = {
         $exists: true,
-        $nin: ["", "non disponible", "non disponible.", "n/a", "na", "null", "none"],
+        $not: INVALID_WEBSITE_REGEX,
       };
-      filter.$or = [
-        { emails: { $exists: false } },
-        { emails: { $size: 0 } },
-      ];
+      andConditions.push({
+        $or: [
+          { emails: { $exists: false } },
+          { emails: { $size: 0 } },
+        ],
+      });
+    }
+
+    if (andConditions.length > 0) {
+      filter.$and = andConditions;
     }
 
     const projection = isScrape

@@ -3,7 +3,11 @@ emails_website.py
 ==================
 Extrait les emails de contact d'entreprises en crawlant directement leur site web
 (alternative complémentaire à email_extractor.py, qui utilise le Mode IA de Google).
-Compatible Shadow DOM, iframes same-origin, JSON-LD, commentaires HTML et entités HTML.
+
+Utilise Selenium standard (pas SeleniumBase/mode CDP) : `driver.get()` est borné
+par un vrai timeout WebDriver appliqué par chromedriver lui-même, plutôt qu'une
+boucle de polling Python coopérative qui peut rester bloquée indéfiniment si un
+onglet se fige (dialogue JS natif, script synchrone en boucle...).
 
 Utilisation :
     python -m scrapers.emails_website                        # toutes les entreprises
@@ -16,19 +20,31 @@ from __future__ import annotations
 
 import html
 import logging
+import os
 import re
+import subprocess
+import threading
 import time
 import unicodedata
+from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
+import requests
+import urllib3
 from bs4 import BeautifulSoup
-from seleniumbase import SB
+from selenium import webdriver
+from selenium.common.exceptions import (
+    TimeoutException,
+    UnexpectedAlertPresentException,
+    WebDriverException,
+)
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.remote.webdriver import WebDriver
 
-from scrapers.common.browser_helpers import maybe_solve_captcha
 from scrapers.common.helpers import normalize_text
 from scrapers.email_extractor import CompanyBatchFetcher, send_contact_info_to_backend
 from scrapers.emploi_scraper import JsonStore
@@ -39,7 +55,6 @@ from scrapers.emploi_scraper import JsonStore
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = PROJECT_ROOT / "downloaded_files"
-PROFILE_DIR = PROJECT_ROOT / "my_custom_profile_4"
 EMAILS_FILE = OUTPUT_DIR / "company_emails_website.json"
 
 # ---------------------------------------------------------------------------
@@ -47,13 +62,71 @@ EMAILS_FILE = OUTPUT_DIR / "company_emails_website.json"
 # ---------------------------------------------------------------------------
 
 NAV_TIMEOUT: int = 20
-RETRY_ATTEMPTS: int = 3
-RETRY_SLEEP: float = 5
+RETRY_ATTEMPTS: int = 2
+RETRY_SLEEP: float = 3
 DELAY_BETWEEN_COMPANIES: float = 0.0
 BATCH_SIZE: int = 10000
 
 MAX_PAGES_PER_DOMAIN: int = 6
 PRIORITY_STOP_COUNT: int = 2
+
+# Pré-vérification réseau (requests) avant d'ouvrir le domaine dans le navigateur :
+# un domaine mort coûte NAV_TIMEOUT × RETRY_ATTEMPTS dans le navigateur contre
+# quelques secondes ici. Le timeout de connexion est court et s'applique à
+# *chaque* IP du domaine (un domaine à 3 enregistrements A coûte donc jusqu'à
+# 3× cette valeur).
+PREFLIGHT_CONNECT_TIMEOUT: float = 4.0
+PREFLIGHT_READ_TIMEOUT: float = 8.0
+
+# Budget de temps total par domaine — garde-fou contre les sites très lents
+# qui ne déclenchent aucune erreur mais consomment plusieurs minutes.
+MAX_SECONDS_PER_DOMAIN: float = 120.0
+
+# Nombre de pages injoignables consécutives avant d'abandonner le domaine.
+MAX_CONSECUTIVE_PAGE_FAILURES: int = 2
+
+# Marge ajoutée à MAX_SECONDS_PER_DOMAIN pour obtenir le garde-fou dur (watchdog)
+# par entreprise. MAX_SECONDS_PER_DOMAIN n'est vérifié qu'ENTRE deux pages : si
+# un seul appel Selenium/CDP reste bloqué indéfiniment (onglet gelé par une
+# boîte de dialogue JS native, boucle JS synchrone, websocket qui ne répond
+# plus...), ce budget n'est jamais réévalué et le script semble figé pour de
+# bon. Le watchdog, lui, agit depuis un thread séparé et tue le process
+# navigateur au niveau OS si ce délai est dépassé, quoi qu'il arrive.
+WATCHDOG_TIMEOUT_MARGIN: float = 90.0
+
+# Signatures d'erreurs indiquant que la session navigateur (process chromedriver
+# et/ou chrome) est morte plutôt qu'une simple page injoignable. Dans ce cas,
+# retenter une navigation sur le même driver ne fait que reproduire l'erreur —
+# il faut abandonner immédiatement et relancer une session Selenium fraîche
+# (voir BrowserSessionDeadError).
+_FATAL_SESSION_MARKERS: tuple[str, ...] = (
+    "already closed",
+    "invalid session id",
+    "no such window",
+    "chrome not reachable",
+    "disconnected",
+    "target window already closed",
+    "session deleted",
+    "session not created",
+    "connection refused",
+    "failed to establish a new connection",
+    "remote end closed connection",
+    "connection aborted",
+    "max retries exceeded",
+)
+
+
+class BrowserSessionDeadError(RuntimeError):
+    """La session Selenium/CDP est morte (fenêtre fermée, crash, etc.)."""
+
+
+def _is_fatal_session_error(exc: BaseException) -> bool:
+    message = str(exc).casefold()
+    return any(marker in message for marker in _FATAL_SESSION_MARKERS)
+
+# En dessous de cette taille, le document rendu est considéré comme vide
+# (page blanche, redirection avortée, etc.).
+MIN_PAGE_SOURCE_LENGTH: int = 200
 
 _ALLOWED_SCHEMES = frozenset({"http", "https"})
 
@@ -193,6 +266,55 @@ def root_domain_of(url: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Pré-vérification réseau
+# ---------------------------------------------------------------------------
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+_PREFLIGHT_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+}
+
+_preflight_session = requests.Session()
+
+
+def preflight_url(url: str) -> str | None:
+    """
+    Vérifie en quelques secondes que le domaine répond, avant d'engager le
+    navigateur. Retourne l'URL finale (redirections suivies) ou None si le
+    domaine est injoignable au niveau réseau (DNS, connexion refusée, timeout).
+
+    Seuls les échecs réseau font renvoyer None : un code HTTP 4xx/5xx est
+    conservé, car de nombreux sites (Cloudflare, WAF) refusent `requests` tout
+    en s'affichant normalement dans un vrai navigateur.
+    """
+    try:
+        response = _preflight_session.get(
+            url,
+            timeout=(PREFLIGHT_CONNECT_TIMEOUT, PREFLIGHT_READ_TIMEOUT),
+            allow_redirects=True,
+            verify=False,
+            headers=_PREFLIGHT_HEADERS,
+            stream=True,  # ne télécharge pas le corps de la réponse
+        )
+    except requests.exceptions.RequestException as exc:
+        log.warning("    [PREFLIGHT] %s injoignable — %s", url, type(exc).__name__)
+        return None
+
+    try:
+        final_url = response.url or url
+    finally:
+        response.close()
+
+    return final_url
+
+
+# ---------------------------------------------------------------------------
 # Correspondance de mots-clés (accents/casse indifférents)
 # ---------------------------------------------------------------------------
 
@@ -304,60 +426,6 @@ def discover_links(soup: BeautifulSoup, base_url: str, root_domain: str) -> list
 
 
 # ---------------------------------------------------------------------------
-# Shadow DOM / iframes same-origin
-# ---------------------------------------------------------------------------
-
-_SHADOW_DOM_JS = """
-function collect(root) {
-    let text = '';
-    root.querySelectorAll('*').forEach((el) => {
-        if (el.shadowRoot) {
-            text += el.shadowRoot.innerHTML + ' ';
-            text += collect(el.shadowRoot);
-        }
-    });
-    return text;
-}
-return collect(document);
-"""
-
-_IFRAME_SRCS_JS = (
-    "return Array.from(document.querySelectorAll('iframe')).map(f => f.src || '');"
-)
-
-
-def collect_shadow_dom_text(sb: SB) -> str:
-    try:
-        return sb.execute_script(_SHADOW_DOM_JS) or ""
-    except Exception:
-        return ""
-
-
-def collect_same_domain_iframe_text(sb: SB, root_domain: str) -> str:
-    try:
-        iframe_srcs: list[str] = sb.execute_script(_IFRAME_SRCS_JS) or []
-    except Exception:
-        return ""
-
-    collected: list[str] = []
-    for index, src in enumerate(iframe_srcs):
-        if not src or not same_domain(src, root_domain):
-            continue
-        try:
-            sb.switch_to_frame(index)
-            collected.append(sb.get_page_source())
-        except Exception:
-            continue
-        finally:
-            try:
-                sb.switch_to_default_content()
-            except Exception:
-                pass
-
-    return " ".join(collected)
-
-
-# ---------------------------------------------------------------------------
 # Analyse d'une page
 # ---------------------------------------------------------------------------
 
@@ -367,44 +435,87 @@ class PageResult:
     links: list[str] = field(default_factory=list)
 
 
-def _goto_with_retry(sb: SB, url: str, retries: int = RETRY_ATTEMPTS) -> bool:
-    for attempt in range(retries):
-        if attempt == 0:
-            sb.goto(url)
-        else:
-            sb.refresh()
+def _load_page(driver: WebDriver, url: str, attempts: int = RETRY_ATTEMPTS) -> str | None:
+    """
+    Navigue vers `url` et retourne sa source HTML, ou None si inaccessible.
+
+    `driver.get()` est borné par `set_page_load_timeout` (NAV_TIMEOUT) au
+    niveau du protocole WebDriver : contrairement au mode CDP de SeleniumBase
+    (polling coopératif côté Python, peut bloquer indéfiniment si l'onglet se
+    fige), un dépassement lève ici TimeoutException de façon fiable — c'est
+    chromedriver lui-même qui abandonne la navigation.
+    """
+    for attempt in range(1, attempts + 1):
         try:
-            sb.wait_for_ready_state_complete()
-            maybe_solve_captcha(sb)
-            return True
-        except Exception as exc:
-            log.warning("    [RETRY %d/%d] %s — %s", attempt + 1, retries, url, exc)
-            maybe_solve_captcha(sb)
-            sb.sleep(RETRY_SLEEP)
+            driver.get(url)
+        except UnexpectedAlertPresentException:
+            # Boîte de dialogue JS native (confirm/alert/prompt) : déjà fermée
+            # automatiquement par unhandled_prompt_behavior="dismiss and
+            # notify" (voir _new_driver) — on retente juste la navigation.
+            log.warning("    [RETRY %d/%d] %s — alerte JS fermée automatiquement", attempt, attempts, url)
+        except TimeoutException:
+            log.warning("    [RETRY %d/%d] %s — timeout navigation (%ds)", attempt, attempts, url, NAV_TIMEOUT)
+        except WebDriverException as exc:
+            if _is_fatal_session_error(exc):
+                log.error("    [SESSION MORTE] %s — %s", url, exc)
+                raise BrowserSessionDeadError(str(exc)) from exc
+            log.warning("    [RETRY %d/%d] %s — %s", attempt, attempts, url, exc)
+        else:
+            page_source = driver.page_source or ""
+            if len(page_source) >= MIN_PAGE_SOURCE_LENGTH:
+                return page_source
+            log.warning(
+                "    [RETRY %d/%d] %s — document vide (%d caractères)",
+                attempt, attempts, url, len(page_source),
+            )
 
-    log.warning("    [SKIP] Page inaccessible après %d tentative(s) : %s", retries, url)
-    return False
+        if attempt < attempts:
+            time.sleep(RETRY_SLEEP)
+
+    log.warning("    [SKIP] Page inaccessible après %d tentative(s) : %s", attempts, url)
+    return None
 
 
-def analyze_page(sb: SB, url: str, root_domain: str) -> PageResult:
-    if not _goto_with_retry(sb, url):
-        return PageResult()
-
-    try:
-        page_source = sb.get_page_source()
-    except Exception as exc:
-        log.warning("    [ERREUR] Source HTML inaccessible — %s : %s", url, exc)
-        return PageResult()
-
-    shadow_text = collect_shadow_dom_text(sb)
-    iframe_text = collect_same_domain_iframe_text(sb, root_domain)
-    full_text = " ".join((page_source, shadow_text, iframe_text))
+def analyze_page(driver: WebDriver, url: str, root_domain: str) -> PageResult | None:
+    """Retourne le résultat d'analyse, ou None si la page est inaccessible."""
+    page_source = _load_page(driver, url)
+    if page_source is None:
+        return None
 
     soup = BeautifulSoup(page_source, "html.parser")
     return PageResult(
-        emails=extract_emails(full_text),
+        emails=extract_emails(page_source),
         links=discover_links(soup, url, root_domain),
     )
+
+
+# ---------------------------------------------------------------------------
+# Navigateur
+# ---------------------------------------------------------------------------
+
+def _new_driver() -> WebDriver:
+    """
+    Nouvelle instance Chrome (Selenium standard, headed, sans wrapper CDP).
+
+    page_load_strategy="eager" : driver.get() revient dès le DOM prêt, sans
+    attendre CSS/images/fonts — inutile pour de l'extraction de texte/liens,
+    et ça évite d'attendre des ressources tierces lentes (chat, analytics...).
+    unhandled_prompt_behavior="dismiss and notify" : une boîte de dialogue JS
+    native (confirm/alert/prompt, fréquente sur les gros sites corporate)
+    est fermée automatiquement au lieu de bloquer le thread du renderer — et
+    donc toute commande WebDriver en attente dessus.
+    """
+    options = Options()
+    options.page_load_strategy = "eager"
+    options.unhandled_prompt_behavior = "dismiss and notify"
+    options.add_argument("--lang=fr-FR")
+    options.add_argument("--blink-settings=imagesEnabled=false")
+    options.add_argument("--disable-notifications")
+    options.add_argument("--window-size=1366,768")
+
+    driver = webdriver.Chrome(options=options)
+    driver.set_page_load_timeout(NAV_TIMEOUT)
+    return driver
 
 
 # ---------------------------------------------------------------------------
@@ -420,12 +531,19 @@ class WebsiteEmailCrawler:
       2. découverte de liens candidats (Contact/About/Legal/...) sur chaque page
       3. arrêt dès PRIORITY_STOP_COUNT emails prioritaires trouvés
       4. jamais plus de max_pages pages visitées, jamais de revisite
+      5. abandon du domaine si le budget de temps est dépassé ou si plusieurs
+         pages consécutives sont injoignable (site mort ou trop lent)
     """
 
-    def __init__(self, max_pages: int = MAX_PAGES_PER_DOMAIN) -> None:
+    def __init__(
+        self,
+        max_pages: int = MAX_PAGES_PER_DOMAIN,
+        max_seconds: float = MAX_SECONDS_PER_DOMAIN,
+    ) -> None:
         self.max_pages = max_pages
+        self.max_seconds = max_seconds
 
-    def crawl_domain(self, sb: SB, website: str) -> dict[str, Any]:
+    def crawl_domain(self, driver: WebDriver, website: str) -> dict[str, Any]:
         start_url = ensure_scheme(website)
         root_domain = root_domain_of(start_url)
         if not root_domain:
@@ -435,8 +553,17 @@ class WebsiteEmailCrawler:
         queue: list[str] = [normalize_url(start_url, start_url)]
         found_emails: dict[str, None] = {}
         pages_visited: list[str] = []
+        consecutive_failures = 0
+        deadline = time.monotonic() + self.max_seconds
 
         while queue and len(pages_visited) < self.max_pages:
+            if time.monotonic() >= deadline:
+                log.warning(
+                    "    [BUDGET] %.0fs dépassées sur %s — passage à l'entreprise suivante",
+                    self.max_seconds, root_domain,
+                )
+                break
+
             url = queue.pop(0)
             if url in visited:
                 continue
@@ -444,11 +571,24 @@ class WebsiteEmailCrawler:
 
             log.info("    [PAGE %d/%d] %s", len(pages_visited) + 1, self.max_pages, url)
             try:
-                result = analyze_page(sb, url, root_domain)
+                result = analyze_page(driver, url, root_domain)
+            except BrowserSessionDeadError:
+                raise
             except Exception as exc:
                 log.warning("    [ERREUR] %s — %s", url, exc)
+                result = None
+
+            if result is None:
+                consecutive_failures += 1
+                if consecutive_failures >= MAX_CONSECUTIVE_PAGE_FAILURES:
+                    log.warning(
+                        "    [ABANDON] %d page(s) consécutive(s) injoignable(s) sur %s",
+                        consecutive_failures, root_domain,
+                    )
+                    break
                 continue
 
+            consecutive_failures = 0
             pages_visited.append(url)
             for email in result.emails:
                 found_emails.setdefault(email, None)
@@ -472,7 +612,7 @@ class WebsiteEmailCrawler:
 # ---------------------------------------------------------------------------
 
 def process_company(
-    sb: SB,
+    driver: WebDriver,
     company: dict[str, Any],
     crawler: WebsiteEmailCrawler,
 ) -> dict[str, Any] | _SkippedSentinel | None:
@@ -491,14 +631,35 @@ def process_company(
 
     log.info("Traitement : %s (id=%s) — %s", company_name, company_id, website)
 
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Pré-vérification réseau : évite d'immobiliser le navigateur sur un
+    # domaine mort (DNS, connexion refusée...) avant même d'ouvrir Chrome.
+    resolved_url = preflight_url(ensure_scheme(website))
+    if resolved_url is None:
+        log.info("  → domaine injoignable, entreprise marquée sans email")
+        return {
+            "company_id": company_id,
+            "company_name": company_name,
+            "website": website,
+            "email": "",
+            "all_emails": [],
+            "pages_visited": [],
+            "status": "unreachable",
+            "source": "website_crawl",
+            "created_at": now,
+            "updated_at": now,
+        }
+
     try:
-        crawl = crawler.crawl_domain(sb, website)
+        crawl = crawler.crawl_domain(driver, resolved_url)
+    except BrowserSessionDeadError:
+        raise
     except Exception as exc:
         log.error("  Échec crawl %s : %s", website, exc)
         return None
 
     emails: list[str] = crawl["emails"]
-    now = datetime.now(timezone.utc).isoformat()
     result: dict[str, Any] = {
         "company_id": company_id,
         "company_name": company_name,
@@ -506,6 +667,7 @@ def process_company(
         "email": emails[0] if emails else "",
         "all_emails": emails,
         "pages_visited": crawl["pages_visited"],
+        "status": "ok",
         "source": "website_crawl",
         "created_at": now,
         "updated_at": now,
@@ -517,6 +679,81 @@ def process_company(
         ", ".join(emails) if emails else "(aucun)",
         len(crawl["pages_visited"]),
     )
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Garde-fou dur (watchdog) — filet de sécurité si un appel WebDriver ne
+# revient quand même jamais malgré set_page_load_timeout (ex. driver.page_source
+# pendant qu'un dialogue JS non standard tient le renderer)
+# ---------------------------------------------------------------------------
+
+def _kill_browser_process(driver: WebDriver) -> None:
+    """Tue au niveau OS le chromedriver (et son enfant chrome) de `driver`.
+
+    Dernier recours quand un appel WebDriver est bloqué indéfiniment :
+    `driver.quit()` passe par le même canal HTTP potentiellement gelé et peut
+    bloquer lui aussi. Tuer directement le process force la connexion à
+    échouer côté Python, ce qui fait sortir l'appel bloqué avec une exception
+    au lieu de rester figé pour toujours.
+    """
+    pid = None
+    with suppress(Exception):
+        pid = driver.service.process.pid
+    if not pid:
+        return
+    with suppress(Exception):
+        if os.name == "nt":
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(pid)],
+                capture_output=True, timeout=10,
+            )
+        else:
+            os.killpg(os.getpgid(pid), 9)  # SIGKILL
+
+
+def _process_company_with_watchdog(
+    driver: WebDriver,
+    company: dict[str, Any],
+    crawler: WebsiteEmailCrawler,
+    timeout: float,
+) -> dict[str, Any] | _SkippedSentinel | None:
+    """Exécute process_company() sous un garde-fou dur de `timeout` secondes.
+
+    Filet de sécurité en plus de set_page_load_timeout : si un appel bloque
+    quand même indéfiniment (ex. driver.page_source pendant qu'un dialogue JS
+    tient le thread du renderer), un thread séparé tue le process navigateur
+    (voir _kill_browser_process) après `timeout` secondes. L'appel bloqué sur
+    le thread principal reçoit alors une erreur de connexion et ressort en
+    exception, convertie ici en BrowserSessionDeadError pour déclencher la
+    reprise sur une session neuve déjà gérée par run().
+    """
+    watchdog_fired = threading.Event()
+
+    def _fire() -> None:
+        watchdog_fired.set()
+        log.error("    [WATCHDOG] %.0fs sans réponse — arrêt forcé du navigateur", timeout)
+        _kill_browser_process(driver)
+
+    timer = threading.Timer(timeout, _fire)
+    timer.daemon = True
+    timer.start()
+    try:
+        result = process_company(driver, company, crawler)
+    except BrowserSessionDeadError:
+        raise
+    except Exception as exc:
+        if watchdog_fired.is_set():
+            raise BrowserSessionDeadError(
+                f"navigateur tué par le watchdog après {timeout:.0f}s"
+            ) from exc
+        raise
+    finally:
+        timer.cancel()
+
+    if watchdog_fired.is_set():
+        raise BrowserSessionDeadError(f"navigateur tué par le watchdog après {timeout:.0f}s")
+
     return result
 
 
@@ -557,6 +794,7 @@ def run(
     store: JsonStore,
     delay: float = DELAY_BETWEEN_COMPANIES,
     max_pages: int = MAX_PAGES_PER_DOMAIN,
+    max_seconds: float = MAX_SECONDS_PER_DOMAIN,
 ) -> dict[str, int]:
     """
     Traite les entreprises fournies par `fetcher`, batch par batch — un batch =
@@ -572,7 +810,8 @@ def run(
     skipped_cache = 0
     skipped_no_website = 0
     batch_num = 0
-    crawler = WebsiteEmailCrawler(max_pages=max_pages)
+    crawler = WebsiteEmailCrawler(max_pages=max_pages, max_seconds=max_seconds)
+    company_hard_timeout = max_seconds + WATCHDOG_TIMEOUT_MARGIN
     batch_durations: list[float] = []
 
     raw_batch = fetcher.fetch_next_batch()
@@ -601,46 +840,63 @@ def run(
 
         batch_processed = 0
         batch_failed = 0
+        idx = 0
+        driver: WebDriver | None = None
 
         try:
-            with SB(
-                uc=True,
-                locale="fr",
-                user_data_dir=str(PROFILE_DIR),
-                disable_js=False,
-                headless=False,
-            ) as sb:
-                sb.activate_cdp_mode()
+            driver = _new_driver()
 
-                for idx, company in enumerate(pending, start=1):
-                    result = process_company(sb, company, crawler)
-                    cid = str(company.get("company_id", "")).strip()
+            for idx, company in enumerate(pending, start=1):
+                result = _process_company_with_watchdog(
+                    driver, company, crawler, timeout=company_hard_timeout,
+                )
+                cid = str(company.get("company_id", "")).strip()
 
-                    if result is _SKIPPED:
-                        skipped_no_website += 1
-                    elif result is not None:
-                        store.set(cid, result)
-                        processed += 1
-                        batch_processed += 1
-                        if result.get("email"):
-                            found_emails += 1
-                        send_contact_info_to_backend(
-                            company_id=result["company_id"],
-                            emails=result.get("all_emails", []),
-                            phone_numbers=[],
-                        )
-                    else:
-                        failed += 1
-                        batch_failed += 1
+                if result is _SKIPPED:
+                    skipped_no_website += 1
+                elif result is not None:
+                    store.set(cid, result)
+                    processed += 1
+                    batch_processed += 1
+                    if result.get("email"):
+                        found_emails += 1
+                    send_contact_info_to_backend(
+                        company_id=result["company_id"],
+                        emails=result.get("all_emails", []),
+                        phone_numbers=[],
+                    )
+                else:
+                    failed += 1
+                    batch_failed += 1
 
-                    if idx < len(pending) and delay:
-                        time.sleep(delay)
+                if idx < len(pending) and delay:
+                    time.sleep(delay)
 
+        except BrowserSessionDeadError as exc:
+            # Session navigateur morte (crash, fermeture, tuée par le
+            # watchdog) : toute nouvelle commande sur `driver` reproduirait
+            # l'erreur ou resterait bloquée indéfiniment. On abandonne les
+            # entreprises restantes de ce batch et on repart sur une session
+            # Selenium neuve au batch suivant plutôt que de retenter dessus.
+            remaining = len(pending) - max(idx - 1, 0)
+            log.error(
+                "[SESSION] Session navigateur morte (%s) — %d entreprise(s) "
+                "restante(s) abandonnée(s), nouvelle session au prochain batch",
+                exc, remaining,
+            )
+            failed += remaining
+            batch_failed += remaining
+            time.sleep(5)
         except Exception as exc:
+            remaining = len(pending) - max(idx - 1, 0)
             log.error("[SESSION] Erreur navigateur : %s", exc)
-            failed += len(pending)
-            batch_failed += len(pending)
+            failed += remaining
+            batch_failed += remaining
             time.sleep(10)
+        finally:
+            if driver is not None:
+                with suppress(Exception):
+                    driver.quit()
 
         fetcher.mark_batch_done()
 
@@ -777,6 +1033,16 @@ Exemples :
         help=f"Pages max par domaine (défaut : {MAX_PAGES_PER_DOMAIN})",
     )
     parser.add_argument(
+        "--max-seconds",
+        type=float,
+        default=MAX_SECONDS_PER_DOMAIN,
+        metavar="SECONDES",
+        help=(
+            "Budget de temps max par domaine avant de passer au suivant "
+            f"(défaut : {MAX_SECONDS_PER_DOMAIN:.0f}s)"
+        ),
+    )
+    parser.add_argument(
         "--no-resume",
         action="store_true",
         help="Ignorer la progression persistée et repartir de la première page",
@@ -798,6 +1064,7 @@ Exemples :
         store,
         delay=args.delay,
         max_pages=args.max_pages,
+        max_seconds=args.max_seconds,
     )
 
 
