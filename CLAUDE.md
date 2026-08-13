@@ -11,6 +11,7 @@ Trois sous-systèmes indépendants qui communiquent via une API REST :
 1. **Scraper Python** (racine + `scrapers/`) — scrape des offres d'emploi et profils d'entreprises sur 35 sites africains de type "emploi.xx" (plateforme Drupal générique), via SeleniumBase en mode CDP (contourne Cloudflare/captcha).
 2. **Backend Node.js/Express** (`backend/`) — API REST + MongoDB, reçoit les données du scraper et les sert au frontend.
 3. **Frontend React** (`frontend/`) — dashboard de visualisation (Vite + Tailwind v4).
+4. **Script Sénégal** (`senegal_script/`) — scraper indépendant dédié à senjob.com (site PHP, pas Drupal — distinct du pays `"senegal"` de `scrapers/countries.py` qui cible emploisenegal.com). Voir section dédiée plus bas.
 
 Le scraper ne dépend jamais du frontend ; il pousse ses données au backend via HTTP (`SCRAPER_API_URL`) et/ou les persiste en local dans `downloaded_files/*.json`.
 
@@ -30,6 +31,21 @@ python setup_profil.py --profil 1            # ouvre Chrome pour connecter manue
 Dépendances : `pip install seleniumbase beautifulsoup4 requests`. Pas de suite de tests automatisés dans ce dépôt — la validation se fait en exécutant le scraper sur un pays et en inspectant les fichiers `downloaded_files/`.
 
 Variable d'environnement clé : `SCRAPER_API_URL` (défaut `http://localhost:3500`). La mettre à vide désactive l'envoi vers le backend et bascule sur cache JSON local uniquement.
+
+### Script Sénégal — senjob.com (`senegal_script/`)
+```bash
+python senegal_script/scraper.py                 # interactif : login manuel puis scrape toutes les pages
+python senegal_script/scraper.py --limit 5        # test rapide, 5 nouvelles offres
+python senegal_script/scraper.py --max-pages 2
+python senegal_script/scraper.py --headless       # sans fenêtre, suppose la session déjà connectée
+```
+Au premier lancement (ou si la session a expiré), une fenêtre Chrome s'ouvre sur l'espace candidat senjob.com et attend une connexion manuelle (ENTRÉE dans le terminal pour continuer) — session sauvegardée dans le profil persistant `my_custom_profile_senegal` (racine du projet). Sans connexion, les offres natives senjob (non relayées depuis un flux ONG externe) n'exposent ni email de contact recruteur ni description complète — voir "Pièges" ci-dessous.
+
+`is_logged_in()` vérifie avant toute chose si le profil est déjà connecté (absence du champ mot de passe sur la page de connexion) — si la session est encore valide, aucune saisie n'est demandée, passage direct au scraping.
+
+Une offre sans `company_id` identifiable (ni logo, ni nom d'entreprise) n'est jamais écrite dans `jobs_senjob.json` ni poussée à `jobs_scrappe` (destinées à une campagne d'emailing par entreprise) — trace uniquement dans `downloaded_files/jobs_senjob_skipped.json` pour éviter de la re-scraper à chaque lancement.
+
+Fichier unique et autonome (n'importe pas `scrapers/`, dépendances dupliquées localement : `JsonStore`/`ApiClient`) — sortie dans `downloaded_files/jobs_senjob.json`, push vers `SCRAPER_API_URL` si définie (même convention que le reste du scraper).
 
 ### Backend (`backend/`)
 ```bash
@@ -116,3 +132,4 @@ Ajouter un pays = ajouter une entrée dans `scrapers/countries.py` ; tout le res
 - Ne pas appeler `sb` en dehors du bloc `with SB(...) as sb:`.
 - Ne pas dupliquer la logique d'URL/extraction d'ID pays — tout passe par `CountryConfig`.
 - Ne pas prendre `scrapers/emploi_scraper.py::EmploiMaScraper` comme modèle pour un nouveau scraper — c'est du code legacy spécifique à un site ; le chemin courant est `BaseJobScraper` + `CountryConfig`.
+- `senegal_script/scraper.py` (senjob.com) : ne jamais parser le bloc `<script type="application/ld+json">` avec `json.loads()` — le champ `description` contient des retours à la ligne bruts qui font planter le parsing JSON strict ; extraire les champs par regex ciblée (voir `_parse_json_ld`). Les emails de recruteur n'apparaissent dans le HTML que pour une session candidate connectée (jamais en anonyme) — toujours passer par le profil persistant `my_custom_profile_senegal`.
