@@ -32,6 +32,28 @@ Dépendances : `pip install seleniumbase beautifulsoup4 requests`. Pas de suite 
 
 Variable d'environnement clé : `SCRAPER_API_URL` (défaut `http://localhost:3500`). La mettre à vide désactive l'envoi vers le backend et bascule sur cache JSON local uniquement.
 
+### Envoi des CV vers l'IA WipWork (`scrapers/ia_cv_uploader.py`)
+```bash
+python -m scrapers.ia_cv_uploader --dry-run                  # liste ce qui partirait, aucun envoi
+python -m scrapers.ia_cv_uploader --limit 5 --use-test        # test réel sur 5 CV, collections de test de l'IA
+python -m scrapers.ia_cv_uploader --country south_africa
+python -m scrapers.ia_cv_uploader --cv-root /srv/cv_scrappe/downloaded_files/cv_files
+python -m scrapers.ia_cv_uploader --max-attempts 3            # ignore les CV ayant déjà échoué 3 fois
+```
+Pousse les CV déjà scrapés vers `POST {IA_API_URL}/parse/resume` (défaut `https://bo.wipwork.com/bot`).
+
+- **Sélection** : appliquée côté backend par `GET /api/cvs/ia/pending` — `commercial_email_wave = 2` (`--wave`, `all` pour ignorer), `commercial_email_unsubscribed` absent, et `ia_sent != true`. Un CV envoyé quitte donc le filtre : le script relit la page courante en boucle, aucun doublon même en cas de reprise.
+- **Métadonnées** : `enterprise_ids=WipWork` + `enterprise_sources={"WipWork":"import"}` (champ **obligatoire** de l'API, `--source` pour `apply`/`save_from_search`), `country_ids` = alpha-3 déduit du pays via `scrapers/common/country_iso.py` (`south_africa` → `ZAF`), `visibility=visible`, `is_active=false` (défaut de l'API — passer `--is-active` pour activer).
+- **Fichier** : lu depuis `filepath` ; si le chemin vient d'une autre machine (chemins Windows `C:\Users\user\...` en base), repli sur `<--cv-root|$CV_FILES_ROOT>/<country>/<filename>` puis `downloaded_files/cv_files/<country>/<filename>`. Seuls `.pdf`, `.docx`, `.doc` sont acceptés.
+- **Marquage** : `PATCH /api/cvs/{id}/ia` écrit `ia_sent`, `ia_sent_at`, `ia_point_id`, `ia_user_id`, `ia_operation_type`, `ia_storage_path`, `ia_attempts`, `ia_last_error`, `ia_skip_reason`. Un « skip » (fichier introuvable, pays inconnu) n'incrémente pas `ia_attempts` et laisse le CV éligible ; un échec API l'incrémente. Journal local de secours : `downloaded_files/ia_uploads.json`.
+- **Retry** : backoff exponentiel + jitter sur 408/429/5xx uniquement ; 400/415/422 = échec définitif (le CV est marqué `failed`, la boucle continue).
+
+- **Authentification** : l'API IA exige un en-tête `X-API-Key`, envoyé depuis `IA_API_KEY` (ou `--api-key`). `IA_API_TOKEN` ajoute un `Authorization: Bearer` si un jour nécessaire. Les secrets ne sont jamais loggés en clair (`bf80…ddbe`).
+
+Variables d'environnement : `SCRAPER_API_URL`, `IA_API_URL`, `IA_API_KEY`, `IA_API_TOKEN` (Bearer, optionnel), `CV_FILES_ROOT`. Le script les lit dans l'environnement, puis à défaut dans `.env` (racine) et `backend/.env` — tous deux git-ignorés, c'est là que vit la clé d'API ; ne jamais la remettre dans un fichier suivi par git. `_load_dotenv()` n'écrase jamais une variable déjà exportée dans le shell.
+
+Vérifier la couverture du mapping pays → alpha-3 : `python -m scrapers.common.country_iso`.
+
 ### Script Sénégal — senjob.com (`senegal_script/`)
 ```bash
 python senegal_script/scraper.py                 # interactif : login manuel puis scrape toutes les pages
@@ -70,8 +92,10 @@ scrapers/
 ├── cv_downloader.py             # téléchargement PDF des CV via CDP Network.loadNetworkResource
 ├── email_extractor.py           # extraction d'emails/téléphones via Google AI Mode (shadow DOM)
 ├── emploi_scraper.py            # JsonStore + ApiClient (utilitaires partagés, réutilisés par base_scraper)
+├── ia_cv_uploader.py            # envoi des CV vers l'IA WipWork (POST /parse/resume)
 └── common/
     ├── country_config.py        # CountryConfig (frozen dataclass) — toutes les URLs + CvDownloadPattern
+    ├── country_iso.py            # code pays interne -> ISO 3166-1 alpha-3 (country_ids de l'API IA)
     ├── models.py                 # JobListing, CompanyProfile (dataclasses slots=True)
     ├── helpers.py                # normalize_text, extract_job_id, html_text, first_text
     ├── parsers.py                 # fonctions BS4 pures — reçoivent (soup, config)
@@ -116,6 +140,8 @@ Ajouter un pays = ajouter une entrée dans `scrapers/countries.py` ; tout le res
 - `app.ts` — Express, CORS, middleware de log de chaque requête, monte `/api/jobs`, `/api/companies`, `/api/cvs`, `/health`. Port via `process.env.PORT` (défaut 3500).
 - `models/` — Mongoose : `job.model.ts`, `company.model.ts`, `job_publication.model.ts` (historique de publication d'une offre), `cv.model.ts`.
 - `routes/` — `jobs.routes.ts`, `companies.routes.ts`, `cv.routes.ts` ; c'est l'API que consomment à la fois le scraper Python (upserts) et le frontend (lecture).
+- Routes dédiées à l'envoi IA (dans `cv.routes.ts`) : `GET /api/cvs/ia/pending` (sélection `commercial_email_wave` + non désinscrits + non envoyés — déclarée **avant** `GET /api/cvs/:id`, sinon Express l'intercepte), `GET /api/cvs/ia/stats` (avancement), `PATCH /api/cvs/:id/ia` (marquage `sent`/`failed`/`skipped`). Le filtre est centralisé dans `buildIaSelectionFilter()`.
+- `commercial_email_wave` / `commercial_email_unsubscribed` sont écrits par l'outil d'emailing (écriture Mongo directe, hors backend) ; ils sont déclarés dans `cv.model.ts` uniquement pour documenter la sélection IA.
 - `config/db.ts` — connexion MongoDB.
 
 ## Frontend (`frontend/src/`)
@@ -132,4 +158,5 @@ Ajouter un pays = ajouter une entrée dans `scrapers/countries.py` ; tout le res
 - Ne pas appeler `sb` en dehors du bloc `with SB(...) as sb:`.
 - Ne pas dupliquer la logique d'URL/extraction d'ID pays — tout passe par `CountryConfig`.
 - Ne pas prendre `scrapers/emploi_scraper.py::EmploiMaScraper` comme modèle pour un nouveau scraper — c'est du code legacy spécifique à un site ; le chemin courant est `BaseJobScraper` + `CountryConfig`.
+- Ne pas envoyer un CV à l'IA sans `country_ids` : les téléphones stockés sont au format local (`0786004809`), pas E.164 — l'API ne peut rien déduire et répond 400. Si un pays n'est pas dans `country_iso.py`, le CV est volontairement skippé (jamais envoyé avec un pays approximatif).
 - `senegal_script/scraper.py` (senjob.com) : ne jamais parser le bloc `<script type="application/ld+json">` avec `json.loads()` — le champ `description` contient des retours à la ligne bruts qui font planter le parsing JSON strict ; extraire les champs par regex ciblée (voir `_parse_json_ld`). Les emails de recruteur n'apparaissent dans le HTML que pour une session candidate connectée (jamais en anonyme) — toujours passer par le profil persistant `my_custom_profile_senegal`.

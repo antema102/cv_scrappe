@@ -7,7 +7,10 @@
       "Bash(python -m scrapers.email_extractor --help)",
       "Bash(python -m scrapers.emails_website --help)",
       "Bash(python -m pyflakes scrapers/email_extractor.py scrapers/emails_website.py)",
-      "Bash(pip install *)"
+      "Bash(pip install *)",
+      "Bash(python -m scrapers.common.country_iso)",
+      "Bash(python -c ' *)",
+      "Bash(npx tsc *)"
     ]
   }
 }
