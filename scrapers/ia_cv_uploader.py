@@ -25,8 +25,8 @@ Utilisation :
 
 Variables d'environnement (lues aussi depuis `.env` / `backend/.env`, git-ignorés) :
     SCRAPER_API_URL  backend Node.js          (défaut http://localhost:3500)
-    IA_API_URL       base de l'API IA         (défaut https://bo.wipwork.com/bot)
-    IA_API_KEY       clé envoyée en X-API-Key (requise par bo.wipwork.com)
+    IA_API_URL       base de l'API IA         (défaut https://www.wipwork.com/bot)
+    IA_API_KEY       clé envoyée en X-API-Key (requise par www.wipwork.com)
     IA_API_TOKEN     jeton Bearer si requis   (optionnel)
     CV_FILES_ROOT    racine des fichiers CV   (optionnel, ex. /srv/.../cv_files)
 """
@@ -84,7 +84,7 @@ def _load_dotenv(*paths: Path) -> None:
 _load_dotenv(PROJECT_ROOT / ".env", PROJECT_ROOT / "backend" / ".env")
 
 BACKEND_URL: str = os.getenv("SCRAPER_API_URL", "http://localhost:3500")
-IA_API_URL: str = os.getenv("IA_API_URL", "https://bo.wipwork.com/bot")
+IA_API_URL: str = os.getenv("IA_API_URL", "https://www.wipwork.com/bot")
 IA_API_KEY: str = os.getenv("IA_API_KEY", "")
 IA_API_TOKEN: str = os.getenv("IA_API_TOKEN", "")
 CV_FILES_ROOT_ENV: str = os.getenv("CV_FILES_ROOT", "")

@@ -40,7 +40,7 @@ python -m scrapers.ia_cv_uploader --country south_africa
 python -m scrapers.ia_cv_uploader --cv-root /srv/cv_scrappe/downloaded_files/cv_files
 python -m scrapers.ia_cv_uploader --max-attempts 3            # ignore les CV ayant déjà échoué 3 fois
 ```
-Pousse les CV déjà scrapés vers `POST {IA_API_URL}/parse/resume` (défaut `https://bo.wipwork.com/bot`).
+Pousse les CV déjà scrapés vers `POST {IA_API_URL}/parse/resume` (défaut `https://www.wipwork.com/bot`).
 
 - **Sélection** : appliquée côté backend par `GET /api/cvs/ia/pending` — `commercial_email_wave = 2` (`--wave`, `all` pour ignorer), `commercial_email_unsubscribed` absent, et `ia_sent != true`. Un CV envoyé quitte donc le filtre : le script relit la page courante en boucle, aucun doublon même en cas de reprise.
 - **Métadonnées** : `enterprise_ids=WipWork` + `enterprise_sources={"WipWork":"import"}` (champ **obligatoire** de l'API, `--source` pour `apply`/`save_from_search`), `country_ids` = alpha-3 déduit du pays via `scrapers/common/country_iso.py` (`south_africa` → `ZAF`), `visibility=visible`, `is_active=false` (défaut de l'API — passer `--is-active` pour activer).
