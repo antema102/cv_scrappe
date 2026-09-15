@@ -1,0 +1,1133 @@
+"""
+facebook_script/pages.py
+========================
+Scraping de pages Facebook (Madagascar pour l'instant, extensible via
+countries.py) + analyse IA OpenAI de chaque publication + JSON au format exact
+du backend, SANS envoi au backend (fichiers à vérifier d'abord).
+
+Pipeline, chaque étape relançable et ne refaisant que ce qui manque :
+  1. Scraping (navigateur, profil my_custom_profile_facebook partagé avec scraper.py) :
+     infos publiques de la page (onglet "À propos"), publications du fil (même
+     parsing que les groupes : texte, auteur, permalien, horodatage, date complète
+     lue dans l'infobulle), puis TOUTES les images de chaque publication via la
+     visionneuse photo (le fil n'en montre que 5 + "+N") en pleine résolution,
+     téléchargées et lues par OCR.
+  2. Analyse IA (ai_extractor.py) : texte + contexte de la page + OCR + toutes les
+     images, pour chaque publication, avec ou sans image. Mise en cache.
+  3. Consolidation (company_registry.py) : dédoublonnage des entreprises de toutes
+     les pages du pays, company_id stables, documents backend.
+
+Sorties (downloaded_files/facebook_pages/) :
+  companies_<pays>.json         -> companies_scrappe        (clé company_id)
+  jobs_<pays>.json              -> jobs_scrappe             (clé job_id)
+  job_publications_<pays>.json  -> job_publications_scrappe (clé job_id : published_at)
+  analysis_<pays>.json          -> revue humaine : réponses IA, sources, fusions, adresse,
+                                   produits/services, catégories (absents du backend)
+  identity_registry_<pays>.json -> clé normalisée -> company_id (stabilité des ids)
+  pages_<pays>.json, posts_<page>.json, images/, ai_cache/ -> données brutes et cache
+
+Usage :
+    python facebook_script/pages.py                                  # pages.txt : scraping + IA + JSON
+    python facebook_script/pages.py --url https://www.facebook.com/profile.php?id=61559428572369
+    python facebook_script/pages.py --max-posts 5                     # test rapide
+    python facebook_script/pages.py --max-age-days 30                 # publications des 30 derniers jours (défaut 15)
+    python facebook_script/pages.py --no-ai                           # scraping seul (aucun appel OpenAI)
+    python facebook_script/pages.py --skip-scrape                     # IA + JSON sur les publications déjà scrapées
+    python facebook_script/pages.py --skip-scrape --reanalyze         # ré-analyse ce qui a été analysé avec un ancien prompt/modèle
+    python facebook_script/pages.py --max-ai-tokens 500000            # plafond de tokens IA pour ce lancement
+    python facebook_script/pages.py --push-only                       # envoie au backend les JSON déjà validés
+    python facebook_script/pages.py --skip-scrape --push              # IA + JSON puis envoi au backend
+    python facebook_script/pages.py --push-only --no-clean            # envoi sans supprimer les doublons déjà envoyés
+
+OPENAI_API_KEY / OPENAI_MODEL : environnement ou .env (racine, backend/.env).
+Envoi au backend (backend_push.py) uniquement avec --push / --push-only : SCRAPER_API_URL (défaut
+http://localhost:3500), incrémental (push_state_<pays>.json) ; les documents déjà envoyés puis regroupés
+avec un autre sont supprimés du backend (stale_replacement_finder), sauf --no-clean.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import sys
+import time
+from contextlib import contextmanager, suppress
+from dataclasses import dataclass
+from datetime import date, datetime, timezone
+from pathlib import Path
+from typing import Any
+from urllib.parse import parse_qs, parse_qsl, urlencode, urljoin, urlparse, urlunparse
+
+import scraper as fb
+from ai_extractor import DEFAULT_BASE_URL, DEFAULT_MODEL, PROMPT_VERSION, AiError, AiExtractor, load_dotenv, mask_secret
+from backend_push import DEFAULT_API_URL, ReplacementFinder, push_country
+from company_registry import CompanyRegistry, build_candidate, company_document, fold, names_similar, normalize_name, review_entry
+from countries import COUNTRIES, CountryProfile
+from fb_dates import published_at
+from seleniumbase import SB
+
+PAGES_FILE = fb.SCRIPT_DIR / "pages.txt"
+DEFAULT_MAX_PHOTOS = 60
+# Filtre des images envoyées à l'IA (coût) : contact lu par l'OCR, ou texte suffisant (affiche, offre)
+AI_MIN_TEXT_CHARS = 40
+WEBSITE_RE = re.compile(r"(?:https?://|www\.)\S+|\b[a-z0-9][a-z0-9\-]*\.(?:mg|com|fr|org|net|io|co)\b", re.I)
+VIEWER_TIMEOUT = 12
+NEXT_PHOTO_LABELS = ("photo suivante", "next photo", "suivante", "suivant", "next")
+
+PAGE_INFO_JS = r"""
+(() => {
+  const main = document.querySelector('[role="main"]') || document.body;
+  let logo = '';
+  let best = 0;
+  for (const el of document.querySelectorAll('svg image, img')) {
+    const src = el.getAttribute('xlink:href') || el.getAttribute('href') || el.getAttribute('src') || '';
+    if (!src.includes('scontent')) continue;
+    const r = el.getBoundingClientRect();
+    // Photo de profil de la page : carrée, dans le haut de l'écran
+    if (r.top > 700 || r.width < 80 || r.width > 400 || Math.abs(r.width - r.height) > 4) continue;
+    if (r.width > best) { best = r.width; logo = src; }
+  }
+  return JSON.stringify({title: document.title || '', about: (main.innerText || '').trim(), logo});
+})()
+"""
+
+VIEWER_STATE_JS = r"""
+(() => {
+  const args = __ARGS__;
+  const href = location.href;
+  const m = href.match(/[?&]fbid=(\d+)/) || href.match(/\/photos\/[^/]+\/(\d+)/) || href.match(/\/photo\/(\d+)/);
+  let img = document.querySelector('img[data-visualcompletion="media-vc-image"]');
+  if (!img) {
+    let best = 0;
+    for (const el of document.querySelectorAll('img')) {
+      if (!(el.currentSrc || el.src || '').includes('scontent')) continue;
+      const area = el.naturalWidth * el.naturalHeight;
+      if (area > best) { best = area; img = el; }
+    }
+  }
+  const labels = new Set(args.nextLabels);
+  const next = Array.from(document.querySelectorAll('[aria-label]')).find((el) =>
+    labels.has((el.getAttribute('aria-label') || '').trim().toLowerCase()) && el.getBoundingClientRect().width > 0);
+  if (args.click) {
+    if (next) next.click();
+    return JSON.stringify({clicked: !!next});
+  }
+  // Image réellement chargée : pendant un changement de photo, src peut valoir l'URL de la page
+  const loaded = !!img && img.complete && img.naturalWidth > 0;
+  return JSON.stringify({
+    fbid: m ? m[1] : '',
+    src: loaded ? (img.currentSrc || img.src || '') : '',
+    alt: img ? (img.alt || '') : '',
+    hasNext: !!next,
+  });
+})()
+"""
+
+
+# ---------------------------------------------------------------------------
+# Pages à scraper
+# ---------------------------------------------------------------------------
+
+
+def pages_dir() -> Path:
+    return fb.OUTPUT_DIR / "facebook_pages"
+
+
+def _clean_facebook_url(href: str) -> str:
+    """URL absolue sans les paramètres de tracking (__cft__, __tn__...)."""
+    parsed = urlparse(urljoin(fb.FACEBOOK_URL, href))
+    query = [(k, v) for k, v in parse_qsl(parsed.query, keep_blank_values=True) if not k.startswith("__")]
+    return urlunparse(parsed._replace(query=urlencode(query), fragment=""))
+
+
+@dataclass(frozen=True, slots=True)
+class PageTarget:
+    page_id: str  # id numérique (profile.php?id=) ou nom personnalisé
+    page_url: str
+    about_url: str
+
+    @property
+    def file_slug(self) -> str:
+        return re.sub(r"[^\w.\-]", "_", self.page_id)
+
+    @property
+    def posts_file(self) -> Path:
+        return pages_dir() / f"posts_{self.file_slug}.json"
+
+    # Interface attendue par scraper.parse_post
+    def post_url(self, post_id: str, href: str) -> str:
+        if "/posts/" in href or "story_fbid=" in href:
+            return _clean_facebook_url(href)
+        return f"https://www.facebook.com/{self.page_id}/posts/{post_id}"  # id trouvé via un lien photo (set=pcb.)
+
+    def source_fields(self, name: str) -> dict[str, str]:
+        return {"page_id": self.page_id, "page_name": name, "page_url": self.page_url}
+
+    def canonical_post_id(self, post: dict[str, Any], store: fb.PostStore) -> str:
+        """Id déjà connu de cette publication (même photo ou même texte seul), sinon le sien."""
+        index = getattr(store, "_known_posts", None)
+        if index is None or index.size != store.count():  # reconstruit seulement si le cache a changé
+            index = KnownPosts(store.posts())
+            store._known_posts = index
+        return index.find(post) or post["post_id"]
+
+
+PHOTO_FBID_RE = re.compile(r"[?&]fbid=(\d+)|/photos/[^/?#]+/(\d+)")
+KNOWN_TEXT_MIN_CHARS = 20
+
+
+def _post_photo_ids(post: dict[str, Any]) -> set[str]:
+    ids = {image["fbid"] for image in post.get("images", []) if image.get("fbid")}
+    for link in post.get("photo_links", []):
+        match = PHOTO_FBID_RE.search(link)
+        if match:
+            ids.add(match.group(1) or match.group(2))
+    return ids
+
+
+class KnownPosts:
+    """
+    Index des publications déjà enregistrées : Facebook ne garde pas toujours le même pfbid
+    d'une session à l'autre (vu : même publication, mêmes 30 photos, deux pfbid). Même photo
+    (fbid, stable) = même publication ; sans photo, même texte (>= KNOWN_TEXT_MIN_CHARS).
+    Index plutôt que comparaison deux à deux : milliers de publications par page.
+    """
+
+    def __init__(self, posts: list[dict[str, Any]] = ()) -> None:
+        self.ids: set[str] = set()
+        self.by_photo: dict[str, set[str]] = {}
+        self.photo_count: dict[str, int] = {}
+        self.order: dict[str, int] = {}
+        self.by_text: dict[str, str] = {}
+        self.size = 0
+        for post in posts:
+            self.add(post)
+
+    @staticmethod
+    def _text(post: dict[str, Any]) -> str:
+        return " ".join(fold(post.get("text", "")).split())
+
+    def add(self, post: dict[str, Any]) -> None:
+        if post["post_id"] not in self.photo_count:
+            self.order[post["post_id"]] = len(self.order)  # à égalité, la 1re publication enregistrée gagne
+        self.ids.add(post["post_id"])
+        self.size += 1
+        photos = _post_photo_ids(post)
+        self.photo_count[post["post_id"]] = len(photos)
+        for photo in photos:
+            self.by_photo.setdefault(photo, set()).add(post["post_id"])
+        text = self._text(post)
+        if not photos and len(text) >= KNOWN_TEXT_MIN_CHARS:
+            self.by_text.setdefault(text, post["post_id"])
+
+    def find(self, post: dict[str, Any]) -> str | None:
+        if post["post_id"] in self.ids:
+            return post["post_id"]
+        photos = _post_photo_ids(post)
+        overlaps: dict[str, int] = {}
+        for photo in photos:
+            for other_id in self.by_photo.get(photo, ()):
+                overlaps[other_id] = overlaps.get(other_id, 0) + 1
+        for other_id, common in sorted(overlaps.items(), key=lambda item: (-item[1], self.order[item[0]])):
+            # Au moins la moitié des photos en commun (comparées aux vignettes du fil : 5 max) : une même photo
+            # réutilisée (logo, bannière) dans des publications différentes ne les confond pas
+            if common * 2 >= min(len(photos), self.photo_count[other_id]):
+                return other_id
+        text = self._text(post)
+        if not photos and len(text) >= KNOWN_TEXT_MIN_CHARS:
+            return self.by_text.get(text)
+        return None
+
+
+def find_known_post(post: dict[str, Any], posts: list[dict[str, Any]]) -> str | None:
+    """Id de la publication déjà connue parmi `posts` (hors `post` lui-même), sinon None."""
+    return KnownPosts([other for other in posts if other is not post]).find(post)
+
+
+def canonical_posts(posts: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    """(publications uniques, doublon post_id -> post_id gardé) ; la 1re scrapée est gardée."""
+    index = KnownPosts()
+    kept: list[dict[str, Any]] = []
+    duplicates: dict[str, str] = {}
+    for post in sorted(posts, key=lambda p: p.get("scraped_at", "")):
+        known = index.find(post)
+        if known is not None and known != post["post_id"]:
+            duplicates[post["post_id"]] = known
+            continue
+        index.add(post)
+        kept.append(post)
+    return kept, duplicates
+
+
+def parse_page_url(url: str) -> PageTarget | None:
+    raw = url.strip()
+    parsed = urlparse(raw if "://" in raw else f"https://{raw}")
+    if "facebook.com" not in parsed.netloc.lower():
+        return None
+    path = parsed.path.rstrip("/")
+    segments = [segment for segment in path.split("/") if segment]
+    page_id = ""
+    if path == "/profile.php":
+        page_id = parse_qs(parsed.query).get("id", [""])[0]
+    elif segments[:1] == ["people"] and len(segments) >= 3:
+        page_id = segments[2]
+    if page_id:
+        if not page_id.isdigit():
+            return None
+        page_url = f"https://www.facebook.com/profile.php?id={page_id}"
+        return PageTarget(page_id, page_url, f"{page_url}&sk=about")
+    if segments and segments[0].lower() not in fb.RESERVED_PATHS:
+        page_url = f"https://www.facebook.com/{segments[0]}"
+        return PageTarget(segments[0], page_url, f"{page_url}/about")
+    return None
+
+
+def load_page_targets(urls: list[str], pages_file: Path) -> list[PageTarget]:
+    lines = list(urls)
+    if not lines and pages_file.exists():
+        lines = pages_file.read_text(encoding="utf-8-sig").splitlines()
+    targets: list[PageTarget] = []
+    for line in (raw.strip() for raw in lines):
+        if not line or line.startswith("#"):
+            continue
+        target = parse_page_url(line)
+        if target is None:
+            print(f"[WARN] Lien ignoré (pas une page Facebook) : {line}")
+        elif all(t.page_id != target.page_id for t in targets):
+            targets.append(target)
+    return targets
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+# ---------------------------------------------------------------------------
+# Scraping d'une page
+# ---------------------------------------------------------------------------
+
+
+def fetch_page_info(sb: SB, target: PageTarget) -> dict[str, Any]:
+    """Nom, photo de profil et texte public de l'onglet "À propos" (contacts, adresse, catégorie de la page)."""
+    info: dict[str, Any] = {"page_id": target.page_id, "page_url": target.page_url, "name": "", "about_text": "", "logo_url": ""}
+    try:
+        sb.goto(target.about_url)
+        sb.sleep(4)
+    except Exception as exc:
+        print(f"  [WARN] Onglet À propos inaccessible : {exc}")
+        return info
+    state = fb._run_js(sb, PAGE_INFO_JS) or {}
+    lines = list(dict.fromkeys(fb._normalize_text(line) for line in state.get("about", "").split("\n")))
+    info.update(
+        name=fb._clean_group_title(state.get("title", "")),
+        about_text="\n".join(line for line in lines if line),
+        logo_url=state.get("logo", ""),
+        fetched_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    )
+    return info
+
+
+def open_page_feed(sb: SB, target: PageTarget) -> str | None:
+    print(f"Ouverture de {target.page_url}")
+    try:
+        sb.goto(target.page_url)
+    except Exception as exc:
+        print(f"  [ERREUR] {exc}")
+        return None
+    deadline = time.monotonic() + fb.FEED_TIMEOUT
+    while time.monotonic() < deadline:
+        state = fb._page_state(sb)
+        if state.get("posts"):
+            return fb._clean_group_title(state.get("title", ""))
+        if fb._is_auth_wall(state):
+            print("  [ERREUR] Facebook demande une connexion/vérification - relancez avec --login")
+            return None
+        fb._run_js(sb, "(() => { window.scrollBy(0, 800); return JSON.stringify(true); })()")  # publications sous l'intro
+        sb.sleep(1.5)
+    print("  [ERREUR] Aucune publication trouvée (page vide, restreinte ou modifiée par Facebook ?)")
+    return None
+
+
+def _viewer_state(sb: SB, previous: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Attend qu'une photo (différente de la précédente) soit affichée dans la visionneuse."""
+    deadline = time.monotonic() + VIEWER_TIMEOUT
+    while time.monotonic() < deadline:
+        state = fb._run_js(sb, VIEWER_STATE_JS, {"nextLabels": list(NEXT_PHOTO_LABELS), "click": False})
+        if state and state.get("src"):
+            state["ident"] = state.get("fbid") or urlparse(state["src"]).path
+            if previous is None or (state["ident"] != previous["ident"] and state["src"] != previous["src"]):
+                return state
+        sb.sleep(0.5)
+    return None
+
+
+def collect_viewer_photos(sb: SB, url: str, limit: int) -> list[dict[str, str]]:
+    """Parcourt la visionneuse depuis la 1re photo : "suivante" jusqu'à `limit` photos ou retour au début."""
+    try:
+        sb.goto(url)
+    except Exception:
+        return []
+    photos: list[dict[str, str]] = []
+    seen: set[str] = set()
+    state = _viewer_state(sb, None)
+    while state is not None and len(photos) < limit and state["ident"] not in seen:
+        seen.add(state["ident"])
+        photos.append({"fbid": state.get("fbid", ""), "url": state["src"], "alt": fb._normalize_text(state.get("alt"))})
+        if len(photos) >= limit or not state.get("hasNext"):
+            break
+        clicked = fb._run_js(sb, VIEWER_STATE_JS, {"nextLabels": list(NEXT_PHOTO_LABELS), "click": True}) or {}
+        if not clicked.get("clicked"):
+            break
+        state = _viewer_state(sb, state)
+    return photos
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def fetch_post_images(sb: SB, store: fb.PostStore, target: PageTarget, opts: argparse.Namespace) -> None:
+    """
+    Toutes les images de chaque publication : visionneuse (pleine résolution, au-delà
+    des 5 vignettes du fil) sinon vignettes du fil ; téléchargées avec sha256.
+    `limit` = vignettes + "+N" : une photo seule d'un album ne fait pas parcourir tout l'album.
+    """
+    folder = pages_dir() / "images" / target.file_slug
+    viewer_failures = 0
+    for post in store.posts():
+        if post.get("images_done") or fb.post_too_old(post, opts.max_age_days):
+            continue  # publication trop ancienne déjà en cache : ni visionneuse ni téléchargement
+        feed_images = post.get("images", [])
+        photos: list[dict[str, str]] = []
+        if feed_images and post.get("photo_links") and not opts.no_viewer:
+            limit = min(opts.max_photos, max(1, len(feed_images) + int(post.get("more_images") or 0)))
+            photos = collect_viewer_photos(sb, post["photo_links"][0], limit)
+            if not photos:
+                if fb._is_auth_wall(fb._page_state(sb)):
+                    # Sans ce contrôle : 12 s d'attente par publication puis vignettes basse résolution gravées "terminé"
+                    print("  [ERREUR] Facebook demande une reconnexion : récupération des images interrompue (relancez avec --login)")
+                    store.save()
+                    return
+                viewer_failures += 1
+                if viewer_failures == 3:
+                    print("  [WARN] Visionneuse : aucune photo lue sur 3 publications d'affilée (Facebook a changé ?) - vignettes du fil utilisées")
+            else:
+                viewer_failures = 0
+        if photos and len(photos) >= len(feed_images):
+            records = [{"url": p["url"], "alt": p["alt"], "fbid": p["fbid"], "source": "viewer"} for p in photos]
+        else:
+            records = [{**image, "source": "feed"} for image in feed_images]
+
+        complete = True
+        for index, image in enumerate(records, 1):
+            # Préfixe distinct : _download_image réutilise un fichier existant, une vignette du fil téléchargée lors
+            # d'une tentative précédente ne doit jamais remplacer la photo pleine résolution de la visionneuse
+            stem = f"{post['post_id']}_{index}" if image["source"] == "viewer" else f"{post['post_id']}_feed_{index}"
+            try:
+                path = fb._download_image(image["url"], folder / stem)
+            except fb.ImageDownloadError as exc:
+                image["download_error"] = str(exc)
+                complete = complete and exc.permanent
+                continue
+            image["file"] = path.relative_to(fb.OUTPUT_DIR).as_posix()
+            image["sha256"] = _sha256(path)
+        post["images"] = records
+        post["images_done"] = complete
+        store.add(post["post_id"], post)
+        if records:
+            print(f"  [images] {post['post_id']} : {sum(1 for r in records if r.get('file'))}/{len(records)} ({records[0]['source']})")
+        store.save()
+
+
+def ocr_page_posts(store: fb.PostStore, max_age_days: int = 0) -> None:
+    pending = [
+        p for p in store.posts()
+        if any(i.get("file") and "ocr_text" not in i for i in p.get("images", [])) and not fb.post_too_old(p, max_age_days)
+    ]
+    engine = fb._get_ocr_engine() if pending else None
+    if engine is None:
+        return
+    total = sum(1 for p in pending for i in p["images"] if i.get("file") and "ocr_text" not in i)
+    print(f"  OCR des images : {total} image(s) dans {len(pending)} publication(s) (~0,5 à 2 s par image)...")
+    done = 0
+    for index, post in enumerate(pending, 1):
+        count = sum(1 for i in post["images"] if i.get("file") and "ocr_text" not in i)
+        start = time.monotonic()
+        fb.ocr_post_images(engine, post)
+        done += count
+        store.add(post["post_id"], post)
+        store.save()  # progression conservée sur Ctrl+C
+        print(f"    [{index}/{len(pending)}] {count} image(s) en {time.monotonic() - start:.0f}s - total {done}/{total}")
+
+
+def scrape_page(sb: SB, target: PageTarget, opts: argparse.Namespace, country: CountryProfile) -> fb.GroupStats:
+    stats = fb.GroupStats()
+    registry_path = pages_dir() / f"pages_{country.code}.json"
+    pages = _read_json(registry_path)
+    info = fetch_page_info(sb, target)
+    pages[target.page_id] = {**pages.get(target.page_id, {}), **{k: v for k, v in info.items() if v}, "country": country.code}
+    fb._write_json_atomic(registry_path, pages)
+    print(f"Page : {info['name'] or target.page_id} ({len(info['about_text'])} caractères dans À propos)")
+
+    store = fb.PostStore(target.posts_file)
+    name = open_page_feed(sb, target)
+    if name is not None:
+        scroll_opts = fb.ScrapeOptions(
+            sort="default", max_posts=opts.max_posts, stop_after_known=opts.stop_after_known, max_idle=opts.max_idle,
+            scroll_delay=opts.scroll_delay, dump_html=opts.dump_html, download_images=False, ocr=False,
+            any_root=True, exact_dates=not opts.no_exact_dates, max_age_days=opts.max_age_days,
+        )
+        try:
+            fb._scroll_feed(sb, target, info["name"] or name, store, scroll_opts, stats)
+        finally:
+            store.save()
+    fetch_post_images(sb, store, target, opts)
+    if not opts.no_ocr:
+        ocr_page_posts(store, opts.max_age_days)
+    return stats
+
+
+# ---------------------------------------------------------------------------
+# Analyse IA
+# ---------------------------------------------------------------------------
+
+
+def select_images_for_ai(post: dict[str, Any], send_all_images: bool = False) -> list[dict[str, Any]]:
+    """
+    Mode d'envoi de chaque image téléchargée (option coût "mixte", ~29 000 tokens par image jointe en haute
+    résolution avec gpt-4o-mini) ; noté dans images[i]["ai_mode"] (+ "ai_reason") :
+    - "ocr_text" : l'OCR a lu un contact (email, téléphone, site) ou >= AI_MIN_TEXT_CHARS caractères -> seul ce
+      texte part (affiches d'offres : lues de façon fiable par RapidOCR) ;
+    - "image"    : l'OCR a lu un peu de texte (logo, nom stylisé) ou l'OCR n'a pas tourné -> image jointe ;
+    - "skipped"  : aucun texte lu (photo, décor) -> rien n'est envoyé ; si RIEN d'autre ne part pour la
+      publication, la 1re image est jointe quand même (logo / nom de l'entreprise).
+    send_all_images : toutes les images jointes (ancien comportement, coûteux).
+    Renvoie [{"number", "path" (None = texte OCR seul), "ocr"}] pour AiExtractor.analyze_post.
+    """
+    items: list[dict[str, Any]] = []
+    downloaded = [(number, image) for number, image in enumerate(post.get("images", []), 1) if image.get("file")]
+    for number, image in downloaded:
+        text = image.get("ocr_text", "")
+        chars = sum(char.isalnum() for char in text)
+        has_contact = bool(fb.extract_emails(text) or fb.extract_phones(text) or WEBSITE_RE.search(text))
+        if send_all_images or "ocr_text" not in image:
+            mode, reason = "image", "toutes les images jointes" if send_all_images else "OCR non disponible"
+        elif has_contact or chars >= AI_MIN_TEXT_CHARS:
+            mode, reason = "ocr_text", f"texte lu par l'OCR ({chars} caractères{', contact' if has_contact else ''})"
+        elif chars:
+            mode, reason = "image", f"peu de texte lu ({chars} caractères) : logo ou visuel"
+        else:
+            mode, reason = "skipped", "aucun texte lu (photo, décor)"
+        if mode == "image" and not (fb.OUTPUT_DIR / image["file"]).exists():
+            mode, reason = ("ocr_text", "fichier image absent : texte OCR seul") if text else ("skipped", "fichier image absent")
+        image["ai_mode"], image["ai_reason"] = mode, reason
+        image.pop("ai_sent", None)
+        image.pop("ai_skip_reason", None)
+        if mode != "skipped":
+            items.append({"number": number, "path": fb.OUTPUT_DIR / image["file"] if mode == "image" else None, "ocr": text})
+    existing = [(number, image) for number, image in downloaded if (fb.OUTPUT_DIR / image["file"]).exists()]
+    if existing and not items:
+        number, image = existing[0]
+        image["ai_mode"], image["ai_reason"] = "image", "aucune image lisible : 1re image jointe quand même"
+        items.append({"number": number, "path": fb.OUTPUT_DIR / image["file"], "ocr": image.get("ocr_text", "")})
+    return items
+
+
+def country_page_ids(country: CountryProfile) -> list[str]:
+    pages = _read_json(pages_dir() / f"pages_{country.code}.json")
+    return [page_id for page_id, page in pages.items() if page.get("country") == country.code]
+
+
+def _needs_analysis(post: dict[str, Any], extractor: AiExtractor, reanalyze: bool) -> bool:
+    """Jamais analysée ; ou, avec --reanalyze, analysée avec un autre modèle / une ancienne version du prompt."""
+    meta = post.get("analysis", {}).get("meta")
+    if meta is None:
+        return not post.get("analysis_error_permanent") or reanalyze  # erreur définitive : pas retentée à chaque run
+    return reanalyze and (meta.get("prompt_version") != PROMPT_VERSION or meta.get("model") != extractor.model)
+
+
+def analyze_posts(
+    country: CountryProfile, extractor: AiExtractor, reanalyze: bool, ocr: bool = True, send_all_images: bool = False,
+    max_tokens: int = 0, max_age_days: int = 0,
+) -> None:
+    """
+    N'appelle l'IA que pour ce qui manque : publications jamais analysées (doublons de pfbid exclus), ou
+    analysées avec un autre modèle / prompt si --reanalyze ; le cache IA reste utilisé dans tous les cas.
+    max_tokens : arrêt quand les nouveaux appels de ce lancement ont consommé ce budget (0 = sans limite).
+    """
+    pages = _read_json(pages_dir() / f"pages_{country.code}.json")
+    tokens_used = 0
+    for page_id in country_page_ids(country):
+        target = PageTarget(page_id, pages[page_id]["page_url"], "")
+        store = fb.PostStore(target.posts_file)
+        if ocr:
+            ocr_page_posts(store, max_age_days)  # rattrape un OCR interrompu (Ctrl+C, --skip-scrape) avant l'IA
+        unique, duplicates = canonical_posts(store.posts())
+        candidates = [p for p in unique if _needs_analysis(p, extractor, reanalyze)]
+        todo = [p for p in candidates if not fb.post_too_old(p, max_age_days)]
+        if len(todo) < len(candidates):
+            print(f"\n[ANCIENNES] {len(candidates) - len(todo)} publication(s) de plus de {max_age_days} jours non analysée(s)")
+        if duplicates:
+            print(f"\n[DOUBLON] {len(duplicates)} publication(s) déjà connue(s) sous un autre pfbid : jamais envoyée(s) à l'IA")
+        if not todo:
+            continue
+        print(f"\nAnalyse IA - {pages[page_id].get('name') or page_id} : {len(todo)} publication(s)")
+        waiting_ocr = 0
+        for post in todo:
+            if max_tokens and tokens_used >= max_tokens:
+                print(f"  [BUDGET] {tokens_used} tokens consommés (limite --max-ai-tokens {max_tokens}) : analyse arrêtée, relancez pour continuer")
+                store.save()
+                return
+            if not post.get("images_done"):
+                print(f"  [ATTENTE] {post['post_id'][:30]}… : images incomplètes, analyse reportée au prochain scraping")
+                continue
+            if not send_all_images and any(i.get("file") and "ocr_text" not in i for i in post.get("images", [])):
+                waiting_ocr += 1  # sans OCR, chaque image partirait en haute résolution (~29 000 tokens chacune)
+                continue
+            images = select_images_for_ai(post, send_all_images)
+            modes = {mode: sum(1 for i in post.get("images", []) if i.get("ai_mode") == mode) for mode in ("image", "ocr_text", "skipped")}
+            try:
+                analysis = extractor.analyze_post(post, pages[page_id], images, country.name)
+            except AiError as exc:
+                post["analysis_error"] = str(exc)
+                post["analysis_error_permanent"] = exc.permanent
+                store.add(post["post_id"], post)
+                store.save()
+                print(f"  [ERREUR IA] {post['post_id'][:30]}… : {exc}")
+                continue
+            if not analysis["meta"].get("cached"):
+                tokens_used += sum(int(v) for v in analysis["meta"].get("usage", {}).values())
+            post["analysis"] = analysis
+            post.pop("analysis_error", None)
+            post.pop("analysis_error_permanent", None)
+            store.add(post["post_id"], post)
+            store.save()
+            result = analysis["result"]
+            names = ", ".join(c["name"] for c in result["companies"] if c["name"]) or "-"
+            print(
+                f"  + {post['post_id'][:30]}… [{result['post_kind']}] images jointes {modes['image']}, texte OCR seul "
+                f"{modes['ocr_text']}, écartées {modes['skipped']} | tokens {analysis['meta'].get('usage', {}).get('prompt_tokens', '?')} -> "
+                f"entreprises : {names} | offres : {len(result['job_offers'])}"
+            )
+        if waiting_ocr:
+            print(f"  [ATTENTE] {waiting_ocr} publication(s) sans OCR (pip install rapidocr onnxruntime, ou relancez sans "
+                  f"--no-ocr) : non envoyée(s) pour ne pas joindre chaque image en haute résolution (--send-all-images pour forcer)")
+        store.save()
+    if tokens_used:
+        print(f"\nIA : {tokens_used} tokens consommés par les nouveaux appels de ce lancement")
+
+
+# ---------------------------------------------------------------------------
+# Consolidation -> JSON au format backend
+# ---------------------------------------------------------------------------
+
+
+def _offer_company_id(offer: dict[str, Any], refs: list[tuple[dict[str, Any], str]]) -> str:
+    """Entreprise de l'offre : même nom dans la publication, sinon l'unique entreprise, sinon la page elle-même."""
+    wanted = normalize_name(offer.get("company_name", ""))
+    if wanted:
+        for company, company_id in refs:
+            name = normalize_name(company.get("name", ""))
+            if name and names_similar(wanted, name):
+                return company_id
+    if len(refs) == 1:
+        return refs[0][1]
+    return next((company_id for company, company_id in refs if company.get("is_page_owner")), "")
+
+
+JOB_REPOST_WINDOW_DAYS = 60  # au-delà : nouvelle campagne de recrutement, offre distincte
+DMY_RE = re.compile(r"\b(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4}|\d{2})\b")
+
+
+def _title_key(title: str) -> str:
+    """'Assistant(e) comptable H/F' -> 'assistant comptable'."""
+    title = re.sub(r"\(\s*e\s*\)|\b[hf]\s*/\s*[hf]\b", " ", title, flags=re.I)
+    return " ".join(re.findall(r"[a-z0-9]+", fold(title)))
+
+
+def _deadline_key(deadline: str) -> str:
+    match = DMY_RE.search(deadline)
+    if match:
+        day, month, year = (int(part) for part in match.groups())
+        return f"{year + 2000 if year < 100 else year:04d}-{month:02d}-{day:02d}"
+    return " ".join(re.findall(r"[a-z0-9]+", fold(deadline)))
+
+
+def _occurrence_day(occurrence: dict[str, Any]) -> date:
+    return date.fromisoformat((occurrence["published"] or occurrence["post"]["scraped_at"])[:10])
+
+
+def dedupe_offers(occurrences: list[dict[str, Any]], registry_path: Path) -> list[tuple[str, list[dict[str, Any]]]]:
+    """
+    Regroupe les republications d'une même offre : même entreprise (company_id, sinon nom
+    normalisé), même intitulé normalisé, même date limite, publications à moins de
+    JOB_REPOST_WINDOW_DAYS jours d'intervalle. Sans intitulé ou sans entreprise : jamais
+    regroupée. job_id stable : job_registry_<pays>.json retient le job_id de CHAQUE
+    publication d'offre ; une campagne reprend celui déjà attribué à l'une de ses
+    publications (même si une publication plus ancienne est découverte ensuite), sinon
+    l'id de sa première publication.
+    Renvoie [(job_id, occurrences triées de la plus ancienne à la plus récente)].
+    """
+    registry = _read_json(registry_path)
+    known: dict[str, str] = registry.setdefault("occurrences", {})
+    groups: dict[str, list[dict[str, Any]]] = {}
+    repeats: dict[str, int] = {}
+    for occurrence in occurrences:
+        offer = occurrence["offer"]
+        title = _title_key(offer.get("title", ""))
+        name = normalize_name(offer.get("company_name", ""))
+        owner = occurrence["company_id"] or (f"name:{name}" if name else "")
+        key = f"{owner}|{title}|{_deadline_key(offer.get('deadline', ''))}" if title and owner else f"post:{occurrence['local_id']}"
+        # Clé de registre par CONTENU (publication + offre) et non par rang : une ré-analyse peut renvoyer
+        # les offres dans un autre ordre, "fb-post-X-3" désignerait alors une autre offre.
+        # Même clé plusieurs fois dans une publication (offre répétée par l'IA, même poste dans deux villes) :
+        # "#2", "#3" dans l'ordre des offres, sinon elles se partagent une entrée et échangent leur job_id à chaque lancement
+        registry_key = f"{occurrence['post']['post_id']}|{key}"
+        repeats[registry_key] = repeats.get(registry_key, 0) + 1
+        occurrence["registry_key"] = registry_key if repeats[registry_key] == 1 else f"{registry_key}#{repeats[registry_key]}"
+        groups.setdefault(key, []).append(occurrence)
+
+    all_campaigns: list[list[dict[str, Any]]] = []
+    for key, group in groups.items():
+        group.sort(key=lambda occ: (_occurrence_day(occ), occ["post"]["scraped_at"], occ["local_id"]))
+        campaigns: list[list[dict[str, Any]]] = []
+        for occurrence in group:
+            # Une campagne = republications dans des publications DIFFÉRENTES, à <= JOB_REPOST_WINDOW_DAYS jours :
+            # deux offres identiques dans une même publication (ex. 2 postes, 2 villes) restent distinctes
+            target = next((
+                campaign for campaign in campaigns
+                if (_occurrence_day(occurrence) - _occurrence_day(campaign[-1])).days <= JOB_REPOST_WINDOW_DAYS
+                and all(occ["post"]["post_id"] != occurrence["post"]["post_id"] for occ in campaign)
+            ), None)
+            if target is None:
+                campaigns.append([occurrence])
+            else:
+                target.append(occurrence)
+        all_campaigns += campaigns
+
+    # 1re passe : les campagnes déjà connues reprennent leur job_id ; 2e passe : ids neufs, jamais déjà pris
+    ids: dict[int, str] = {}
+    used: set[str] = set()
+    for position, campaign in enumerate(all_campaigns):
+        previous = [known[occ["registry_key"]] for occ in campaign if occ["registry_key"] in known]
+        previous = [job_id for job_id in previous if job_id not in used]
+        if previous:
+            ids[position] = max(previous, key=previous.count)
+            used.add(ids[position])
+    for position, campaign in enumerate(all_campaigns):
+        if position in ids:
+            continue
+        job_id = next((occ["local_id"] for occ in campaign if occ["local_id"] not in used), None)
+        suffix = 2
+        while job_id is None or job_id in used:
+            job_id, suffix = f"{campaign[0]['local_id']}-r{suffix}", suffix + 1
+        ids[position] = job_id
+        used.add(job_id)
+
+    assigned: list[tuple[str, list[dict[str, Any]]]] = []
+    for position, campaign in enumerate(all_campaigns):
+        for occurrence in campaign:
+            known[occurrence["registry_key"]] = ids[position]
+        assigned.append((ids[position], campaign))
+    fb._write_json_atomic(registry_path, registry)
+    return assigned
+
+
+def _merged_offer(campaign: list[dict[str, Any]]) -> dict[str, Any]:
+    """Version la plus complète de l'offre, avec les contacts de toutes ses republications."""
+    def completeness(offer: dict[str, Any]) -> int:
+        lists = sum(len(offer.get(field, [])) for field in ("tasks", "qualifications", "skills"))
+        fields = sum(1 for field in ("location", "contract_type", "salary", "deadline", "how_to_apply") if offer.get(field))
+        return len(offer.get("description", "")) + 50 * lists + 20 * fields
+
+    offers = [occurrence["offer"] for occurrence in campaign]
+    merged = dict(max(offers, key=completeness))
+    for field in ("emails", "phone_numbers"):
+        merged[field] = list(dict.fromkeys(item for offer in offers for item in offer.get(field, [])))
+    return merged
+
+
+def job_document(
+    job_id: str, offer: dict[str, Any], post: dict[str, Any], page: dict[str, Any], company: dict[str, Any],
+    company_id: str, published: str | None,
+) -> dict[str, Any]:
+    """Uniquement les champs du modèle Job (backend/src/models/job.model.ts)."""
+    job_url = post.get("post_url") or page.get("page_url", "")
+    criteria = {
+        "Lieu": offer.get("location", ""),
+        "Type de contrat": offer.get("contract_type", ""),
+        "Salaire": offer.get("salary", ""),
+        "Date limite": offer.get("deadline", ""),
+        "Comment postuler": offer.get("how_to_apply", ""),
+        "Emails": ", ".join(offer.get("emails", [])),
+        "Téléphones": ", ".join(offer.get("phone_numbers", [])),
+        "Publié le": published or "",
+        "Source": f"Facebook - {page.get('name') or page.get('page_url', '')}",
+    }
+    tasks = offer.get("tasks", [])
+    return {
+        "job_id": job_id,
+        "title": offer.get("title", ""),
+        "job_url": job_url,
+        "company_name": company.get("name") or offer.get("company_name", ""),
+        "company_url": company.get("company_url", ""),
+        "company_id": company_id,
+        "detail": {
+            "job_url": job_url,
+            "headline": "",
+            "description": offer.get("description") or post.get("text", ""),
+            "qualifications": offer.get("qualifications", []),
+            "criteria": {key: value for key, value in criteria.items() if value},
+            "skills": offer.get("skills", []),
+            "sections": [{
+                "heading": "Missions",
+                "description": "\n".join(f"• {task}" for task in tasks),
+                "qualifications": [], "criteria": {}, "skills": [],
+            }] if tasks else [],
+        },
+        "company_profile": company,
+    }
+
+
+def consolidate(country: CountryProfile) -> None:
+    out = pages_dir()
+    pages = _read_json(out / f"pages_{country.code}.json")
+    posts: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    duplicate_posts: dict[str, str] = {}
+    for page_id in country_page_ids(country):
+        store = fb.PostStore(PageTarget(page_id, pages[page_id]["page_url"], "").posts_file)
+        kept, duplicates = canonical_posts([post for post in store.posts() if "analysis" in post])  # doublons de pfbid exclus
+        posts += [(post, pages[page_id]) for post in kept]
+        duplicate_posts.update(duplicates)
+    if not posts:
+        print("\nConsolidation : aucune publication analysée pour l'instant.")
+        return
+
+    candidates = []
+    for post, page in posts:
+        for index, company in enumerate(post["analysis"]["result"]["companies"]):
+            if company.get("name") or company.get("emails") or company.get("phone_numbers") or company.get("website"):
+                candidates.append(build_candidate(post, index, company, page, country))
+    registry = CompanyRegistry(out / f"identity_registry_{country.code}.json")
+    clusters, shared = registry.cluster(candidates)
+    assigned = registry.assign_ids(clusters, shared)
+    registry.save()
+
+    company_by_ref = {candidate.ref: company_id for company_id, cluster in assigned for candidate in cluster}
+    companies = {company_id: company_document(company_id, cluster, country, registry.generic_keys) for company_id, cluster in assigned}
+    jobs: dict[str, Any] = {}
+    publications: dict[str, Any] = {}
+    review_posts: dict[str, Any] = {}
+
+    occurrences: list[dict[str, Any]] = []
+    for post, page in posts:
+        result = post["analysis"]["result"]
+        refs = [
+            (company, company_by_ref[f"{post['post_id']}#{index}"])
+            for index, company in enumerate(result["companies"]) if f"{post['post_id']}#{index}" in company_by_ref
+        ]
+        published, precision = published_at(post.get("date_tooltip", ""), post.get("time_text", ""), post["scraped_at"])
+        offers = result["job_offers"]
+        local_ids = []
+        for number, offer in enumerate(offers, 1):
+            if not offer.get("title", "").strip():
+                continue  # offre sans intitulé : inutilisable côté backend, visible dans ai_result de la revue
+            local_id = f"fb-post-{post['post_id']}" + (f"-{number}" if len(offers) > 1 else "")
+            occurrences.append({
+                "local_id": local_id, "post": post, "page": page, "offer": offer,
+                "company_id": _offer_company_id(offer, refs), "published": published,
+            })
+            local_ids.append(local_id)
+        review_posts[post["post_id"]] = {
+            "post_url": post.get("post_url", ""),
+            "page_id": page["page_id"],
+            "page_name": page.get("name", ""),
+            "time_text": post.get("time_text", ""),
+            "date_tooltip": post.get("date_tooltip", ""),
+            "published_at": published,
+            "published_at_precision": precision,
+            "post_kind": result["post_kind"],
+            "text": post.get("text", ""),
+            "images": [
+                {k: image.get(k) for k in ("file", "sha256", "source", "ai_mode", "ai_reason", "ocr_text", "download_error")
+                 if image.get(k) not in (None, "")}
+                for image in post.get("images", [])
+            ],
+            "company_ids": [company_id for _, company_id in refs],
+            "job_ids": local_ids,  # remplacés par les job_id dédoublonnés ci-dessous
+            "ai_result": result,
+            "ai_meta": post["analysis"]["meta"],
+            "notes": result.get("notes", ""),
+        }
+
+    # Même offre republiée dans plusieurs publications -> un seul job_id, première date de publication
+    job_id_by_local: dict[str, str] = {}
+    review_jobs: dict[str, Any] = {}
+    for job_id, campaign in dedupe_offers(occurrences, out / f"job_registry_{country.code}.json"):
+        first = campaign[0]
+        company_id = next((occ["company_id"] for occ in campaign if occ["company_id"]), "")
+        offer = _merged_offer(campaign)
+        jobs[job_id] = job_document(job_id, offer, first["post"], first["page"], companies.get(company_id, {}), company_id, first["published"])
+        publications[job_id] = {"job_id": job_id, "published_at": first["published"]}
+        for occ in campaign:
+            job_id_by_local[occ["local_id"]] = job_id
+        review_jobs[job_id] = {
+            "title": offer.get("title", ""),
+            "occurrences": [{"post_id": occ["post"]["post_id"], "published_at": occ["published"]} for occ in campaign],
+        }
+    for review in review_posts.values():
+        review["job_ids"] = list(dict.fromkeys(job_id_by_local[local_id] for local_id in review["job_ids"]))
+
+    generated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    fb._write_json_atomic(out / f"companies_{country.code}.json", companies)
+    fb._write_json_atomic(out / f"jobs_{country.code}.json", jobs)
+    fb._write_json_atomic(out / f"job_publications_{country.code}.json", publications)
+    fb._write_json_atomic(out / f"analysis_{country.code}.json", {
+        "generated_at": generated_at,
+        "country": {"code": country.code, "name": country.name, "iso3": country.iso3},
+        "companies": {company_id: review_entry(company_id, cluster, shared) for company_id, cluster in assigned},
+        "jobs": review_jobs,
+        "posts": review_posts,
+        "duplicate_posts": duplicate_posts,  # doublon de pfbid -> publication gardée (nettoyage du backend)
+    })
+    merged = sum(1 for _, cluster in assigned if len(cluster) > 1)
+    reposted = len(occurrences) - len(jobs)
+    print(
+        f"\nConsolidation {country.name} : {len(posts)} publication(s), {len(candidates)} mention(s) d'entreprise "
+        f"-> {len(companies)} entreprise(s) ({merged} regroupée(s)), {len(jobs)} offre(s) "
+        f"({reposted} republication(s) regroupée(s)), "
+        f"{len(shared)} contact(s) partagé(s) ignoré(s)\n  -> {out}"
+    )
+
+
+REF_CODE_RE = re.compile(r"[(\[]\s*r[ée]f[^)\]]*[)\]]|\br[ée]f(?:[ée]rence)?\s*[.:°#]\s*[\w/-]+", re.I)
+INCLUSIVE_SUFFIX_RE = re.compile(r"\(\s*(?:e|es|s|ère|ere|ne|se|le|trice|euse)\s*\)|\.(?:ve|ère|ere|trice|euse)\b", re.I)
+JOB_ID_SUFFIX_RE = re.compile(r"(?:-\d+)?(?:-r\d+)?")
+
+
+def _offer_signature(title: str) -> str:
+    """Intitulé comparable d'une analyse IA à l'autre : 'Conseiller(ère) de Vente (Réf CV)' -> 'conseiller de vente'."""
+    return _title_key(INCLUSIVE_SUFFIX_RE.sub("", REF_CODE_RE.sub(" ", title)))
+
+
+def stale_replacement_finder(country: CountryProfile) -> ReplacementFinder:
+    """
+    Nettoyage du backend (backend_push.clean_stale) : pour un document envoyé autrefois puis disparu des JSON,
+    id du document actuel qui le remplace, sinon None (document gardé en base).
+    - entreprise : fusionnée dans une autre (alias du registre d'identité) ;
+    - offre : même intitulé (hors « (Réf …) », « (ère) », « H/F ») ET même entreprise (alias résolus), ou même
+      publication d'origine (doublon de pfbid ramené à la publication gardée, republication regroupée).
+    Une offre que la dernière analyse IA n'a pas retrouvée n'a pas d'équivalent : jamais supprimée.
+    """
+    out = pages_dir()
+    companies = _read_json(out / f"companies_{country.code}.json")
+    jobs = _read_json(out / f"jobs_{country.code}.json")
+    analysis = _read_json(out / f"analysis_{country.code}.json")
+    aliases: dict[str, str] = _read_json(out / f"identity_registry_{country.code}.json").get("aliases", {})
+    duplicates: dict[str, str] = analysis.get("duplicate_posts", {})
+    known_posts = sorted({*analysis.get("posts", {}), *duplicates}, key=len, reverse=True)  # plus long d'abord : ids préfixes
+
+    def resolve(company_id: str) -> str:
+        seen = {company_id}
+        while company_id in aliases and aliases[company_id] not in seen:
+            company_id = aliases[company_id]
+            seen.add(company_id)
+        return company_id
+
+    def source_post(job_id: str) -> str:
+        """'fb-post-<post_id>-3' -> publication gardée (celle d'origine si <post_id> est un doublon de pfbid)."""
+        for post_id in known_posts:
+            prefix = f"fb-post-{post_id}"
+            if job_id.startswith(prefix) and JOB_ID_SUFFIX_RE.fullmatch(job_id[len(prefix):]):
+                return duplicates.get(post_id, post_id)
+        return ""
+
+    current: dict[str, list[tuple[str, str, str, set[str]]]] = {}
+    for job_id, job in jobs.items():
+        occurrences = analysis.get("jobs", {}).get(job_id, {}).get("occurrences", [])
+        current.setdefault(_offer_signature(job.get("title", "")), []).append((
+            job_id, job.get("company_id", ""), normalize_name(job.get("company_name", "")),
+            {occurrence["post_id"] for occurrence in occurrences},
+        ))
+
+    def find(kind: str, doc_id: str, stored: dict[str, Any]) -> str | None:
+        if kind == "companies":
+            company_id = resolve(doc_id)
+            return company_id if company_id != doc_id and company_id in companies else None
+        signature = _offer_signature(stored.get("title") or "")
+        if not signature:
+            return None
+        company_id = resolve(stored.get("company_id") or "")
+        name = normalize_name(stored.get("company_name") or "")
+        post_id = source_post(doc_id)
+        for job_id, current_company, current_name, posts in current.get(signature, []):
+            same_company = company_id == current_company if company_id and current_company else bool(name) and name == current_name
+            if same_company or (post_id and post_id in posts):
+                return job_id
+        return None
+
+    return find
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Pages Facebook -> analyse IA -> JSON au format backend")
+    parser.add_argument("--url", action="append", default=[], metavar="URL", help="Page Facebook (répétable). Défaut : --pages-file")
+    parser.add_argument("--pages-file", default=str(PAGES_FILE), metavar="FICHIER", help="Un lien de page par ligne (défaut : facebook_script/pages.txt)")
+    parser.add_argument("--country", choices=sorted(COUNTRIES), default="madagascar", help="Pays des pages (défaut : madagascar)")
+    parser.add_argument("--max-posts", type=int, default=0, metavar="N", help="Nouvelles publications max par page (0 = illimité)")
+    parser.add_argument("--stop-after-known", type=int, default=0, metavar="N", help="Arrête une page après N publications déjà en cache d'affilée")
+    parser.add_argument(
+        "--max-age-days", type=int, default=15, metavar="N",
+        help="Seulement les publications des N derniers jours, aujourd'hui compris (défaut 15 : le 15 on garde du 1er au 15 ; 0 = toutes)",
+    )
+    parser.add_argument("--max-idle", type=int, default=fb.DEFAULT_MAX_IDLE, metavar="N", help="Scrolls sans nouveauté avant fin du fil")
+    parser.add_argument("--scroll-delay", type=float, default=fb.DEFAULT_SCROLL_DELAY, metavar="SECONDES", help="Pause moyenne après chaque scroll")
+    parser.add_argument("--max-photos", type=int, default=DEFAULT_MAX_PHOTOS, metavar="N", help=f"Images max par publication (défaut {DEFAULT_MAX_PHOTOS})")
+    parser.add_argument("--no-viewer", action="store_true", help="Vignettes du fil seulement (5 max, taille réduite) au lieu de la visionneuse")
+    parser.add_argument("--no-exact-dates", action="store_true", help="Pas de survol pour lire la date complète (date estimée depuis '3 j')")
+    parser.add_argument("--no-ocr", action="store_true", help="Pas d'OCR des images (l'IA lit quand même les images)")
+    parser.add_argument("--no-ai", action="store_true", help="Scraping seul, aucun appel OpenAI")
+    parser.add_argument(
+        "--send-all-images", action="store_true",
+        help="Joint toutes les images à l'IA en haute résolution (coûteux ; par défaut les images lues par l'OCR partent en texte)",
+    )
+    parser.add_argument("--skip-scrape", action="store_true", help="Pas de navigateur : analyse IA + consolidation des publications en cache")
+    parser.add_argument(
+        "--reanalyze", action="store_true",
+        help="Ré-analyse les publications analysées avec un autre modèle ou une ancienne version du prompt (cache IA utilisé)",
+    )
+    parser.add_argument(
+        "--max-ai-tokens", type=int, default=0, metavar="N",
+        help="Arrête l'analyse IA quand les nouveaux appels de ce lancement ont consommé N tokens (0 = sans limite)",
+    )
+    parser.add_argument("--push", action="store_true", help="Après la consolidation, envoie les JSON au backend (SCRAPER_API_URL)")
+    parser.add_argument("--push-only", action="store_true", help="Envoie seulement les JSON déjà générés au backend (ni navigateur, ni IA)")
+    parser.add_argument("--force-push", action="store_true", help="Renvoie tous les documents, même inchangés depuis le dernier envoi")
+    parser.add_argument(
+        "--no-clean", action="store_true",
+        help="Ne supprime pas du backend les documents déjà envoyés puis regroupés avec un autre (entreprise fusionnée, offre republiée)",
+    )
+    parser.add_argument("--dump-html", action="store_true", help="HTML brut de chaque publication dans downloaded_files/facebook_html/")
+    parser.add_argument("--login", action="store_true", help="Propose la connexion manuelle même si une session est détectée")
+    parser.add_argument("--headless", action="store_true", help="Sans fenêtre (profil déjà connecté)")
+    return parser.parse_args()
+
+
+def run_scraping(targets: list[PageTarget], args: argparse.Namespace, country: CountryProfile) -> None:
+    fb.PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+    fb._reset_profile_exit_state(fb.PROFILE_DIR)
+    with SB(uc=True, locale="fr", user_data_dir=str(fb.PROFILE_DIR), headless=args.headless) as sb:
+        fb._activate_cdp_mode(sb)
+        logged_in = fb.is_logged_in(sb)
+        if args.headless and (args.login or not logged_in):
+            print("[ERREUR] Profil Facebook non connecté : relancez sans --headless pour vous connecter.")
+            return
+        if (args.login or not logged_in) and not fb.login_and_wait(sb):
+            return
+        for index, target in enumerate(targets, 1):
+            print(f"\n[{index}/{len(targets)}] Page {target.page_id}")
+            stats = scrape_page(sb, target, args, country)
+            print(
+                f"  -> {stats.new} nouvelle(s), {stats.known} déjà connue(s), {stats.too_old} trop ancienne(s) "
+                f"(> {args.max_age_days} j) ignorée(s), {stats.without_permalink} sans permalien"
+            )
+
+
+class RunAlreadyActive(Exception):
+    pass
+
+
+@contextmanager
+def run_lock(path: Path):
+    """Verrou exclusif sur un fichier, libéré par le système même si le processus plante."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle = open(path, "a+")
+    try:
+        if os.name == "nt":
+            import msvcrt
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        handle.close()
+        raise RunAlreadyActive() from None
+    try:
+        yield
+    finally:
+        with suppress(OSError):
+            if os.name == "nt":
+                import msvcrt
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        handle.close()
+
+
+def _push(args: argparse.Namespace, country: CountryProfile, api_url: str) -> None:
+    if api_url:
+        finder = None if args.no_clean else stale_replacement_finder(country)
+        push_country(pages_dir(), country.code, api_url, force=args.force_push, find_replacement=finder)
+    else:
+        print("[ERREUR] SCRAPER_API_URL est vide : envoi au backend désactivé.")
+
+
+def _run(args: argparse.Namespace, country: CountryProfile, api_url: str) -> None:
+    if args.push_only:
+        _push(args, country, api_url)
+        return
+
+    if not args.skip_scrape:
+        targets = load_page_targets(args.url, Path(args.pages_file))
+        if not targets:
+            print(f"[ERREUR] Aucune page à scraper : passez --url ou ajoutez des liens dans {args.pages_file}")
+            return
+        run_scraping(targets, args, country)
+
+    if not args.no_ai:
+        api_key = os.getenv("OPENAI_API_KEY", "")
+        if not api_key:
+            print("\n[ERREUR] OPENAI_API_KEY absente (environnement ou .env) : analyse IA sautée.")
+        else:
+            model = os.getenv("OPENAI_MODEL") or DEFAULT_MODEL
+            print(f"\nIA : modèle {model}, clé {mask_secret(api_key)}")
+            extractor = AiExtractor(api_key, model, pages_dir() / "ai_cache", os.getenv("OPENAI_BASE_URL") or DEFAULT_BASE_URL)
+            analyze_posts(
+                country, extractor, reanalyze=args.reanalyze, ocr=not args.no_ocr,
+                send_all_images=args.send_all_images, max_tokens=args.max_ai_tokens, max_age_days=args.max_age_days,
+            )
+    consolidate(country)
+    if args.push:
+        _push(args, country, api_url)
+
+
+def main() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        with suppress(Exception):
+            stream.reconfigure(errors="replace")
+    load_dotenv(fb.PROJECT_ROOT / ".env", fb.PROJECT_ROOT / "backend" / ".env")
+    args = parse_args()
+    country = COUNTRIES[args.country]
+    api_url = os.getenv("SCRAPER_API_URL", DEFAULT_API_URL)
+    try:
+        with run_lock(pages_dir() / f".run_{country.code}.lock"):
+            _run(args, country, api_url)
+    except RunAlreadyActive:
+        print(f"[ERREUR] Un autre lancement de pages.py ({country.code}) est déjà en cours : attendez sa fin "
+              f"(deux lancements simultanés écraseraient les mêmes fichiers).")
+    except KeyboardInterrupt:
+        print("\n[INFO] Interruption (Ctrl+C) - tout ce qui a été lu/analysé est sauvegardé ; relancez pour continuer.")
+
+
+if __name__ == "__main__":
+    main()

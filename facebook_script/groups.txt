@@ -1,0 +1,3 @@
+# Groupes Facebook à scraper : un lien par ligne.
+# Les lignes vides et celles qui commencent par # sont ignorées.
+https://www.facebook.com/groups/2367943963509691
