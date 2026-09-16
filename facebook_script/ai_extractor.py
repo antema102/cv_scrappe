@@ -38,7 +38,7 @@ from typing import Any
 
 import requests
 
-PROMPT_VERSION = "fb-pages-v3"  # v2 : images lues par OCR envoyées en texte seul ; v3 : OCR aussi par lots
+PROMPT_VERSION = "fb-pages-v4"  # v2 : images OCR en texte seul ; v3 : OCR par lots ; v4 : groupes (type de source, auteur)
 DEFAULT_MODEL = "gpt-4o-mini"
 DEFAULT_BASE_URL = "https://api.openai.com/v1"
 MAX_IMAGES_PER_CALL = 8
@@ -110,7 +110,7 @@ Pour limiter le coût, une image dont l'OCR a lu le texte n'est PAS jointe ("joi
 Règles :
 - N'invente rien. Un champ absent reste "" ou []. Recopie emails, téléphones et sites exactement comme écrits (corrige seulement une erreur OCR évidente : image jointe, ou forme manifestement cassée comme "gmail.corn").
 - companies : chaque entreprise/organisation réellement identifiable (nom, contact ou site). Plusieurs images montrant le même nom/email/téléphone = UNE seule entreprise, informations regroupées.
-- is_page_owner = true uniquement si l'entreprise est la page elle-même qui publie. Une page qui relaie des offres ou annonces d'autres entreprises n'est pas ces entreprises.
+- is_page_owner = true uniquement si l'entreprise est la page elle-même qui publie. Une page qui relaie des offres ou annonces d'autres entreprises n'est pas ces entreprises. Dans un groupe Facebook, is_page_owner = false : le groupe n'emploie personne et l'auteur de la publication relaie le plus souvent l'offre d'une autre entreprise.
 - description : 1 à 3 phrases factuelles sur l'activité de l'entreprise. sector : secteur d'activité court en français (ex. "Hôtellerie", "Commerce", "BTP").
 - address : adresse physique telle qu'écrite ; city : ville seule ; country : pays si indiqué ou évident ({country} par défaut pour une entreprise locale).
 - products_services : produits ou services proposés. categories : types de métiers/tâches/services concernés, en français, courts.
@@ -257,12 +257,14 @@ class AiExtractor:
     def _context(post: dict[str, Any], page: dict[str, Any], images: list[dict[str, Any]], total_images: int) -> dict[str, Any]:
         return {
             "page": {
+                "type": "groupe Facebook" if page.get("kind") == "group" else "page Facebook",
                 "name": page.get("name", ""),
                 "url": page.get("page_url", ""),
                 "about": (page.get("about_text", "") or "")[:ABOUT_MAX_CHARS],
             },
             "post": {
                 "url": post.get("post_url", ""),
+                "auteur": post.get("author_name", ""),
                 "date_affichee": post.get("date_tooltip") or post.get("time_text", ""),
                 "texte": post.get("text", ""),
                 "liens": post.get("links", []),

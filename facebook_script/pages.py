@@ -38,6 +38,9 @@ Usage :
     python facebook_script/pages.py --push-only                       # envoie au backend les JSON déjà validés
     python facebook_script/pages.py --skip-scrape --push              # IA + JSON puis envoi au backend
     python facebook_script/pages.py --push-only --no-clean            # envoi sans supprimer les doublons déjà envoyés
+    python facebook_script/pages.py --no-groups                       # pages seulement (défaut : pages.txt + groups.txt)
+    python facebook_script/pages.py --no-pages                        # groupes seulement (groups.txt)
+    python facebook_script/pages.py --group-url https://www.facebook.com/groups/2367943963509691 --push
 
 OPENAI_API_KEY / OPENAI_MODEL : environnement ou .env (racine, backend/.env).
 Envoi au backend (backend_push.py) uniquement avec --push / --push-only : SCRAPER_API_URL (défaut
@@ -143,11 +146,16 @@ def _clean_facebook_url(href: str) -> str:
     return urlunparse(parsed._replace(query=urlencode(query), fragment=""))
 
 
+GROUP_ID_PREFIX = "group-"  # id de source d'un groupe dans pages_<pays>.json : "group-<id du groupe>"
+
+
 @dataclass(frozen=True, slots=True)
 class PageTarget:
-    page_id: str  # id numérique (profile.php?id=) ou nom personnalisé
+    page_id: str  # id numérique (profile.php?id=) ou nom personnalisé ; "group-<id>" pour un groupe
     page_url: str
     about_url: str
+    kind: str = "page"  # "group" : publications collectées par scraper.py (groupes), analysées par le même pipeline
+    posts_path: str = ""  # fichier de publications relatif à downloaded_files (groupes) ; vide = facebook_pages/posts_<slug>.json
 
     @property
     def file_slug(self) -> str:
@@ -155,10 +163,12 @@ class PageTarget:
 
     @property
     def posts_file(self) -> Path:
-        return pages_dir() / f"posts_{self.file_slug}.json"
+        return fb.OUTPUT_DIR / self.posts_path if self.posts_path else pages_dir() / f"posts_{self.file_slug}.json"
 
     # Interface attendue par scraper.parse_post
     def post_url(self, post_id: str, href: str) -> str:
+        if self.kind == "group":
+            return f"https://www.facebook.com/groups/{self.page_id.removeprefix(GROUP_ID_PREFIX)}/posts/{post_id}/"
         if "/posts/" in href or "story_fbid=" in href:
             return _clean_facebook_url(href)
         return f"https://www.facebook.com/{self.page_id}/posts/{post_id}"  # id trouvé via un lien photo (set=pcb.)
@@ -557,14 +567,43 @@ def country_page_ids(country: CountryProfile) -> list[str]:
     return [page_id for page_id, page in pages.items() if page.get("country") == country.code]
 
 
-def _needs_analysis(post: dict[str, Any], extractor: AiExtractor, reanalyze: bool, email_filter: bool = False) -> bool:
+def source_target(page_id: str, entry: dict[str, Any]) -> PageTarget:
+    """Cible d'une entrée du registre `pages_<pays>.json` : page Facebook, ou groupe scrapé par scraper.py."""
+    return PageTarget(page_id, entry.get("page_url", ""), "", entry.get("kind", "page"), entry.get("posts_file", ""))
+
+
+def register_group(target: fb.GroupTarget, country: CountryProfile) -> str:
+    """
+    Inscrit un groupe déjà scrapé (scraper.py) dans `pages_<pays>.json` pour que l'analyse IA, la
+    consolidation et l'envoi au backend le traitent comme une page. Renvoie l'id de source.
+    """
+    page_id = f"{GROUP_ID_PREFIX}{target.group_id}"
+    posts = fb.PostStore(target.output_file).posts()
+    name = next((post.get("group_name") for post in reversed(posts) if post.get("group_name")), "")
+    registry_path = pages_dir() / f"pages_{country.code}.json"
+    registry = _read_json(registry_path)
+    entry = {
+        **registry.get(page_id, {}),
+        "page_id": page_id, "kind": "group", "page_url": target.group_url, "country": country.code,
+        "posts_file": str(target.output_file.relative_to(fb.OUTPUT_DIR)),
+    }
+    if name:
+        entry["name"] = name
+    registry[page_id] = entry
+    fb._write_json_atomic(registry_path, registry)
+    return page_id
+
+
+def _needs_analysis(
+    post: dict[str, Any], extractor: AiExtractor, reanalyze: bool, active_filters: set[str] = frozenset()
+) -> bool:
     """
     Jamais analysée ; ou, avec --reanalyze, analysée avec un autre modèle / une ancienne version du prompt.
-    Écartée faute d'email (analysis_skipped) : seulement si le filtre email est désactivé.
+    Publication écartée par un filtre (`analysis_skipped_by`) : reprise dès que ce filtre est désactivé.
     """
     meta = post.get("analysis", {}).get("meta")
     if meta is None:
-        if post.get("analysis_skipped") and email_filter:
+        if post.get("analysis_skipped_by", "email_filter") in active_filters and post.get("analysis_skipped"):
             return False
         return not post.get("analysis_error_permanent") or reanalyze  # erreur définitive : pas retentée à chaque run
     return reanalyze and (meta.get("prompt_version") != PROMPT_VERSION or meta.get("model") != extractor.model)
@@ -572,7 +611,7 @@ def _needs_analysis(post: dict[str, Any], extractor: AiExtractor, reanalyze: boo
 
 def analyze_posts(
     country: CountryProfile, extractor: AiExtractor, reanalyze: bool, ocr: bool = True, send_all_images: bool = False,
-    max_tokens: int = 0, max_age_days: int = 0, email_filter: bool = False,
+    max_tokens: int = 0, max_age_days: int = 0, email_filter: bool = False, job_filter: bool = False,
 ) -> None:
     """
     N'appelle l'IA que pour ce qui manque : publications jamais analysées (doublons de pfbid exclus), ou
@@ -580,16 +619,22 @@ def analyze_posts(
     max_tokens : arrêt quand les nouveaux appels de ce lancement ont consommé ce budget (0 = sans limite).
     email_filter : images sans email lu par l'OCR écartées ; publication sans aucun email (texte ni images)
     jamais envoyée, marquée analysis_skipped (voir select_images_for_ai).
+    job_filter : publication de GROUPE sans mot-clé d'offre (scraper.analyze_job) jamais envoyée — un groupe
+    contient beaucoup de publications hors sujet ; sans effet sur les pages.
     """
     pages = _read_json(pages_dir() / f"pages_{country.code}.json")
     tokens_used = 0
     for page_id in country_page_ids(country):
-        target = PageTarget(page_id, pages[page_id]["page_url"], "")
+        target = source_target(page_id, pages[page_id])
+        is_group = target.kind == "group"
         store = fb.PostStore(target.posts_file)
         if ocr:
             ocr_page_posts(store, max_age_days)  # rattrape un OCR interrompu (Ctrl+C, --skip-scrape) avant l'IA
         unique, duplicates = canonical_posts(store.posts())
-        candidates = [p for p in unique if _needs_analysis(p, extractor, reanalyze, email_filter and not send_all_images)]
+        active_filters = set() if send_all_images else (
+            ({"email_filter"} if email_filter else set()) | ({"job_filter"} if job_filter and is_group else set())
+        )
+        candidates = [p for p in unique if _needs_analysis(p, extractor, reanalyze, active_filters)]
         todo = [p for p in candidates if not fb.post_too_old(p, max_age_days)]
         if len(todo) < len(candidates):
             print(f"\n[ANCIENNES] {len(candidates) - len(todo)} publication(s) de plus de {max_age_days} jours non analysée(s)")
@@ -598,21 +643,30 @@ def analyze_posts(
         if not todo:
             continue
         print(f"\nAnalyse IA - {pages[page_id].get('name') or page_id} : {len(todo)} publication(s)")
-        waiting_ocr = without_email = 0
+        waiting_ocr = without_email = not_offer = 0
         for post in todo:
             if max_tokens and tokens_used >= max_tokens:
                 print(f"  [BUDGET] {tokens_used} tokens consommés (limite --max-ai-tokens {max_tokens}) : analyse arrêtée, relancez pour continuer")
                 store.save()
                 return
+            if is_group and not post.get("images_done"):  # groupes scrapés avant l'ajout du champ (scraper.finalize_posts)
+                post["images_done"] = all(i.get("file") or i.get("download_error") for i in post.get("images", []))
             if not post.get("images_done"):
                 print(f"  [ATTENTE] {post['post_id'][:30]}… : images incomplètes, analyse reportée au prochain scraping")
                 continue
             if not send_all_images and any(i.get("file") and "ocr_text" not in i for i in post.get("images", [])):
                 waiting_ocr += 1  # sans OCR, chaque image partirait en haute résolution (~29 000 tokens chacune)
                 continue
+            if is_group and job_filter and not send_all_images and not (post.get("job") or fb.analyze_job(post))["is_offer"]:
+                post["analysis_skipped"] = "publication de groupe sans mot-clé d'offre d'emploi"
+                post["analysis_skipped_by"] = "job_filter"
+                store.add(post["post_id"], post)
+                not_offer += 1
+                continue
             images = select_images_for_ai(post, send_all_images, email_filter)
             if email_filter and not send_all_images and not images and not fb.extract_emails(post.get("text", "")):
                 post["analysis_skipped"] = "aucun email dans le texte ni dans les images (OCR)"
+                post["analysis_skipped_by"] = "email_filter"
                 store.add(post["post_id"], post)
                 without_email += 1
                 continue
@@ -630,6 +684,7 @@ def analyze_posts(
                 tokens_used += sum(int(v) for v in analysis["meta"].get("usage", {}).values())
             post["analysis"] = analysis
             post.pop("analysis_skipped", None)
+            post.pop("analysis_skipped_by", None)
             post.pop("analysis_error", None)
             post.pop("analysis_error_permanent", None)
             store.add(post["post_id"], post)
@@ -641,6 +696,9 @@ def analyze_posts(
                 f"{modes['ocr_text']}, écartées {modes['skipped']} | tokens {analysis['meta'].get('usage', {}).get('prompt_tokens', '?')} -> "
                 f"entreprises : {names} | offres : {len(result['job_offers'])}"
             )
+        if not_offer:
+            print(f"  [HORS SUJET] {not_offer} publication(s) de groupe sans mot-clé d'offre : pas envoyée(s) à l'IA, "
+                  f"0 token (--no-job-filter pour les analyser quand même)")
         if without_email:
             print(f"  [SANS EMAIL] {without_email} publication(s) sans aucun email (texte ni OCR des images) : pas envoyée(s) "
                   f"à l'IA, 0 token (--no-email-filter pour les analyser quand même)")
@@ -824,15 +882,25 @@ def job_document(
     }
 
 
+def _without_page_owner(post: dict[str, Any]) -> dict[str, Any]:
+    """Copie de la publication où aucune entreprise n'est « la page qui publie » (groupes : le groupe n'emploie pas)."""
+    result = post["analysis"]["result"]
+    companies = [{**company, "is_page_owner": False} for company in result["companies"]]
+    return {**post, "analysis": {**post["analysis"], "result": {**result, "companies": companies}}}
+
+
 def consolidate(country: CountryProfile) -> None:
     out = pages_dir()
     pages = _read_json(out / f"pages_{country.code}.json")
     posts: list[tuple[dict[str, Any], dict[str, Any]]] = []
     duplicate_posts: dict[str, str] = {}
     for page_id in country_page_ids(country):
-        store = fb.PostStore(PageTarget(page_id, pages[page_id]["page_url"], "").posts_file)
+        entry = pages[page_id]
+        store = fb.PostStore(source_target(page_id, entry).posts_file)
         kept, duplicates = canonical_posts([post for post in store.posts() if "analysis" in post])  # doublons de pfbid exclus
-        posts += [(post, pages[page_id]) for post in kept]
+        if entry.get("kind") == "group":
+            kept = [_without_page_owner(post) for post in kept]  # un groupe n'est jamais l'employeur des offres relayées
+        posts += [(post, entry) for post in kept]
         duplicate_posts.update(duplicates)
     if not posts:
         print("\nConsolidation : aucune publication analysée pour l'instant.")
@@ -1013,6 +1081,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Pages Facebook -> analyse IA -> JSON au format backend")
     parser.add_argument("--url", action="append", default=[], metavar="URL", help="Page Facebook (répétable). Défaut : --pages-file")
     parser.add_argument("--pages-file", default=str(PAGES_FILE), metavar="FICHIER", help="Un lien de page par ligne (défaut : facebook_script/pages.txt)")
+    parser.add_argument("--group-url", action="append", default=[], metavar="URL", help="Groupe Facebook (répétable). Défaut : --groups-file")
+    parser.add_argument("--groups-file", default=str(fb.GROUPS_FILE), metavar="FICHIER", help="Un lien de groupe par ligne (défaut : facebook_script/groups.txt)")
+    parser.add_argument("--no-groups", action="store_true", help="Ignore les groupes (pages seulement)")
+    parser.add_argument("--no-pages", action="store_true", help="Ignore les pages (groupes seulement)")
     parser.add_argument("--country", choices=sorted(COUNTRIES), default="madagascar", help="Pays des pages (défaut : madagascar)")
     parser.add_argument("--max-posts", type=int, default=0, metavar="N", help="Nouvelles publications max par page (0 = illimité)")
     parser.add_argument("--stop-after-known", type=int, default=0, metavar="N", help="Arrête une page après N publications déjà en cache d'affilée")
@@ -1034,6 +1106,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--no-email-filter", action="store_true",
         help="Envoie aussi à l'IA les images sans email lu par l'OCR (offres sans email : candidature par téléphone...)",
+    )
+    parser.add_argument(
+        "--no-job-filter", action="store_true",
+        help="Envoie aussi à l'IA les publications de groupe sans mot-clé d'offre d'emploi (plus cher)",
     )
     parser.add_argument("--skip-scrape", action="store_true", help="Pas de navigateur : analyse IA + consolidation des publications en cache")
     parser.add_argument(
@@ -1057,7 +1133,25 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def run_scraping(targets: list[PageTarget], args: argparse.Namespace, country: CountryProfile) -> None:
+def _print_stats(stats: fb.GroupStats, max_age_days: int) -> None:
+    print(
+        f"  -> {stats.new} nouvelle(s), {stats.known} déjà connue(s), {stats.too_old} trop ancienne(s) "
+        f"(> {max_age_days} j) ignorée(s), {stats.without_permalink} sans permalien"
+    )
+
+
+def group_scrape_options(args: argparse.Namespace) -> fb.ScrapeOptions:
+    """Options du scroll d'un groupe (scraper.py) : tri chronologique, images + OCR nécessaires à l'analyse IA."""
+    return fb.ScrapeOptions(
+        sort="chrono", max_posts=args.max_posts, stop_after_known=args.stop_after_known, max_idle=args.max_idle,
+        scroll_delay=args.scroll_delay, dump_html=args.dump_html, download_images=True, ocr=not args.no_ocr,
+        exact_dates=not args.no_exact_dates, max_age_days=args.max_age_days,
+    )
+
+
+def run_scraping(
+    targets: list[PageTarget], groups: list[fb.GroupTarget], args: argparse.Namespace, country: CountryProfile
+) -> None:
     fb.PROFILE_DIR.mkdir(parents=True, exist_ok=True)
     fb._reset_profile_exit_state(fb.PROFILE_DIR)
     with SB(uc=True, locale="fr", user_data_dir=str(fb.PROFILE_DIR), headless=args.headless) as sb:
@@ -1068,13 +1162,15 @@ def run_scraping(targets: list[PageTarget], args: argparse.Namespace, country: C
             return
         if (args.login or not logged_in) and not fb.login_and_wait(sb):
             return
+        total = len(targets) + len(groups)
         for index, target in enumerate(targets, 1):
-            print(f"\n[{index}/{len(targets)}] Page {target.page_id}")
-            stats = scrape_page(sb, target, args, country)
-            print(
-                f"  -> {stats.new} nouvelle(s), {stats.known} déjà connue(s), {stats.too_old} trop ancienne(s) "
-                f"(> {args.max_age_days} j) ignorée(s), {stats.without_permalink} sans permalien"
-            )
+            print(f"\n[{index}/{total}] Page {target.page_id}")
+            _print_stats(scrape_page(sb, target, args, country), args.max_age_days)
+        for index, group in enumerate(groups, len(targets) + 1):
+            print(f"\n[{index}/{total}] Groupe {group.group_id}")
+            stats = fb.scrape_group(sb, group, group_scrape_options(args))  # cache et export propres au groupe
+            register_group(group, country)  # puis analysé, consolidé et envoyé comme une page
+            _print_stats(stats, args.max_age_days)
 
 
 class RunAlreadyActive(Exception):
@@ -1121,12 +1217,19 @@ def _run(args: argparse.Namespace, country: CountryProfile, api_url: str) -> Non
         _push(args, country, api_url)
         return
 
+    if args.skip_scrape and not args.no_groups:  # groupes déjà collectés par scraper.py : les faire connaître au pipeline
+        for group in fb.load_targets(args.group_url, Path(args.groups_file)):
+            if group.output_file.exists():
+                register_group(group, country)
+
     if not args.skip_scrape:
-        targets = load_page_targets(args.url, Path(args.pages_file))
-        if not targets:
-            print(f"[ERREUR] Aucune page à scraper : passez --url ou ajoutez des liens dans {args.pages_file}")
+        targets = [] if args.no_pages else load_page_targets(args.url, Path(args.pages_file))
+        groups = [] if args.no_groups else fb.load_targets(args.group_url, Path(args.groups_file))
+        if not targets and not groups:
+            print(f"[ERREUR] Rien à scraper : passez --url / --group-url ou ajoutez des liens dans "
+                  f"{args.pages_file} ou {args.groups_file}")
             return
-        run_scraping(targets, args, country)
+        run_scraping(targets, groups, args, country)
 
     if not args.no_ai:
         api_key = os.getenv("OPENAI_API_KEY", "")
@@ -1139,7 +1242,7 @@ def _run(args: argparse.Namespace, country: CountryProfile, api_url: str) -> Non
             analyze_posts(
                 country, extractor, reanalyze=args.reanalyze, ocr=not args.no_ocr,
                 send_all_images=args.send_all_images, max_tokens=args.max_ai_tokens, max_age_days=args.max_age_days,
-                email_filter=not args.no_email_filter,
+                email_filter=not args.no_email_filter, job_filter=not args.no_job_filter,
             )
     consolidate(country)
     if args.push:

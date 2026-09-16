@@ -1428,8 +1428,10 @@ def finalize_posts(store: PostStore, target: GroupTarget, opts: ScrapeOptions) -
         if found:
             print(f"  [image] {post['author_name'] or post['post_id']} : {', '.join(found)}")
         job = analyze_job(post)
-        if found or job != post.get("job"):
-            post.update(emails=emails, phones=phones, job=job)
+        # images_done : lu par pages.py (analyse IA) - toutes les images ont un fichier ou une erreur définitive
+        done = all(image.get("file") or image.get("download_error") for image in post.get("images", []))
+        if found or job != post.get("job") or done != post.get("images_done"):
+            post.update(emails=emails, phones=phones, job=job, images_done=done)
             store.add(post["post_id"], post)
     store.save()
 
