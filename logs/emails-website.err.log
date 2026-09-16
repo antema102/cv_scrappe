@@ -1,0 +1,12 @@
+2026-09-16T16:08:53: [16:08:53] INFO — [BATCH 1/2] 10000 entreprise(s) reçue(s) — 0 à traiter (cache=10000, sans website=0)
+2026-09-16T16:09:01: [16:09:01] INFO — [BATCH 1/2] terminé en 8.3s — traitées=0, échecs=0 (cumulé : traitées=0, ignorées=10000, échecs=0) — 90.4% — moyenne=8.3s/batch, ETA≈8s
+2026-09-16T16:09:02: [16:09:02] INFO — [BATCH 2/2] 1064 entreprise(s) reçue(s) — 0 à traiter (cache=1064, sans website=0)
+2026-09-16T16:09:08: [16:09:08] INFO — [BATCH 2/2] terminé en 5.4s — traitées=0, échecs=0 (cumulé : traitées=0, ignorées=11064, échecs=0) — 100.0% — moyenne=6.9s/batch
+2026-09-16T16:09:08: [16:09:08] INFO — Vérification finale OK — 11064/11064 entreprises couvertes (reprise incluse)
+2026-09-16T16:09:08: [16:09:08] INFO — Terminé — traités=0 | emails=0 | cache=11064 | sans website=0 | échecs=0
+2026-09-16T16:10:22: [16:10:22] INFO — [BATCH 1/2] 10000 entreprise(s) reçue(s) — 0 à traiter (cache=10000, sans website=0)
+2026-09-16T16:10:29: [16:10:29] INFO — [BATCH 1/2] terminé en 7.3s — traitées=0, échecs=0 (cumulé : traitées=0, ignorées=10000, échecs=0) — 90.4% — moyenne=7.3s/batch, ETA≈7s
+2026-09-16T16:10:30: [16:10:30] INFO — [BATCH 2/2] 1064 entreprise(s) reçue(s) — 0 à traiter (cache=1064, sans website=0)
+2026-09-16T16:10:33: [16:10:33] INFO — [BATCH 2/2] terminé en 3.3s — traitées=0, échecs=0 (cumulé : traitées=0, ignorées=11064, échecs=0) — 100.0% — moyenne=5.3s/batch
+2026-09-16T16:10:33: [16:10:33] INFO — Vérification finale OK — 11064/11064 entreprises couvertes (reprise incluse)
+2026-09-16T16:10:33: [16:10:33] INFO — Terminé — traités=0 | emails=0 | cache=11064 | sans website=0 | échecs=0
