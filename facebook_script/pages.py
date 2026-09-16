@@ -497,7 +497,16 @@ def scrape_page(sb: SB, target: PageTarget, opts: argparse.Namespace, country: C
 # ---------------------------------------------------------------------------
 
 
-def select_images_for_ai(post: dict[str, Any], send_all_images: bool = False) -> list[dict[str, Any]]:
+OCR_AT_RE = re.compile(r"\s*(?:@|\(at\)|\[at\])\s*", re.I)
+OCR_DOT_RE = re.compile(r"(?<=[a-z0-9])\s*\.\s*(?=(?:com|mg|fr|org|net|info|biz|co|io)\b)", re.I)
+
+
+def ocr_emails(text: str) -> list[str]:
+    """Emails d'un texte OCR, tolérant les espaces que RapidOCR insère autour de « @ » et du point ("rh @ boa .mg")."""
+    return fb.extract_emails(OCR_DOT_RE.sub(".", OCR_AT_RE.sub("@", fb._contact_text(text))))
+
+
+def select_images_for_ai(post: dict[str, Any], send_all_images: bool = False, email_filter: bool = False) -> list[dict[str, Any]]:
     """
     Mode d'envoi de chaque image téléchargée (option coût "mixte", ~29 000 tokens par image jointe en haute
     résolution avec gpt-4o-mini) ; noté dans images[i]["ai_mode"] (+ "ai_reason") :
@@ -506,17 +515,22 @@ def select_images_for_ai(post: dict[str, Any], send_all_images: bool = False) ->
     - "image"    : l'OCR a lu un peu de texte (logo, nom stylisé) ou l'OCR n'a pas tourné -> image jointe ;
     - "skipped"  : aucun texte lu (photo, décor) -> rien n'est envoyé ; si RIEN d'autre ne part pour la
       publication, la 1re image est jointe quand même (logo / nom de l'entreprise).
-    send_all_images : toutes les images jointes (ancien comportement, coûteux).
+    email_filter : si le texte de la publication ne contient pas d'email, une image dont l'OCR ne lit aucun
+      email est écartée (et plus de 1re image jointe par défaut) — les offres sans email ne sont pas récupérées.
+    send_all_images : toutes les images jointes (ancien comportement, coûteux ; ignore email_filter).
     Renvoie [{"number", "path" (None = texte OCR seul), "ocr"}] pour AiExtractor.analyze_post.
     """
     items: list[dict[str, Any]] = []
     downloaded = [(number, image) for number, image in enumerate(post.get("images", []), 1) if image.get("file")]
+    filter_images = email_filter and not send_all_images and not fb.extract_emails(post.get("text", ""))
     for number, image in downloaded:
         text = image.get("ocr_text", "")
         chars = sum(char.isalnum() for char in text)
         has_contact = bool(fb.extract_emails(text) or fb.extract_phones(text) or WEBSITE_RE.search(text))
         if send_all_images or "ocr_text" not in image:
             mode, reason = "image", "toutes les images jointes" if send_all_images else "OCR non disponible"
+        elif filter_images and not ocr_emails(text):
+            mode, reason = "skipped", "aucun email lu par l'OCR"
         elif has_contact or chars >= AI_MIN_TEXT_CHARS:
             mode, reason = "ocr_text", f"texte lu par l'OCR ({chars} caractères{', contact' if has_contact else ''})"
         elif chars:
@@ -531,7 +545,7 @@ def select_images_for_ai(post: dict[str, Any], send_all_images: bool = False) ->
         if mode != "skipped":
             items.append({"number": number, "path": fb.OUTPUT_DIR / image["file"] if mode == "image" else None, "ocr": text})
     existing = [(number, image) for number, image in downloaded if (fb.OUTPUT_DIR / image["file"]).exists()]
-    if existing and not items:
+    if existing and not items and not filter_images:
         number, image = existing[0]
         image["ai_mode"], image["ai_reason"] = "image", "aucune image lisible : 1re image jointe quand même"
         items.append({"number": number, "path": fb.OUTPUT_DIR / image["file"], "ocr": image.get("ocr_text", "")})
@@ -543,22 +557,29 @@ def country_page_ids(country: CountryProfile) -> list[str]:
     return [page_id for page_id, page in pages.items() if page.get("country") == country.code]
 
 
-def _needs_analysis(post: dict[str, Any], extractor: AiExtractor, reanalyze: bool) -> bool:
-    """Jamais analysée ; ou, avec --reanalyze, analysée avec un autre modèle / une ancienne version du prompt."""
+def _needs_analysis(post: dict[str, Any], extractor: AiExtractor, reanalyze: bool, email_filter: bool = False) -> bool:
+    """
+    Jamais analysée ; ou, avec --reanalyze, analysée avec un autre modèle / une ancienne version du prompt.
+    Écartée faute d'email (analysis_skipped) : seulement si le filtre email est désactivé.
+    """
     meta = post.get("analysis", {}).get("meta")
     if meta is None:
+        if post.get("analysis_skipped") and email_filter:
+            return False
         return not post.get("analysis_error_permanent") or reanalyze  # erreur définitive : pas retentée à chaque run
     return reanalyze and (meta.get("prompt_version") != PROMPT_VERSION or meta.get("model") != extractor.model)
 
 
 def analyze_posts(
     country: CountryProfile, extractor: AiExtractor, reanalyze: bool, ocr: bool = True, send_all_images: bool = False,
-    max_tokens: int = 0, max_age_days: int = 0,
+    max_tokens: int = 0, max_age_days: int = 0, email_filter: bool = False,
 ) -> None:
     """
     N'appelle l'IA que pour ce qui manque : publications jamais analysées (doublons de pfbid exclus), ou
     analysées avec un autre modèle / prompt si --reanalyze ; le cache IA reste utilisé dans tous les cas.
     max_tokens : arrêt quand les nouveaux appels de ce lancement ont consommé ce budget (0 = sans limite).
+    email_filter : images sans email lu par l'OCR écartées ; publication sans aucun email (texte ni images)
+    jamais envoyée, marquée analysis_skipped (voir select_images_for_ai).
     """
     pages = _read_json(pages_dir() / f"pages_{country.code}.json")
     tokens_used = 0
@@ -568,7 +589,7 @@ def analyze_posts(
         if ocr:
             ocr_page_posts(store, max_age_days)  # rattrape un OCR interrompu (Ctrl+C, --skip-scrape) avant l'IA
         unique, duplicates = canonical_posts(store.posts())
-        candidates = [p for p in unique if _needs_analysis(p, extractor, reanalyze)]
+        candidates = [p for p in unique if _needs_analysis(p, extractor, reanalyze, email_filter and not send_all_images)]
         todo = [p for p in candidates if not fb.post_too_old(p, max_age_days)]
         if len(todo) < len(candidates):
             print(f"\n[ANCIENNES] {len(candidates) - len(todo)} publication(s) de plus de {max_age_days} jours non analysée(s)")
@@ -577,7 +598,7 @@ def analyze_posts(
         if not todo:
             continue
         print(f"\nAnalyse IA - {pages[page_id].get('name') or page_id} : {len(todo)} publication(s)")
-        waiting_ocr = 0
+        waiting_ocr = without_email = 0
         for post in todo:
             if max_tokens and tokens_used >= max_tokens:
                 print(f"  [BUDGET] {tokens_used} tokens consommés (limite --max-ai-tokens {max_tokens}) : analyse arrêtée, relancez pour continuer")
@@ -589,7 +610,12 @@ def analyze_posts(
             if not send_all_images and any(i.get("file") and "ocr_text" not in i for i in post.get("images", [])):
                 waiting_ocr += 1  # sans OCR, chaque image partirait en haute résolution (~29 000 tokens chacune)
                 continue
-            images = select_images_for_ai(post, send_all_images)
+            images = select_images_for_ai(post, send_all_images, email_filter)
+            if email_filter and not send_all_images and not images and not fb.extract_emails(post.get("text", "")):
+                post["analysis_skipped"] = "aucun email dans le texte ni dans les images (OCR)"
+                store.add(post["post_id"], post)
+                without_email += 1
+                continue
             modes = {mode: sum(1 for i in post.get("images", []) if i.get("ai_mode") == mode) for mode in ("image", "ocr_text", "skipped")}
             try:
                 analysis = extractor.analyze_post(post, pages[page_id], images, country.name)
@@ -603,6 +629,7 @@ def analyze_posts(
             if not analysis["meta"].get("cached"):
                 tokens_used += sum(int(v) for v in analysis["meta"].get("usage", {}).values())
             post["analysis"] = analysis
+            post.pop("analysis_skipped", None)
             post.pop("analysis_error", None)
             post.pop("analysis_error_permanent", None)
             store.add(post["post_id"], post)
@@ -614,6 +641,9 @@ def analyze_posts(
                 f"{modes['ocr_text']}, écartées {modes['skipped']} | tokens {analysis['meta'].get('usage', {}).get('prompt_tokens', '?')} -> "
                 f"entreprises : {names} | offres : {len(result['job_offers'])}"
             )
+        if without_email:
+            print(f"  [SANS EMAIL] {without_email} publication(s) sans aucun email (texte ni OCR des images) : pas envoyée(s) "
+                  f"à l'IA, 0 token (--no-email-filter pour les analyser quand même)")
         if waiting_ocr:
             print(f"  [ATTENTE] {waiting_ocr} publication(s) sans OCR (pip install rapidocr onnxruntime, ou relancez sans "
                   f"--no-ocr) : non envoyée(s) pour ne pas joindre chaque image en haute résolution (--send-all-images pour forcer)")
@@ -1001,6 +1031,10 @@ def parse_args() -> argparse.Namespace:
         "--send-all-images", action="store_true",
         help="Joint toutes les images à l'IA en haute résolution (coûteux ; par défaut les images lues par l'OCR partent en texte)",
     )
+    parser.add_argument(
+        "--no-email-filter", action="store_true",
+        help="Envoie aussi à l'IA les images sans email lu par l'OCR (offres sans email : candidature par téléphone...)",
+    )
     parser.add_argument("--skip-scrape", action="store_true", help="Pas de navigateur : analyse IA + consolidation des publications en cache")
     parser.add_argument(
         "--reanalyze", action="store_true",
@@ -1105,6 +1139,7 @@ def _run(args: argparse.Namespace, country: CountryProfile, api_url: str) -> Non
             analyze_posts(
                 country, extractor, reanalyze=args.reanalyze, ocr=not args.no_ocr,
                 send_all_images=args.send_all_images, max_tokens=args.max_ai_tokens, max_age_days=args.max_age_days,
+                email_filter=not args.no_email_filter,
             )
     consolidate(country)
     if args.push:
