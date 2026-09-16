@@ -154,8 +154,8 @@ def clean_stale(
                     already_gone.append(doc_id)
                 else:
                     replacement = find_replacement(kind, doc_id, stored)
-                    if kind == "jobs" and replacement == REMOVE:
-                        client.delete(path)  # pas une offre d'emploi (concours, formation...) : retirée du site
+                    if replacement == REMOVE:
+                        client.delete(path)  # écartée volontairement (concours, sans contact, entreprise exclue...)
                         excluded.append(doc_id)
                     else:
                         if kind == "jobs":
@@ -182,9 +182,11 @@ def clean_stale(
         if deleted or already_gone:
             print(f"  doublons {label} : {len(deleted)} supprimé(s) du backend (remplacés par la version regroupée)"
                   + (f", {len(already_gone)} déjà absent(s) de la base" if already_gone else ""))
-        if excluded:
+        if excluded and kind == "jobs":
             print(f"  {len(excluded)} annonce(s) retirée(s) du backend, écartée(s) à la consolidation (concours, formation, "
-                  f"appel d'offres..., ou entreprise sans email ni téléphone) : {_short(excluded)}")
+                  f"appel d'offres..., entreprise sans contact ou exclue) : {_short(excluded)}")
+        elif excluded:
+            print(f"  {len(excluded)} entreprise(s) retirée(s) du backend, liste d'exclusion : {_short(excluded)}")
         if kept:
             print(f"  [INFO] {len(kept)} {label} gardée(s) en base, plus dans les JSON mais {kept_reasons[kind]} : {_short(kept)}")
 

@@ -68,7 +68,9 @@ from urllib.parse import parse_qs, parse_qsl, urlencode, urljoin, urlparse, urlu
 import scraper as fb
 from ai_extractor import DEFAULT_BASE_URL, DEFAULT_MODEL, OFFER_TYPES, PROMPT_VERSION, AiError, AiExtractor, load_dotenv, mask_secret
 from backend_push import DEFAULT_API_URL, REMOVE, ReplacementFinder, push_country
-from company_registry import CompanyRegistry, build_candidate, company_document, fold, names_similar, normalize_name, review_entry
+from company_registry import (
+    CompanyRegistry, build_candidate, company_document, fold, names_similar, normalize_name, review_entry, website_domain,
+)
 from countries import COUNTRIES, CountryProfile
 from fb_dates import published_at
 from seleniumbase import SB
@@ -80,6 +82,11 @@ AI_MIN_TEXT_CHARS = 40
 WEBSITE_RE = re.compile(r"(?:https?://|www\.)\S+|\b[a-z0-9][a-z0-9\-]*\.(?:mg|com|fr|org|net|io|co)\b", re.I)
 VIEWER_TIMEOUT = 12
 NEXT_PHOTO_LABELS = ("photo suivante", "next photo", "suivante", "suivant", "next")
+# Plus grand côté minimal d'une photo de la visionneuse : pendant un changement de photo, la grande image n'est pas
+# encore là et une miniature de la page (vu : 100x100, cdn t1.15752-9) était prise à la place, puis le parcours s'arrêtait
+VIEWER_MIN_SIDE = 250
+VIEWER_NEXT_RETRIES = 3  # clic « suivante » retenté : le bouton apparaît parfois après la photo
+VIEWER_MAX_ATTEMPTS = 3  # lancements où une publication incomplète (ex. 12 photos sur 31) est reprise
 
 PAGE_INFO_JS = r"""
 (() => {
@@ -103,11 +110,12 @@ VIEWER_STATE_JS = r"""
   const args = __ARGS__;
   const href = location.href;
   const m = href.match(/[?&]fbid=(\d+)/) || href.match(/\/photos\/[^/]+\/(\d+)/) || href.match(/\/photo\/(\d+)/);
-  let img = document.querySelector('img[data-visualcompletion="media-vc-image"]');
+  const bigEnough = (el) => Math.max(el.naturalWidth, el.naturalHeight) >= args.minSide;
+  let img = Array.from(document.querySelectorAll('img[data-visualcompletion="media-vc-image"]')).find(bigEnough) || null;
   if (!img) {
     let best = 0;
     for (const el of document.querySelectorAll('img')) {
-      if (!(el.currentSrc || el.src || '').includes('scontent')) continue;
+      if (!(el.currentSrc || el.src || '').includes('scontent') || !bigEnough(el)) continue;
       const area = el.naturalWidth * el.naturalHeight;
       if (area > best) { best = area; img = el; }
     }
@@ -364,12 +372,17 @@ def open_page_feed(sb: SB, target: PageTarget) -> str | None:
     return None
 
 
+def _viewer_js(sb: SB, click: bool) -> dict[str, Any]:
+    args = {"nextLabels": list(NEXT_PHOTO_LABELS), "click": click, "minSide": VIEWER_MIN_SIDE}
+    return fb._run_js(sb, VIEWER_STATE_JS, args) or {}
+
+
 def _viewer_state(sb: SB, previous: dict[str, Any] | None) -> dict[str, Any] | None:
-    """Attend qu'une photo (différente de la précédente) soit affichée dans la visionneuse."""
+    """Attend qu'une photo (différente de la précédente, assez grande) soit affichée dans la visionneuse."""
     deadline = time.monotonic() + VIEWER_TIMEOUT
     while time.monotonic() < deadline:
-        state = fb._run_js(sb, VIEWER_STATE_JS, {"nextLabels": list(NEXT_PHOTO_LABELS), "click": False})
-        if state and state.get("src"):
+        state = _viewer_js(sb, click=False)
+        if state.get("src"):
             state["ident"] = state.get("fbid") or urlparse(state["src"]).path
             if previous is None or (state["ident"] != previous["ident"] and state["src"] != previous["src"]):
                 return state
@@ -377,24 +390,48 @@ def _viewer_state(sb: SB, previous: dict[str, Any] | None) -> dict[str, Any] | N
     return None
 
 
-def collect_viewer_photos(sb: SB, url: str, limit: int) -> list[dict[str, str]]:
+def _next_viewer_photo(sb: SB, current: dict[str, Any]) -> dict[str, Any] | None:
+    """
+    Photo suivante. Le bouton « suivante » et la grande image arrivent parfois après l'adresse de la photo :
+    ne jamais conclure « fin de l'album » au premier essai (vu : arrêt à 12 photos sur 31). Si l'adresse a déjà
+    changé, on attend l'image sans recliquer, sinon une photo serait sautée.
+    """
+    for _ in range(VIEWER_NEXT_RETRIES):
+        probe = _viewer_js(sb, click=False)
+        moved = bool(probe.get("fbid")) and probe.get("fbid") != current.get("fbid")
+        if not moved and not _viewer_js(sb, click=True).get("clicked"):
+            sb.sleep(1.5)  # bouton pas encore affiché
+            continue
+        state = _viewer_state(sb, current)
+        if state is not None:
+            return state
+    return None
+
+
+class ViewerPhotos(list):
+    """Photos lues ; `album_complete` = la visionneuse est revenue à une photo déjà vue : tout l'album a défilé."""
+
+    album_complete = False
+
+
+def collect_viewer_photos(sb: SB, url: str, limit: int) -> ViewerPhotos:
     """Parcourt la visionneuse depuis la 1re photo : "suivante" jusqu'à `limit` photos ou retour au début."""
+    photos = ViewerPhotos()
     try:
         sb.goto(url)
     except Exception:
-        return []
-    photos: list[dict[str, str]] = []
+        return photos
     seen: set[str] = set()
     state = _viewer_state(sb, None)
-    while state is not None and len(photos) < limit and state["ident"] not in seen:
+    while state is not None and len(photos) < limit:
+        if state["ident"] in seen:
+            photos.album_complete = True  # plus fiable que « vignettes + N » (souvent décalé d'une photo)
+            break
         seen.add(state["ident"])
         photos.append({"fbid": state.get("fbid", ""), "url": state["src"], "alt": fb._normalize_text(state.get("alt"))})
-        if len(photos) >= limit or not state.get("hasNext"):
+        if len(photos) >= limit:
             break
-        clicked = fb._run_js(sb, VIEWER_STATE_JS, {"nextLabels": list(NEXT_PHOTO_LABELS), "click": True}) or {}
-        if not clicked.get("clicked"):
-            break
-        state = _viewer_state(sb, state)
+        state = _next_viewer_photo(sb, state)
     return photos
 
 
@@ -406,29 +443,58 @@ def fetch_post_images(sb: SB, store: fb.PostStore, target: PageTarget, opts: arg
     """
     Toutes les images de chaque publication : visionneuse (pleine résolution, au-delà
     des 5 vignettes du fil) sinon vignettes du fil ; téléchargées avec sha256.
-    `limit` = vignettes + "+N" : une photo seule d'un album ne fait pas parcourir tout l'album.
+    Attendu = vignettes + "+N" (_expected_photos). Publication incomplète : images_done laissé à faux et reprise
+    au lancement suivant (VIEWER_MAX_ATTEMPTS essais) ; une publication déjà lue n'est jamais remplacée par moins
+    de photos, et elle est ré-analysée si la reprise en trouve davantage.
     """
     folder = pages_dir() / "images" / target.file_slug
     viewer_failures = 0
     for post in store.posts():
-        if post.get("images_done") or fb.post_too_old(post, opts.max_age_days):
+        if fb.post_too_old(post, opts.max_age_days):
             continue  # publication trop ancienne déjà en cache : ni visionneuse ni téléchargement
-        feed_images = post.get("images", [])
+        previous = post.get("images", [])
+        expected = _expected_photos(post, opts.max_photos)
+        viewer = bool(previous and post.get("photo_links") and not opts.no_viewer)
+        if post.get("images_done"):
+            # Terminée mais incomplète (ex. 12 photos sur 31, avant la correction de la visionneuse) : reprise
+            incomplete = len(previous) < expected and not post.get("album_complete")
+            if not (viewer and incomplete and post.get("viewer_attempts", 0) < VIEWER_MAX_ATTEMPTS):
+                continue
+            if post.get("viewer_attempts"):
+                print(f"  [REPRISE] {post['post_id']} : {len(previous)}/{expected} photos, nouvel essai de la visionneuse")
+            else:  # groupe : vignettes du fil seulement, jamais passé par la visionneuse
+                print(f"  [VISIONNEUSE] {post['post_id']} : {len(previous)}/{expected} photos, récupération des autres")
+        # Déjà lue (OCR fait ou fichiers supprimés) : ne jamais remplacer par moins bien
+        processed = any("ocr_text" in image or image.get("file_deleted") for image in previous)
+        feed_images = previous
         photos: list[dict[str, str]] = []
-        if feed_images and post.get("photo_links") and not opts.no_viewer:
-            limit = min(opts.max_photos, max(1, len(feed_images) + int(post.get("more_images") or 0)))
-            photos = collect_viewer_photos(sb, post["photo_links"][0], limit)
+        if viewer:
+            photos = collect_viewer_photos(sb, post["photo_links"][0], expected)
             if not photos:
                 if fb._is_auth_wall(fb._page_state(sb)):
                     # Sans ce contrôle : 12 s d'attente par publication puis vignettes basse résolution gravées "terminé"
                     print("  [ERREUR] Facebook demande une reconnexion : récupération des images interrompue (relancez avec --login)")
                     store.save()
-                    return
+                    return  # essai non compté : la visionneuse n'a pas pu s'ouvrir
+            post["viewer_attempts"] = post.get("viewer_attempts", 0) + 1
+            if not photos:
                 viewer_failures += 1
                 if viewer_failures == 3:
                     print("  [WARN] Visionneuse : aucune photo lue sur 3 publications d'affilée (Facebook a changé ?) - vignettes du fil utilisées")
             else:
                 viewer_failures = 0
+        if getattr(photos, "album_complete", False):
+            post["album_complete"] = True  # mémorisé : jamais reprise ensuite, même si « vignettes + N » annonçait plus
+        retry = viewer and len(photos) < expected and not post.get("album_complete") and post["viewer_attempts"] < VIEWER_MAX_ATTEMPTS
+        if processed and len(photos) <= len(previous):
+            # Rien de mieux que la dernière fois : images et analyse gardées telles quelles
+            post["images_done"] = not retry
+            store.add(post["post_id"], post)
+            store.save()
+            if retry:
+                print(f"  [INCOMPLET] {post['post_id']} : {len(photos)}/{expected} photos lues, réessai au prochain lancement "
+                      f"({post['viewer_attempts']}/{VIEWER_MAX_ATTEMPTS})")
+            continue
         if photos and len(photos) >= len(feed_images):
             records = [{"url": p["url"], "alt": p["alt"], "fbid": p["fbid"], "source": "viewer"} for p in photos]
         else:
@@ -436,9 +502,10 @@ def fetch_post_images(sb: SB, store: fb.PostStore, target: PageTarget, opts: arg
 
         complete = True
         for index, image in enumerate(records, 1):
-            # Préfixe distinct : _download_image réutilise un fichier existant, une vignette du fil téléchargée lors
-            # d'une tentative précédente ne doit jamais remplacer la photo pleine résolution de la visionneuse
-            stem = f"{post['post_id']}_{index}" if image["source"] == "viewer" else f"{post['post_id']}_feed_{index}"
+            # _download_image réutilise un fichier existant : nom par fbid (stable d'un essai à l'autre, jamais la photo
+            # d'une autre position) ; préfixe distinct pour les vignettes du fil, jamais prises pour une pleine résolution
+            photo_key = image.get("fbid") or str(index)
+            stem = f"{post['post_id']}_{photo_key}" if image["source"] == "viewer" else f"{post['post_id']}_feed_{index}"
             try:
                 path = fb._download_image(image["url"], folder / stem)
             except fb.ImageDownloadError as exc:
@@ -448,11 +515,24 @@ def fetch_post_images(sb: SB, store: fb.PostStore, target: PageTarget, opts: arg
             image["file"] = path.relative_to(fb.OUTPUT_DIR).as_posix()
             image["sha256"] = _sha256(path)
         post["images"] = records
-        post["images_done"] = complete
+        post["images_done"] = complete and not retry
+        if processed and ("analysis" in post or post.get("analysis_skipped")):
+            # Plus de photos qu'à la précédente analyse : nouvelles affiches = nouvelles offres, publication ré-analysée
+            # (OCR refait, texte seul envoyé à l'IA ; job_id des offres déjà connues inchangés, registre par contenu)
+            for key in ("analysis", "analysis_skipped", "analysis_skipped_by", "analysis_error", "analysis_error_permanent"):
+                post.pop(key, None)
+            print(f"  [COMPLÉTÉE] {post['post_id']} : {len(previous)} -> {len(records)} photos, publication ré-analysée")
         store.add(post["post_id"], post)
         if records:
-            print(f"  [images] {post['post_id']} : {sum(1 for r in records if r.get('file'))}/{len(records)} ({records[0]['source']})")
+            print(f"  [images] {post['post_id']} : {sum(1 for r in records if r.get('file'))}/{len(records)} ({records[0]['source']})"
+                  + (f" - incomplet ({expected} attendues), réessai au prochain lancement" if retry else ""))
         store.save()
+
+
+def _expected_photos(post: dict[str, Any], max_photos: int) -> int:
+    """Vignettes du fil + « +N » (photos cachées), plafonné : une photo seule d'un album ne fait pas parcourir tout l'album."""
+    thumbnails = max(len(post.get("photo_links", [])), 1)
+    return min(max_photos, thumbnails + int(post.get("more_images") or 0))
 
 
 def ocr_page_posts(store: fb.PostStore, max_age_days: int = 0) -> None:
@@ -660,7 +740,8 @@ def analyze_posts(
             if not send_all_images and any(fb.image_on_disk(i) and "ocr_text" not in i for i in post.get("images", [])):
                 waiting_ocr += 1  # sans OCR, chaque image partirait en haute résolution (~29 000 tokens chacune)
                 continue
-            if is_group and job_filter and not send_all_images and not (post.get("job") or fb.analyze_job(post))["is_offer"]:
+            # analyze_job recalculé : les photos complètes de la visionneuse ont pu remplacer les 5 vignettes du fil
+            if is_group and job_filter and not send_all_images and not fb.analyze_job(post)["is_offer"]:
                 post["analysis_skipped"] = "publication de groupe sans mot-clé d'offre d'emploi"
                 post["analysis_skipped_by"] = "job_filter"
                 store.add(post["post_id"], post)
@@ -941,6 +1022,51 @@ def _without_page_owner(post: dict[str, Any]) -> dict[str, Any]:
     return {**post, "analysis": {**post["analysis"], "result": {**result, "companies": companies}}}
 
 
+EXCLUDED_COMPANIES_FILE = fb.SCRIPT_DIR / "excluded_companies.txt"
+
+
+def _name_words(text: str) -> list[str]:
+    """Mots pliés, pluriel simple retiré des mots longs : « Ministères » -> ["ministere"], « EUROP'ALU » -> ["europ", "alu"]."""
+    return [word[:-1] if len(word) >= 5 and word.endswith("s") else word for word in re.findall(r"[a-z0-9]+", fold(text))]
+
+
+def load_excluded_companies(path: Path) -> list[str]:
+    """Liste d'exclusion (une entreprise par ligne, # = commentaire) sous forme compacte : « NP AKADIN » -> "npakadin"."""
+    if not path.exists():
+        return []
+    entries = ("".join(_name_words(line)) for line in path.read_text(encoding="utf-8-sig").splitlines() if not line.strip().startswith("#"))
+    return list(dict.fromkeys(entry for entry in entries if entry))
+
+
+def excluded_company_match(blocklist: list[str], names: list[str], domains: list[str] = ()) -> str:
+    """
+    Entrée de la liste d'exclusion qui correspond, sinon "" : suite de mots ENTIERS d'un nom (collés ou non :
+    « Europalu », « Europ Alu ») — jamais un morceau de mot (« YAS » ne touche pas « Yasmine ») — ou libellé
+    d'un domaine d'email / de site (« europ-alu » dans recrutement@europ-alu.com).
+    """
+    for target in blocklist:
+        for name in names:
+            words = _name_words(name)
+            for start in range(len(words)):
+                joined = ""
+                for word in words[start:]:
+                    joined += word
+                    if joined == target:
+                        return target
+                    if len(joined) >= len(target):
+                        break
+        if any("".join(_name_words(label)) == target for domain in domains for label in domain.split(".")[:-1]):
+            return target
+    return ""
+
+
+def _cluster_domains(cluster: list[Any]) -> list[str]:
+    """Domaines propres à une entreprise (site, emails), hors messageries et réseaux (gmail.com, facebook.com...)."""
+    domains = [website_domain(candidate.data.get("website", "")) for candidate in cluster]
+    domains += [website_domain(email.split("@")[-1]) for candidate in cluster for email in candidate.data.get("emails", []) if "@" in email]
+    return [domain for domain in domains if domain]
+
+
 DEFAULT_OFFER_TYPES = ("emploi", "stage")  # le reste (concours, formation, bourse, appel d'offres...) n'est pas publié
 # Filet de sécurité sur le DÉBUT de l'intitulé (plié) : sans ambiguïté, appliqué même si l'IA a dit "emploi", et seule
 # source pour les analyses d'avant offer_type (prompt < v5). Jamais un mot isolé : "Formateur", "Chef d'atelier",
@@ -973,11 +1099,14 @@ def offer_type(offer: dict[str, Any]) -> str:
 
 def consolidate(
     country: CountryProfile, offer_types: tuple[str, ...] | list[str] = DEFAULT_OFFER_TYPES, require_contact: bool = False,
+    excluded_companies: list[str] | None = None,
 ) -> None:
     """
     require_contact : une offre dont l'entreprise n'a ni email ni téléphone (company_profile sans contact, ou pas
     d'entreprise du tout) n'est pas publiée — aucun moyen de contacter le recruteur (défaut CLI, --allow-no-contact).
+    excluded_companies : liste d'exclusion (load_excluded_companies) — ni la fiche entreprise ni ses offres ne sont publiées.
     """
+    blocklist = excluded_companies or []
     out = pages_dir()
     pages = _read_json(out / f"pages_{country.code}.json")
     posts: list[tuple[dict[str, Any], dict[str, Any]]] = []
@@ -1006,6 +1135,12 @@ def consolidate(
 
     company_by_ref = {candidate.ref: company_id for company_id, cluster in assigned for candidate in cluster}
     companies = {company_id: company_document(company_id, cluster, country, registry.generic_keys) for company_id, cluster in assigned}
+    excluded_company_ids: dict[str, Any] = {}
+    for company_id, cluster in assigned:
+        # Tous les noms vus pour l'entreprise (variantes de l'IA regroupées) + domaines de ses emails et de son site
+        matched = excluded_company_match(blocklist, [c.data.get("name", "") for c in cluster], _cluster_domains(cluster))
+        if matched:
+            excluded_company_ids[company_id] = {"name": companies.pop(company_id)["name"], "matched": matched}
     jobs: dict[str, Any] = {}
     publications: dict[str, Any] = {}
     review_posts: dict[str, Any] = {}
@@ -1064,8 +1199,10 @@ def consolidate(
         occurrences_review = [{"post_id": occ["post"]["post_id"], "published_at": occ["published"]} for occ in campaign]
         kind = offer_type(offer)
         company = companies.get(company_id, {})
+        offer_names = [occ["offer"].get("company_name", "") for occ in campaign]
         reason = (
-            "type" if kind not in offer_types
+            "entreprise_exclue" if company_id in excluded_company_ids or excluded_company_match(blocklist, offer_names)
+            else "type" if kind not in offer_types
             else "sans_contact" if require_contact and not (company.get("emails") or company.get("phone_numbers"))
             else ""
         )
@@ -1095,6 +1232,7 @@ def consolidate(
         "posts": review_posts,
         "duplicate_posts": duplicate_posts,  # doublon de pfbid -> publication gardée (nettoyage du backend)
         "excluded_offers": excluded_offers,  # pas des offres d'emploi (--offer-types) : jamais publiées, retirées du backend
+        "excluded_companies": excluded_company_ids,  # liste d'exclusion : fiche jamais publiée, retirée du backend
     })
     merged = sum(1 for _, cluster in assigned if len(cluster) > 1)
     reposted = len(occurrences) - len(jobs) - len(excluded_offers)
@@ -1104,12 +1242,16 @@ def consolidate(
             by_type[entry["offer_type"]] = by_type.get(entry["offer_type"], 0) + 1
     excluded_text = ", ".join(f"{count} {kind}" for kind, count in sorted(by_type.items()))
     without_contact = sum(1 for entry in excluded_offers.values() if entry["reason"] == "sans_contact")
+    blocked_offers = sum(1 for entry in excluded_offers.values() if entry["reason"] == "entreprise_exclue")
     print(
         f"\nConsolidation {country.name} : {len(posts)} publication(s), {len(candidates)} mention(s) d'entreprise "
         f"-> {len(companies)} entreprise(s) ({merged} regroupée(s)), {len(jobs)} offre(s) "
         f"({reposted} republication(s) regroupée(s)), "
         f"{len(shared)} contact(s) partagé(s) ignoré(s)\n  -> {out}"
     )
+    if excluded_company_ids or blocked_offers:
+        names = ", ".join(sorted({entry["name"] for entry in excluded_company_ids.values()}))
+        print(f"  liste d'exclusion : {len(excluded_company_ids)} entreprise(s) et {blocked_offers} offre(s) écartée(s) ({names})")
     if by_type:
         print(f"  {sum(by_type.values())} annonce(s) écartée(s), hors types gardés ({','.join(offer_types)}) : {excluded_text}")
     if without_contact:
@@ -1169,10 +1311,13 @@ def stale_replacement_finder(country: CountryProfile) -> ReplacementFinder:
         ))
 
     excluded_offers = analysis.get("excluded_offers", {})
+    excluded_companies = analysis.get("excluded_companies", {})
 
     def find(kind: str, doc_id: str, stored: dict[str, Any]) -> str | None:
         if kind == "jobs" and doc_id in excluded_offers:
-            return REMOVE  # concours, formation... : retiré du site sans remplaçant
+            return REMOVE  # concours, formation, sans contact, entreprise exclue : retiré du site sans remplaçant
+        if kind == "companies" and doc_id in excluded_companies:
+            return REMOVE  # liste d'exclusion (excluded_companies.txt)
         if kind == "companies":
             company_id = resolve(doc_id)
             return company_id if company_id != doc_id and company_id in companies else None
@@ -1237,6 +1382,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--no-job-filter", action="store_true",
         help="Envoie aussi à l'IA les publications de groupe sans mot-clé d'offre d'emploi (plus cher)",
+    )
+    parser.add_argument(
+        "--excluded-companies-file", default=str(EXCLUDED_COMPANIES_FILE), metavar="FICHIER",
+        help="Entreprises jamais publiées, ni elles ni leurs offres (défaut : facebook_script/excluded_companies.txt)",
     )
     parser.add_argument(
         "--allow-no-contact", action="store_true",
@@ -1309,8 +1458,23 @@ def run_scraping(
         for index, group in enumerate(groups, len(targets) + 1):
             print(f"\n[{index}/{total}] Groupe {group.group_id}")
             stats = fb.scrape_group(sb, group, group_scrape_options(args))  # cache et export propres au groupe
-            register_group(group, country)  # puis analysé, consolidé et envoyé comme une page
+            page_id = register_group(group, country)  # puis analysé, consolidé et envoyé comme une page
+            fetch_group_images(sb, group, page_id, args)
             _print_stats(stats, args.max_age_days)
+
+
+def fetch_group_images(sb: SB, group: fb.GroupTarget, page_id: str, args: argparse.Namespace) -> None:
+    """
+    Le fil d'un groupe ne montre que 5 vignettes ; les publications « +N » passent ensuite par la même visionneuse
+    que les pages (fetch_post_images : photos pleine résolution, reprise si incomplet). Les vignettes déjà lues par
+    scraper.finalize_posts sont remplacées par les photos complètes ; l'OCR des nouvelles images est rattrapé
+    avant l'analyse IA (analyze_posts).
+    """
+    if args.no_viewer:
+        return
+    store = fb.PostStore(group.output_file)  # relu : scrape_group vient de l'enregistrer
+    entry = {"page_url": group.group_url, "kind": "group", "posts_file": str(group.output_file.relative_to(fb.OUTPUT_DIR))}
+    fetch_post_images(sb, store, source_target(page_id, entry), args)
 
 
 class RunAlreadyActive(Exception):
@@ -1386,7 +1550,8 @@ def _run(args: argparse.Namespace, country: CountryProfile, api_url: str) -> Non
             )
     if not args.keep_images:
         release_images(country, args.max_age_days)
-    consolidate(country, args.offer_types, require_contact=not args.allow_no_contact)
+    consolidate(country, args.offer_types, require_contact=not args.allow_no_contact,
+                excluded_companies=load_excluded_companies(Path(args.excluded_companies_file)))
     if args.push:
         _push(args, country, api_url)
 

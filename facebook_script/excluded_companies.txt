@@ -1,0 +1,33 @@
+# Entreprises jamais envoyées en base : ni leur fiche entreprise, ni leurs offres.
+# Déjà en base : retirées au prochain `pages.py --push`.
+#
+# Une entreprise par ligne ; majuscules, accents, apostrophes et espaces indifférents
+# (« EUROP'ALU » écarte aussi « Europalu » et « Europ Alu »).
+# Correspondance sur des mots entiers du nom : « YAS » écarte « Yas Madagascar » mais pas « Yasmine ».
+# Aussi sur le domaine de l'email ou du site : « EUROP'ALU » écarte recrutement@europ-alu.com.
+# Singulier / pluriel indifférents : « MINISTERES » écarte « Ministère de l'Économie ».
+# Ligne commençant par # = commentaire.
+
+BEWYS
+EUROP'ALU
+NP AKADIN
+ORANGE
+
+# Groupe Axian
+AXIAN
+YAS
+JOVENA
+CONNECTEO
+PULSE
+STELLARIX
+BNI
+FIRST IMMO
+NEXTA
+MVOLA
+PAMF
+
+MINISTERES
+# « Ministère » en malgache (ex. Ministeran'ny Fampianarana Teknika sy ny Fanofanana)
+MINISTERAN'NY
+
+AFG BANK
