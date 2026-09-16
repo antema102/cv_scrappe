@@ -835,10 +835,15 @@ def _get_ocr_engine() -> Any:
     return _ocr_engine
 
 
+def image_on_disk(image: dict[str, Any]) -> bool:
+    """Image téléchargée et encore sur le disque (pages.py supprime les fichiers dont l'analyse est terminée)."""
+    return bool(image.get("file")) and not image.get("file_deleted")
+
+
 def ocr_post_images(engine: Any, post: dict[str, Any]) -> None:
     """Remplit images[i]["ocr_text"] (lignes lues, bruit filtré) pour les images téléchargées."""
     for image in post.get("images", []):
-        if not image.get("file") or "ocr_text" in image:
+        if not image_on_disk(image) or "ocr_text" in image:
             continue
         try:
             result = engine(str(OUTPUT_DIR / image["file"]))
@@ -1408,7 +1413,7 @@ def finalize_posts(store: PostStore, target: GroupTarget, opts: ScrapeOptions) -
     """
     pending = [
         post for post in store.posts()
-        if any(image.get("file") and "ocr_text" not in image for image in post.get("images", []))
+        if any(image_on_disk(image) and "ocr_text" not in image for image in post.get("images", []))
     ]
     engine = _get_ocr_engine() if opts.ocr and pending else None
     if engine is not None:

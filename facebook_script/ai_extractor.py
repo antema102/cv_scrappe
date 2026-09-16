@@ -38,7 +38,7 @@ from typing import Any
 
 import requests
 
-PROMPT_VERSION = "fb-pages-v4"  # v2 : images OCR en texte seul ; v3 : OCR par lots ; v4 : groupes (type de source, auteur)
+PROMPT_VERSION = "fb-pages-v5"  # v2 : OCR en texte seul ; v3 : OCR par lots ; v4 : groupes ; v5 : offer_type (concours, formation...)
 DEFAULT_MODEL = "gpt-4o-mini"
 DEFAULT_BASE_URL = "https://api.openai.com/v1"
 MAX_IMAGES_PER_CALL = 8
@@ -48,6 +48,8 @@ MAX_ATTEMPTS = 4
 ABOUT_MAX_CHARS = 4000
 
 POST_KINDS = ["job_offer", "company_promotion", "product_sale", "service_offer", "event", "news", "other"]
+# Nature de chaque « offre » : seules emploi / stage sont des offres d'emploi (pages.py filtre le reste, --offer-types)
+OFFER_TYPES = ["emploi", "stage", "concours", "formation", "bourse", "appel_offres", "autre"]
 
 _STR = {"type": "string"}
 _STR_LIST = {"type": "array", "items": {"type": "string"}}
@@ -86,6 +88,7 @@ RESULT_SCHEMA = _object({
         "type": "array",
         "items": _object({
             "title": _STR,
+            "offer_type": {"type": "string", "enum": OFFER_TYPES},
             "company_name": _STR,
             "description": _STR,
             "tasks": _STR_LIST,
@@ -115,6 +118,7 @@ Règles :
 - address : adresse physique telle qu'écrite ; city : ville seule ; country : pays si indiqué ou évident ({country} par défaut pour une entreprise locale).
 - products_services : produits ou services proposés. categories : types de métiers/tâches/services concernés, en français, courts.
 - job_offers : une entrée par poste proposé, pour TOUTES les images de ce lot sans exception (stages, alternances et plusieurs postes sur une même affiche compris) ; ne t'arrête pas aux premières. tasks = missions ; qualifications = profil/diplômes/expérience demandés ; skills = compétences ; how_to_apply = modalités de candidature ; deadline = date limite telle qu'écrite.
+- offer_type : "emploi" = poste rémunéré dans une entreprise ou une organisation (CDI, CDD, intérim, temps partiel, alternance, consultant individuel recruté, formateur/enseignant recruté) ; "stage" = stage ou stagiaire ; "concours" = recrutement ou entrée par voie de concours (fonction publique, école, institut) ; "formation" = formation, cours, certification, séminaire, atelier ou programme proposé à des participants, même gratuit ou « avec possibilité d'emploi » ; "bourse" = bourse, fellowship, prix, programme de subvention ; "appel_offres" = appel d'offres, consultation, marché ou manifestation d'intérêt adressés à des sociétés, fournisseurs ou prestataires ; "autre" = événement, salon, bénévolat, annonce qui n'est pas un poste. Liste quand même ces annonces dans job_offers avec leur offer_type.
 - evidence : pour chaque email, téléphone, site, adresse et nom d'entreprise retenu, la source ("texte", "page", "image 3"...).
 - post_kind : nature principale de la publication."""
 

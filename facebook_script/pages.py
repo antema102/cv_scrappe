@@ -40,6 +40,7 @@ Usage :
     python facebook_script/pages.py --push-only --no-clean            # envoi sans supprimer les doublons déjà envoyés
     python facebook_script/pages.py --no-groups                       # pages seulement (défaut : pages.txt + groups.txt)
     python facebook_script/pages.py --no-pages                        # groupes seulement (groups.txt)
+    python facebook_script/pages.py --keep-images                     # garde les images (défaut : supprimées après analyse)
     python facebook_script/pages.py --group-url https://www.facebook.com/groups/2367943963509691 --push
 
 OPENAI_API_KEY / OPENAI_MODEL : environnement ou .env (racine, backend/.env).
@@ -65,8 +66,8 @@ from typing import Any
 from urllib.parse import parse_qs, parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 import scraper as fb
-from ai_extractor import DEFAULT_BASE_URL, DEFAULT_MODEL, PROMPT_VERSION, AiError, AiExtractor, load_dotenv, mask_secret
-from backend_push import DEFAULT_API_URL, ReplacementFinder, push_country
+from ai_extractor import DEFAULT_BASE_URL, DEFAULT_MODEL, OFFER_TYPES, PROMPT_VERSION, AiError, AiExtractor, load_dotenv, mask_secret
+from backend_push import DEFAULT_API_URL, REMOVE, ReplacementFinder, push_country
 from company_registry import CompanyRegistry, build_candidate, company_document, fold, names_similar, normalize_name, review_entry
 from countries import COUNTRIES, CountryProfile
 from fb_dates import published_at
@@ -457,16 +458,16 @@ def fetch_post_images(sb: SB, store: fb.PostStore, target: PageTarget, opts: arg
 def ocr_page_posts(store: fb.PostStore, max_age_days: int = 0) -> None:
     pending = [
         p for p in store.posts()
-        if any(i.get("file") and "ocr_text" not in i for i in p.get("images", [])) and not fb.post_too_old(p, max_age_days)
+        if any(fb.image_on_disk(i) and "ocr_text" not in i for i in p.get("images", [])) and not fb.post_too_old(p, max_age_days)
     ]
     engine = fb._get_ocr_engine() if pending else None
     if engine is None:
         return
-    total = sum(1 for p in pending for i in p["images"] if i.get("file") and "ocr_text" not in i)
+    total = sum(1 for p in pending for i in p["images"] if fb.image_on_disk(i) and "ocr_text" not in i)
     print(f"  OCR des images : {total} image(s) dans {len(pending)} publication(s) (~0,5 à 2 s par image)...")
     done = 0
     for index, post in enumerate(pending, 1):
-        count = sum(1 for i in post["images"] if i.get("file") and "ocr_text" not in i)
+        count = sum(1 for i in post["images"] if fb.image_on_disk(i) and "ocr_text" not in i)
         start = time.monotonic()
         fb.ocr_post_images(engine, post)
         done += count
@@ -654,7 +655,7 @@ def analyze_posts(
             if not post.get("images_done"):
                 print(f"  [ATTENTE] {post['post_id'][:30]}… : images incomplètes, analyse reportée au prochain scraping")
                 continue
-            if not send_all_images and any(i.get("file") and "ocr_text" not in i for i in post.get("images", [])):
+            if not send_all_images and any(fb.image_on_disk(i) and "ocr_text" not in i for i in post.get("images", [])):
                 waiting_ocr += 1  # sans OCR, chaque image partirait en haute résolution (~29 000 tokens chacune)
                 continue
             if is_group and job_filter and not send_all_images and not (post.get("job") or fb.analyze_job(post))["is_offer"]:
@@ -882,6 +883,55 @@ def job_document(
     }
 
 
+def release_images(country: CountryProfile, max_age_days: int = 0) -> None:
+    """
+    Supprime du disque les images dont le pipeline n'a plus besoin, pour ne pas saturer le disque : publication
+    analysée, écartée par un filtre, doublon de pfbid, ou trop ancienne pour être analysée. Tout ce qui en a été
+    tiré reste dans le JSON (url, fbid, sha256, texte OCR, chemin + file_deleted) : rien n'est retéléchargé
+    (images_done / champ file conservés), le cache IA et la consolidation n'utilisent pas les fichiers.
+    Une publication en attente (téléchargement, OCR, analyse, erreur IA à retenter) garde ses images.
+    Prix : --reanalyze ne peut plus joindre ces images, il repart du texte OCR.
+    """
+    pages = _read_json(pages_dir() / f"pages_{country.code}.json")
+    files = size = 0
+    for page_id in country_page_ids(country):
+        store = fb.PostStore(source_target(page_id, pages[page_id]).posts_file)
+        _, duplicates = canonical_posts(store.posts())
+        changed = False
+        for post in store.posts():
+            finished = (
+                "analysis" in post or post.get("analysis_skipped") or post["post_id"] in duplicates
+                or fb.post_too_old(post, max_age_days)
+            )
+            if not finished:
+                continue
+            for image in post.get("images", []):
+                if not fb.image_on_disk(image):
+                    continue
+                path = fb.OUTPUT_DIR / image["file"]
+                try:
+                    file_size = path.stat().st_size
+                    path.unlink()
+                except FileNotFoundError:
+                    file_size = 0  # déjà supprimé à la main
+                except OSError as exc:  # fichier ouvert ailleurs (visionneuse Windows...) : réessayé au prochain lancement
+                    print(f"  [WARN] image non supprimée {image['file']} : {exc}")
+                    continue
+                image["file_deleted"] = True
+                files += 1 if file_size else 0
+                size += file_size
+                changed = True
+                with suppress(OSError):
+                    path.parent.rmdir()  # dossier de la page vide : retiré aussi
+            if changed:
+                store.add(post["post_id"], post)
+        if changed:
+            store.save()
+    if files:
+        print(f"\nImages : {files} fichier(s) supprimé(s) du disque ({f'{size / 1_048_576:.1f} Mo' if size >= 1_048_576 else f'{size // 1024} Ko'} libérés), analyse terminée "
+              f"(--keep-images pour les garder)")
+
+
 def _without_page_owner(post: dict[str, Any]) -> dict[str, Any]:
     """Copie de la publication où aucune entreprise n'est « la page qui publie » (groupes : le groupe n'emploie pas)."""
     result = post["analysis"]["result"]
@@ -889,7 +939,43 @@ def _without_page_owner(post: dict[str, Any]) -> dict[str, Any]:
     return {**post, "analysis": {**post["analysis"], "result": {**result, "companies": companies}}}
 
 
-def consolidate(country: CountryProfile) -> None:
+DEFAULT_OFFER_TYPES = ("emploi", "stage")  # le reste (concours, formation, bourse, appel d'offres...) n'est pas publié
+# Filet de sécurité sur le DÉBUT de l'intitulé (plié) : sans ambiguïté, appliqué même si l'IA a dit "emploi", et seule
+# source pour les analyses d'avant offer_type (prompt < v5). Jamais un mot isolé : "Formateur", "Chef d'atelier",
+# "Gestionnaire fournisseurs" sont de vrais emplois (vérifié sur les vraies offres).
+NON_JOB_TITLE_RES = (
+    ("concours", re.compile(r"^\W*concours\b|\bconcours (?:d.entree|de recrutement|administratif|direct|professionnel)")),
+    ("formation", re.compile(
+        r"^\W*(?:formations?|session de formation|programme de formation|offre de formation|cours (?:de|d.|en)|"
+        r"seminaire|webinaire|masterclass|bootcamp|certification)\b"
+    )),
+    ("bourse", re.compile(r"^\W*(?:bourses?|programme de bourses?|fellowship|scholarship)\b")),
+    ("appel_offres", re.compile(
+        r"^\W*(?:avis d.)?(?:appel d.offres?|appel a manifestation|manifestation d.interet|consultation ouverte|"
+        r"demande de (?:cotation|prix|proposition)s?)\b"
+    )),
+)
+STAGE_TITLE_RE = re.compile(r"^\W*(?:stages?|stagiaires?|offre de stage)\b")
+
+
+def offer_type(offer: dict[str, Any]) -> str:
+    """Nature d'une offre : règle sur l'intitulé si elle s'applique, sinon offer_type de l'IA, sinon emploi/stage."""
+    title = fold(offer.get("title", ""))
+    for kind, pattern in NON_JOB_TITLE_RES:
+        if pattern.search(title):
+            return kind
+    if offer.get("offer_type") in OFFER_TYPES:
+        return offer["offer_type"]
+    return "stage" if STAGE_TITLE_RE.search(title) else "emploi"
+
+
+def consolidate(
+    country: CountryProfile, offer_types: tuple[str, ...] | list[str] = DEFAULT_OFFER_TYPES, require_contact: bool = False,
+) -> None:
+    """
+    require_contact : une offre dont l'entreprise n'a ni email ni téléphone (company_profile sans contact, ou pas
+    d'entreprise du tout) n'est pas publiée — aucun moyen de contacter le recruteur (défaut CLI, --allow-no-contact).
+    """
     out = pages_dir()
     pages = _read_json(out / f"pages_{country.code}.json")
     posts: list[tuple[dict[str, Any], dict[str, Any]]] = []
@@ -966,18 +1052,32 @@ def consolidate(country: CountryProfile) -> None:
     # Même offre republiée dans plusieurs publications -> un seul job_id, première date de publication
     job_id_by_local: dict[str, str] = {}
     review_jobs: dict[str, Any] = {}
+    excluded_offers: dict[str, Any] = {}
     for job_id, campaign in dedupe_offers(occurrences, out / f"job_registry_{country.code}.json"):
         first = campaign[0]
         company_id = next((occ["company_id"] for occ in campaign if occ["company_id"]), "")
         offer = _merged_offer(campaign)
-        jobs[job_id] = job_document(job_id, offer, first["post"], first["page"], companies.get(company_id, {}), company_id, first["published"])
-        publications[job_id] = {"job_id": job_id, "published_at": first["published"]}
         for occ in campaign:
             job_id_by_local[occ["local_id"]] = job_id
-        review_jobs[job_id] = {
-            "title": offer.get("title", ""),
-            "occurrences": [{"post_id": occ["post"]["post_id"], "published_at": occ["published"]} for occ in campaign],
-        }
+        occurrences_review = [{"post_id": occ["post"]["post_id"], "published_at": occ["published"]} for occ in campaign]
+        kind = offer_type(offer)
+        company = companies.get(company_id, {})
+        reason = (
+            "type" if kind not in offer_types
+            else "sans_contact" if require_contact and not (company.get("emails") or company.get("phone_numbers"))
+            else ""
+        )
+        if reason:
+            # Id attribué quand même (registre stable) : le nettoyage du backend retire l'annonce si elle y est déjà ;
+            # elle revient d'elle-même si son entreprise gagne un contact ou si le filtre change
+            excluded_offers[job_id] = {
+                "title": offer.get("title", ""), "company_name": offer.get("company_name", ""), "offer_type": kind,
+                "reason": reason, "occurrences": occurrences_review,
+            }
+            continue
+        jobs[job_id] = job_document(job_id, offer, first["post"], first["page"], company, company_id, first["published"])
+        publications[job_id] = {"job_id": job_id, "published_at": first["published"]}
+        review_jobs[job_id] = {"title": offer.get("title", ""), "offer_type": kind, "occurrences": occurrences_review}
     for review in review_posts.values():
         review["job_ids"] = list(dict.fromkeys(job_id_by_local[local_id] for local_id in review["job_ids"]))
 
@@ -992,15 +1092,28 @@ def consolidate(country: CountryProfile) -> None:
         "jobs": review_jobs,
         "posts": review_posts,
         "duplicate_posts": duplicate_posts,  # doublon de pfbid -> publication gardée (nettoyage du backend)
+        "excluded_offers": excluded_offers,  # pas des offres d'emploi (--offer-types) : jamais publiées, retirées du backend
     })
     merged = sum(1 for _, cluster in assigned if len(cluster) > 1)
-    reposted = len(occurrences) - len(jobs)
+    reposted = len(occurrences) - len(jobs) - len(excluded_offers)
+    by_type: dict[str, int] = {}
+    for entry in excluded_offers.values():
+        if entry["reason"] == "type":
+            by_type[entry["offer_type"]] = by_type.get(entry["offer_type"], 0) + 1
+    excluded_text = ", ".join(f"{count} {kind}" for kind, count in sorted(by_type.items()))
+    without_contact = sum(1 for entry in excluded_offers.values() if entry["reason"] == "sans_contact")
     print(
         f"\nConsolidation {country.name} : {len(posts)} publication(s), {len(candidates)} mention(s) d'entreprise "
         f"-> {len(companies)} entreprise(s) ({merged} regroupée(s)), {len(jobs)} offre(s) "
         f"({reposted} republication(s) regroupée(s)), "
         f"{len(shared)} contact(s) partagé(s) ignoré(s)\n  -> {out}"
     )
+    if by_type:
+        print(f"  {sum(by_type.values())} annonce(s) écartée(s), hors types gardés ({','.join(offer_types)}) : {excluded_text}")
+    if without_contact:
+        print(f"  {without_contact} offre(s) écartée(s) : entreprise sans email ni téléphone (--allow-no-contact pour les garder)")
+    if excluded_offers:
+        print(f"  détail -> analysis_{country.code}.json, clé excluded_offers")
 
 
 REF_CODE_RE = re.compile(r"[(\[]\s*r[ée]f[^)\]]*[)\]]|\br[ée]f(?:[ée]rence)?\s*[.:°#]\s*[\w/-]+", re.I)
@@ -1053,7 +1166,11 @@ def stale_replacement_finder(country: CountryProfile) -> ReplacementFinder:
             {occurrence["post_id"] for occurrence in occurrences},
         ))
 
+    excluded_offers = analysis.get("excluded_offers", {})
+
     def find(kind: str, doc_id: str, stored: dict[str, Any]) -> str | None:
+        if kind == "jobs" and doc_id in excluded_offers:
+            return REMOVE  # concours, formation... : retiré du site sans remplaçant
         if kind == "companies":
             company_id = resolve(doc_id)
             return company_id if company_id != doc_id and company_id in companies else None
@@ -1075,6 +1192,14 @@ def stale_replacement_finder(country: CountryProfile) -> ReplacementFinder:
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
+
+def _offer_types_arg(value: str) -> list[str]:
+    types = [part.strip() for part in value.split(",") if part.strip()]
+    unknown = [part for part in types if part not in OFFER_TYPES]
+    if not types or unknown:
+        raise argparse.ArgumentTypeError(f"types inconnus {unknown or value!r} : choisir parmi {', '.join(OFFER_TYPES)}")
+    return types
 
 
 def parse_args() -> argparse.Namespace:
@@ -1110,6 +1235,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--no-job-filter", action="store_true",
         help="Envoie aussi à l'IA les publications de groupe sans mot-clé d'offre d'emploi (plus cher)",
+    )
+    parser.add_argument(
+        "--allow-no-contact", action="store_true",
+        help="Publie aussi les offres dont l'entreprise n'a ni email ni téléphone (par défaut écartées : aucun moyen de la contacter)",
+    )
+    parser.add_argument(
+        "--offer-types", type=_offer_types_arg, default=list(DEFAULT_OFFER_TYPES), metavar="TYPES",
+        help=f"Types d'annonces gardés, séparés par des virgules parmi {', '.join(OFFER_TYPES)} "
+             f"(défaut : {','.join(DEFAULT_OFFER_TYPES)} ; ex. --offer-types emploi pour écarter aussi les stages)",
+    )
+    parser.add_argument(
+        "--keep-images", action="store_true",
+        help="Garde les images sur le disque (par défaut supprimées une fois la publication analysée, écartée ou trop ancienne)",
     )
     parser.add_argument("--skip-scrape", action="store_true", help="Pas de navigateur : analyse IA + consolidation des publications en cache")
     parser.add_argument(
@@ -1244,7 +1382,9 @@ def _run(args: argparse.Namespace, country: CountryProfile, api_url: str) -> Non
                 send_all_images=args.send_all_images, max_tokens=args.max_ai_tokens, max_age_days=args.max_age_days,
                 email_filter=not args.no_email_filter, job_filter=not args.no_job_filter,
             )
-    consolidate(country)
+    if not args.keep_images:
+        release_images(country, args.max_age_days)
+    consolidate(country, args.offer_types, require_contact=not args.allow_no_contact)
     if args.push:
         _push(args, country, api_url)
 

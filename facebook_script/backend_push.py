@@ -40,6 +40,8 @@ SAVE_EVERY = 20
 
 # (type "companies" | "jobs", id disparu des JSON, document lu dans le backend) -> id du document qui le remplace, ou None
 ReplacementFinder = Callable[[str, str, dict[str, Any]], str | None]
+# Réponse de ReplacementFinder pour une offre écartée volontairement (concours, formation...) : supprimée sans remplaçant
+REMOVE = "__remove__"
 
 
 class BackendError(Exception):
@@ -141,6 +143,7 @@ def clean_stale(
         deleted: list[str] = []
         already_gone: list[str] = []
         kept: list[str] = []
+        excluded: list[str] = []
         for doc_id in stale:
             path = f"/api/{kind}/{quote(doc_id, safe='')}"
             try:
@@ -151,15 +154,19 @@ def clean_stale(
                     already_gone.append(doc_id)
                 else:
                     replacement = find_replacement(kind, doc_id, stored)
-                    if kind == "jobs":
-                        replaced = sent("jobs", replacement) and (replacement not in documents["publications"] or sent("publications", replacement))
+                    if kind == "jobs" and replacement == REMOVE:
+                        client.delete(path)  # pas une offre d'emploi (concours, formation...) : retirée du site
+                        excluded.append(doc_id)
                     else:
-                        replaced = sent("companies", replacement) and not (client.get("/api/jobs", {"company_id": doc_id, "limit": 1}) or {}).get("total")
-                    if not replaced:
-                        kept.append(doc_id)
-                        continue
-                    client.delete(path)
-                    deleted.append(doc_id)
+                        if kind == "jobs":
+                            replaced = sent("jobs", replacement) and (replacement not in documents["publications"] or sent("publications", replacement))
+                        else:
+                            replaced = sent("companies", replacement) and not (client.get("/api/jobs", {"company_id": doc_id, "limit": 1}) or {}).get("total")
+                        if not replaced:
+                            kept.append(doc_id)
+                            continue
+                        client.delete(path)
+                        deleted.append(doc_id)
             except RouteMissing:
                 _write(state_path, state)
                 print("  [ERREUR] Le backend n'a pas les routes DELETE : redémarrez-le (Ctrl+C puis `npm run dev` dans backend/) "
@@ -175,6 +182,9 @@ def clean_stale(
         if deleted or already_gone:
             print(f"  doublons {label} : {len(deleted)} supprimé(s) du backend (remplacés par la version regroupée)"
                   + (f", {len(already_gone)} déjà absent(s) de la base" if already_gone else ""))
+        if excluded:
+            print(f"  {len(excluded)} annonce(s) retirée(s) du backend, écartée(s) à la consolidation (concours, formation, "
+                  f"appel d'offres..., ou entreprise sans email ni téléphone) : {_short(excluded)}")
         if kept:
             print(f"  [INFO] {len(kept)} {label} gardée(s) en base, plus dans les JSON mais {kept_reasons[kind]} : {_short(kept)}")
 
