@@ -68,6 +68,21 @@ router.get("/:job_id", async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+// DELETE /api/jobs/:job_id — supprime une offre et sa date de publication (nettoyage des doublons par le scraper).
+// 200 même si l'offre n'existe plus (deleted: false) : un 404 signale alors une route absente (backend pas redémarré).
+router.delete("/:job_id", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { job_id } = req.params;
+    const [job] = await Promise.all([
+      Job.findOneAndDelete({ job_id }),
+      JobPublication.deleteOne({ job_id }),
+    ]);
+    res.json({ success: true, job_id, deleted: Boolean(job) });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 // POST /api/jobs/:job_id/publication — enregistre la date de publication (scraper)
 router.post(
   "/:job_id/publication",

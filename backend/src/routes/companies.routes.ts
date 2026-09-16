@@ -145,6 +145,21 @@ router.get(
   }
 );
 
+// DELETE /api/companies/:company_id — supprime une entreprise (nettoyage des doublons par le scraper).
+// 200 même si elle n'existe plus (deleted: false) : un 404 signale alors une route absente (backend pas redémarré).
+router.delete(
+  "/:company_id",
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { company_id } = req.params;
+      const company = await Company.findOneAndDelete({ company_id });
+      res.json({ success: true, company_id, deleted: Boolean(company) });
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  }
+);
+
 // PATCH /api/companies/:company_id/contact — merge emails + téléphones (scraper)
 router.patch(
   "/:company_id/contact",
