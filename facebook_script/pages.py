@@ -460,6 +460,8 @@ def ocr_page_posts(store: fb.PostStore, max_age_days: int = 0) -> None:
         p for p in store.posts()
         if any(fb.image_on_disk(i) and "ocr_text" not in i for i in p.get("images", [])) and not fb.post_too_old(p, max_age_days)
     ]
+    if pending:
+        print("  Chargement du moteur OCR (RapidOCR / onnxruntime)...", flush=True)
     engine = fb._get_ocr_engine() if pending else None
     if engine is None:
         return
