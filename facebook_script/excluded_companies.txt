@@ -31,3 +31,16 @@ MINISTERES
 MINISTERAN'NY
 
 AFG BANK
+
+# Portails/agrégateurs d'offres (ne recrutent pas eux-mêmes) — le filtre IA company_type
+# écarte aussi automatiquement les autres portails/ONG/institutions non listés ici,
+# voir --allow-relay-companies dans pages.py pour désactiver ce filtre générique.
+MADAJOB
+ASAKO
+PORTAL JOBS
+OLONA TALENT
+
+# ONG / organisations internationales : procédure de recrutement propre, n'acceptent pas
+# les candidatures spontanées envoyées par cette pipeline.
+BANQUE MONDIALE
+WORLD BANK

@@ -66,7 +66,9 @@ from typing import Any
 from urllib.parse import parse_qs, parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 import scraper as fb
-from ai_extractor import DEFAULT_BASE_URL, DEFAULT_MODEL, OFFER_TYPES, PROMPT_VERSION, AiError, AiExtractor, load_dotenv, mask_secret
+from ai_extractor import (
+    COMPANY_TYPES, DEFAULT_BASE_URL, DEFAULT_MODEL, OFFER_TYPES, PROMPT_VERSION, AiError, AiExtractor, load_dotenv, mask_secret,
+)
 from backend_push import DEFAULT_API_URL, REMOVE, ReplacementFinder, push_country
 from company_registry import (
     CompanyRegistry, build_candidate, company_document, fold, names_similar, normalize_name, review_entry, website_domain,
@@ -921,6 +923,11 @@ def _merged_offer(campaign: list[dict[str, Any]]) -> dict[str, Any]:
     merged = dict(max(offers, key=completeness))
     for field in ("emails", "phone_numbers"):
         merged[field] = list(dict.fromkeys(item for offer in offers for item in offer.get(field, [])))
+    # Une seule republication jugée suspecte suffit (la version "la plus complète" n'est pas forcément celle-là)
+    flagged = next((offer for offer in offers if offer.get("suspicious")), None)
+    if flagged is not None:
+        merged["suspicious"] = True
+        merged["suspicious_reason"] = flagged.get("suspicious_reason", "")
     return merged
 
 
@@ -1060,6 +1067,18 @@ def excluded_company_match(blocklist: list[str], names: list[str], domains: list
     return ""
 
 
+NON_EMPLOYER_TYPES = tuple(t for t in COMPANY_TYPES if t != "entreprise")  # ("portail_offres", "ong_ou_institution")
+
+
+def ai_company_type(cluster: list[Any]) -> str:
+    """
+    Classification IA (company_type) la plus restrictive vue dans le cluster (une seule publication qui identifie
+    un portail/une ONG suffit, même si une autre l'a laissé par défaut à "entreprise") ; "entreprise" sinon.
+    """
+    types = {c.data.get("company_type", "entreprise") for c in cluster}
+    return next((kind for kind in NON_EMPLOYER_TYPES if kind in types), "entreprise")
+
+
 def _cluster_domains(cluster: list[Any]) -> list[str]:
     """Domaines propres à une entreprise (site, emails), hors messageries et réseaux (gmail.com, facebook.com...)."""
     domains = [website_domain(candidate.data.get("website", "")) for candidate in cluster]
@@ -1099,12 +1118,19 @@ def offer_type(offer: dict[str, Any]) -> str:
 
 def consolidate(
     country: CountryProfile, offer_types: tuple[str, ...] | list[str] = DEFAULT_OFFER_TYPES, require_contact: bool = False,
-    excluded_companies: list[str] | None = None,
+    excluded_companies: list[str] | None = None, exclude_relay_companies: bool = True, exclude_suspicious: bool = True,
 ) -> None:
     """
     require_contact : une offre dont l'entreprise n'a ni email ni téléphone (company_profile sans contact, ou pas
     d'entreprise du tout) n'est pas publiée — aucun moyen de contacter le recruteur (défaut CLI, --allow-no-contact).
-    excluded_companies : liste d'exclusion (load_excluded_companies) — ni la fiche entreprise ni ses offres ne sont publiées.
+    excluded_companies : liste d'exclusion nommée (load_excluded_companies) — ni la fiche entreprise ni ses offres
+    ne sont publiées.
+    exclude_relay_companies : entreprise classée par l'IA (company_type) comme portail d'offres (MADAJOB, Asako,
+    agence qui relaie pour le compte de tiers...) ou ONG/organisation internationale/institution publique (Banque
+    Mondiale, agences UN, ministères...) écartée comme excluded_companies, sans avoir à la lister nommément
+    (défaut CLI, --allow-relay-companies pour les garder).
+    exclude_suspicious : offre dont l'IA a détecté des signes d'arnaque (job_offers[].suspicious) jamais publiée
+    (défaut CLI, --no-suspicious-filter pour les garder).
     """
     blocklist = excluded_companies or []
     out = pages_dir()
@@ -1139,8 +1165,12 @@ def consolidate(
     for company_id, cluster in assigned:
         # Tous les noms vus pour l'entreprise (variantes de l'IA regroupées) + domaines de ses emails et de son site
         matched = excluded_company_match(blocklist, [c.data.get("name", "") for c in cluster], _cluster_domains(cluster))
-        if matched:
-            excluded_company_ids[company_id] = {"name": companies.pop(company_id)["name"], "matched": matched}
+        ai_type = ai_company_type(cluster) if exclude_relay_companies else "entreprise"
+        if matched or ai_type != "entreprise":
+            excluded_company_ids[company_id] = {
+                "name": companies.pop(company_id)["name"], "matched": matched,
+                "reason": "liste_exclusion" if matched else ai_type,
+            }
     jobs: dict[str, Any] = {}
     publications: dict[str, Any] = {}
     review_posts: dict[str, Any] = {}
@@ -1203,6 +1233,7 @@ def consolidate(
         reason = (
             "entreprise_exclue" if company_id in excluded_company_ids or excluded_company_match(blocklist, offer_names)
             else "type" if kind not in offer_types
+            else "offre_suspecte" if exclude_suspicious and offer.get("suspicious")
             else "sans_contact" if require_contact and not (company.get("emails") or company.get("phone_numbers"))
             else ""
         )
@@ -1212,6 +1243,7 @@ def consolidate(
             excluded_offers[job_id] = {
                 "title": offer.get("title", ""), "company_name": offer.get("company_name", ""), "offer_type": kind,
                 "reason": reason, "occurrences": occurrences_review,
+                **({"suspicious_reason": offer.get("suspicious_reason", "")} if reason == "offre_suspecte" else {}),
             }
             continue
         jobs[job_id] = job_document(job_id, offer, first["post"], first["page"], company, company_id, first["published"])
@@ -1242,6 +1274,7 @@ def consolidate(
             by_type[entry["offer_type"]] = by_type.get(entry["offer_type"], 0) + 1
     excluded_text = ", ".join(f"{count} {kind}" for kind, count in sorted(by_type.items()))
     without_contact = sum(1 for entry in excluded_offers.values() if entry["reason"] == "sans_contact")
+    suspicious_offers = sum(1 for entry in excluded_offers.values() if entry["reason"] == "offre_suspecte")
     blocked_offers = sum(1 for entry in excluded_offers.values() if entry["reason"] == "entreprise_exclue")
     print(
         f"\nConsolidation {country.name} : {len(posts)} publication(s), {len(candidates)} mention(s) d'entreprise "
@@ -1250,12 +1283,22 @@ def consolidate(
         f"{len(shared)} contact(s) partagé(s) ignoré(s)\n  -> {out}"
     )
     if excluded_company_ids or blocked_offers:
-        names = ", ".join(sorted({entry["name"] for entry in excluded_company_ids.values()}))
-        print(f"  liste d'exclusion : {len(excluded_company_ids)} entreprise(s) et {blocked_offers} offre(s) écartée(s) ({names})")
+        named = sorted({e["name"] for e in excluded_company_ids.values() if e["reason"] == "liste_exclusion"})
+        relay = sorted({e["name"] for e in excluded_company_ids.values() if e["reason"] == "portail_offres"})
+        ngo = sorted({e["name"] for e in excluded_company_ids.values() if e["reason"] == "ong_ou_institution"})
+        print(f"  liste d'exclusion / IA : {len(excluded_company_ids)} entreprise(s) et {blocked_offers} offre(s) écartée(s)")
+        if named:
+            print(f"    liste nommée : {', '.join(named)}")
+        if relay:
+            print(f"    portails/agences relais (IA) : {', '.join(relay)}")
+        if ngo:
+            print(f"    ONG/organisations internationales/institutions (IA) : {', '.join(ngo)}")
     if by_type:
         print(f"  {sum(by_type.values())} annonce(s) écartée(s), hors types gardés ({','.join(offer_types)}) : {excluded_text}")
     if without_contact:
         print(f"  {without_contact} offre(s) écartée(s) : entreprise sans email ni téléphone (--allow-no-contact pour les garder)")
+    if suspicious_offers:
+        print(f"  {suspicious_offers} offre(s) écartée(s) : signes d'arnaque détectés par l'IA (--no-suspicious-filter pour les garder, détail -> excluded_offers[...].suspicious_reason)")
     if excluded_offers:
         print(f"  détail -> analysis_{country.code}.json, clé excluded_offers")
 
@@ -1390,6 +1433,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--allow-no-contact", action="store_true",
         help="Publie aussi les offres dont l'entreprise n'a ni email ni téléphone (par défaut écartées : aucun moyen de la contacter)",
+    )
+    parser.add_argument(
+        "--allow-relay-companies", action="store_true",
+        help="Publie aussi les entreprises que l'IA classe comme portail d'offres (MADAJOB, Asako...) ou ONG/organisation "
+             "internationale/institution publique (Banque Mondiale, agences UN, ministères...) — par défaut écartées, "
+             "voir excluded_companies.txt pour les entreprises exclues nommément",
+    )
+    parser.add_argument(
+        "--no-suspicious-filter", action="store_true",
+        help="Publie aussi les offres où l'IA a détecté des signes d'arnaque (paiement demandé, MLM...) — par défaut écartées",
     )
     parser.add_argument(
         "--offer-types", type=_offer_types_arg, default=list(DEFAULT_OFFER_TYPES), metavar="TYPES",
@@ -1551,7 +1604,8 @@ def _run(args: argparse.Namespace, country: CountryProfile, api_url: str) -> Non
     if not args.keep_images:
         release_images(country, args.max_age_days)
     consolidate(country, args.offer_types, require_contact=not args.allow_no_contact,
-                excluded_companies=load_excluded_companies(Path(args.excluded_companies_file)))
+                excluded_companies=load_excluded_companies(Path(args.excluded_companies_file)),
+                exclude_relay_companies=not args.allow_relay_companies, exclude_suspicious=not args.no_suspicious_filter)
     if args.push:
         _push(args, country, api_url)
 

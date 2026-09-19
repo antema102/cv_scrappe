@@ -38,7 +38,7 @@ from typing import Any
 
 import requests
 
-PROMPT_VERSION = "fb-pages-v5"  # v2 : OCR en texte seul ; v3 : OCR par lots ; v4 : groupes ; v5 : offer_type (concours, formation...)
+PROMPT_VERSION = "fb-pages-v6"  # v2 : OCR en texte seul ; v3 : OCR par lots ; v4 : groupes ; v5 : offer_type (concours, formation...) ; v6 : company_type (portails/ONG/institutions) + offres suspectes
 DEFAULT_MODEL = "gpt-4o-mini"
 DEFAULT_BASE_URL = "https://api.openai.com/v1"
 MAX_IMAGES_PER_CALL = 8
@@ -50,6 +50,9 @@ ABOUT_MAX_CHARS = 4000
 POST_KINDS = ["job_offer", "company_promotion", "product_sale", "service_offer", "event", "news", "other"]
 # Nature de chaque « offre » : seules emploi / stage sont des offres d'emploi (pages.py filtre le reste, --offer-types)
 OFFER_TYPES = ["emploi", "stage", "concours", "formation", "bourse", "appel_offres", "autre"]
+# Nature de l'entreprise : seules "entreprise" sont un employeur direct joignable (pages.py écarte les deux autres,
+# --allow-relay-companies pour les garder) — portails/ONG/institutions ne recrutent pas via cette pipeline.
+COMPANY_TYPES = ["entreprise", "portail_offres", "ong_ou_institution"]
 
 _STR = {"type": "string"}
 _STR_LIST = {"type": "array", "items": {"type": "string"}}
@@ -78,6 +81,7 @@ RESULT_SCHEMA = _object({
             "products_services": _STR_LIST,
             "categories": _STR_LIST,
             "is_page_owner": {"type": "boolean"},
+            "company_type": {"type": "string", "enum": COMPANY_TYPES},
             "evidence": {
                 "type": "array",
                 "items": _object({"field": _STR, "value": _STR, "source": _STR}),
@@ -101,6 +105,8 @@ RESULT_SCHEMA = _object({
             "how_to_apply": _STR,
             "emails": _STR_LIST,
             "phone_numbers": _STR_LIST,
+            "suspicious": {"type": "boolean"},
+            "suspicious_reason": _STR,
         }),
     },
     "notes": _STR,
@@ -114,11 +120,13 @@ Règles :
 - N'invente rien. Un champ absent reste "" ou []. Recopie emails, téléphones et sites exactement comme écrits (corrige seulement une erreur OCR évidente : image jointe, ou forme manifestement cassée comme "gmail.corn").
 - companies : chaque entreprise/organisation réellement identifiable (nom, contact ou site). Plusieurs images montrant le même nom/email/téléphone = UNE seule entreprise, informations regroupées.
 - is_page_owner = true uniquement si l'entreprise est la page elle-même qui publie. Une page qui relaie des offres ou annonces d'autres entreprises n'est pas ces entreprises. Dans un groupe Facebook, is_page_owner = false : le groupe n'emploie personne et l'auteur de la publication relaie le plus souvent l'offre d'une autre entreprise.
+- company_type : "entreprise" par défaut (véritable employeur, joignable directement pour candidater). "portail_offres" si l'entité n'est qu'un site/une page qui republie des offres d'autres employeurs sans être elle-même l'employeur (portail d'annonces généraliste type MADAJOB, Asako, agence de placement qui relaie pour le compte de tiers) — même si is_page_owner=true pour elle. "ong_ou_institution" si organisation non gouvernementale, organisation internationale ou agence de coopération (ex. Banque Mondiale, agences des Nations Unies, USAID, Union Européenne) ou institution publique (ministère, agence d'État, ambassade) : elles recrutent via leur propre procédure formelle (portail dédié, appel à candidatures officiel) et n'acceptent pas de candidatures spontanées par ce canal.
 - description : 1 à 3 phrases factuelles sur l'activité de l'entreprise. sector : secteur d'activité court en français (ex. "Hôtellerie", "Commerce", "BTP").
 - address : adresse physique telle qu'écrite ; city : ville seule ; country : pays si indiqué ou évident ({country} par défaut pour une entreprise locale).
 - products_services : produits ou services proposés. categories : types de métiers/tâches/services concernés, en français, courts.
 - job_offers : une entrée par poste proposé, pour TOUTES les images de ce lot sans exception (stages, alternances et plusieurs postes sur une même affiche compris) ; ne t'arrête pas aux premières. tasks = missions ; qualifications = profil/diplômes/expérience demandés ; skills = compétences ; how_to_apply = modalités de candidature ; deadline = date limite telle qu'écrite.
 - offer_type : "emploi" = poste rémunéré dans une entreprise ou une organisation (CDI, CDD, intérim, temps partiel, alternance, consultant individuel recruté, formateur/enseignant recruté) ; "stage" = stage ou stagiaire ; "concours" = recrutement ou entrée par voie de concours (fonction publique, école, institut) ; "formation" = formation, cours, certification, séminaire, atelier ou programme proposé à des participants, même gratuit ou « avec possibilité d'emploi » ; "bourse" = bourse, fellowship, prix, programme de subvention ; "appel_offres" = appel d'offres, consultation, marché ou manifestation d'intérêt adressés à des sociétés, fournisseurs ou prestataires ; "autre" = événement, salon, bénévolat, annonce qui n'est pas un poste. Liste quand même ces annonces dans job_offers avec leur offer_type.
+- suspicious = true si l'offre présente des signes d'arnaque au recrutement : paiement ou frais demandés au candidat (frais de dossier, "formation" payante obligatoire présentée comme un préalable à l'embauche, achat de matériel/stock avant de commencer) ; vente pyramidale / marketing de réseau (MLM, recrutement de filleuls plutôt qu'un poste réel) ; promesses de gains élevés et rapides sans compétence ni expérience requise ; demande de pièces d'identité ou de paiement pour "valider le dossier" avant tout entretien ; aucune tâche ni mission réelle décrite malgré une offre soi-disant très rémunératrice. Un simple manque de détails (offre courte mais légitime) n'est PAS suspicious. suspicious_reason : une phrase courte en français expliquant l'indice repéré (vide si suspicious=false).
 - evidence : pour chaque email, téléphone, site, adresse et nom d'entreprise retenu, la source ("texte", "page", "image 3"...).
 - post_kind : nature principale de la publication."""
 
@@ -401,6 +409,8 @@ def merge_results(results: list[dict[str, Any]]) -> dict[str, Any]:
             for field in ("emails", "phone_numbers", "products_services", "categories", "evidence"):
                 existing[field] += [item for item in company[field] if item not in existing[field]]
             existing["is_page_owner"] = existing["is_page_owner"] or company["is_page_owner"]
+            if existing.get("company_type", "entreprise") == "entreprise" and company.get("company_type", "entreprise") != "entreprise":
+                existing["company_type"] = company["company_type"]  # un lot suffit à révéler que c'est un portail/une ONG
         for offer in result.get("job_offers", []):
             # Même intitulé chez deux entreprises différentes ("Commercial") = deux offres distinctes
             key = (_norm(offer["title"]), _norm(offer["company_name"]), _norm(offer["deadline"]), _norm(offer["location"]))
