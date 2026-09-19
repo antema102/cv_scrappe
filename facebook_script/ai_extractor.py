@@ -38,7 +38,7 @@ from typing import Any
 
 import requests
 
-PROMPT_VERSION = "fb-pages-v6"  # v2 : OCR en texte seul ; v3 : OCR par lots ; v4 : groupes ; v5 : offer_type (concours, formation...) ; v6 : company_type (portails/ONG/institutions) + offres suspectes
+PROMPT_VERSION = "fb-pages-v7"  # v2 : OCR en texte seul ; v3 : OCR par lots ; v4 : groupes ; v5 : offer_type (concours, formation...) ; v6 : company_type (portails/ONG/institutions) + offres suspectes ; v7 : secteur de l'offre, suspicious_reason retiré
 DEFAULT_MODEL = "gpt-4o-mini"
 DEFAULT_BASE_URL = "https://api.openai.com/v1"
 MAX_IMAGES_PER_CALL = 8
@@ -94,6 +94,7 @@ RESULT_SCHEMA = _object({
             "title": _STR,
             "offer_type": {"type": "string", "enum": OFFER_TYPES},
             "company_name": _STR,
+            "sector": _STR,
             "description": _STR,
             "tasks": _STR_LIST,
             "qualifications": _STR_LIST,
@@ -106,7 +107,6 @@ RESULT_SCHEMA = _object({
             "emails": _STR_LIST,
             "phone_numbers": _STR_LIST,
             "suspicious": {"type": "boolean"},
-            "suspicious_reason": _STR,
         }),
     },
     "notes": _STR,
@@ -125,8 +125,9 @@ Règles :
 - address : adresse physique telle qu'écrite ; city : ville seule ; country : pays si indiqué ou évident ({country} par défaut pour une entreprise locale).
 - products_services : produits ou services proposés. categories : types de métiers/tâches/services concernés, en français, courts.
 - job_offers : une entrée par poste proposé, pour TOUTES les images de ce lot sans exception (stages, alternances et plusieurs postes sur une même affiche compris) ; ne t'arrête pas aux premières. tasks = missions ; qualifications = profil/diplômes/expérience demandés ; skills = compétences ; how_to_apply = modalités de candidature ; deadline = date limite telle qu'écrite.
+- sector (job_offers) : secteur d'activité DU POSTE lui-même, court en français (ex. "Informatique", "Comptabilité", "BTP", "Commercial") — déduit de l'intitulé/des missions, PAS recopié tel quel du secteur de l'entreprise : une entreprise "Banque" peut publier un poste secteur "Informatique" ou "Sécurité".
 - offer_type : "emploi" = poste rémunéré dans une entreprise ou une organisation (CDI, CDD, intérim, temps partiel, alternance, consultant individuel recruté, formateur/enseignant recruté) ; "stage" = stage ou stagiaire ; "concours" = recrutement ou entrée par voie de concours (fonction publique, école, institut) ; "formation" = formation, cours, certification, séminaire, atelier ou programme proposé à des participants, même gratuit ou « avec possibilité d'emploi » ; "bourse" = bourse, fellowship, prix, programme de subvention ; "appel_offres" = appel d'offres, consultation, marché ou manifestation d'intérêt adressés à des sociétés, fournisseurs ou prestataires ; "autre" = événement, salon, bénévolat, annonce qui n'est pas un poste. Liste quand même ces annonces dans job_offers avec leur offer_type.
-- suspicious = true si l'offre présente des signes d'arnaque au recrutement : paiement ou frais demandés au candidat (frais de dossier, "formation" payante obligatoire présentée comme un préalable à l'embauche, achat de matériel/stock avant de commencer) ; vente pyramidale / marketing de réseau (MLM, recrutement de filleuls plutôt qu'un poste réel) ; promesses de gains élevés et rapides sans compétence ni expérience requise ; demande de pièces d'identité ou de paiement pour "valider le dossier" avant tout entretien ; aucune tâche ni mission réelle décrite malgré une offre soi-disant très rémunératrice. Un simple manque de détails (offre courte mais légitime) n'est PAS suspicious. suspicious_reason : une phrase courte en français expliquant l'indice repéré (vide si suspicious=false).
+- suspicious = true si l'offre présente des signes d'arnaque au recrutement : paiement ou frais demandés au candidat (frais de dossier, "formation" payante obligatoire présentée comme un préalable à l'embauche, achat de matériel/stock avant de commencer) ; vente pyramidale / marketing de réseau (MLM, recrutement de filleuls plutôt qu'un poste réel) ; promesses de gains élevés et rapides sans compétence ni expérience requise ; demande de pièces d'identité ou de paiement pour "valider le dossier" avant tout entretien ; aucune tâche ni mission réelle décrite malgré une offre soi-disant très rémunératrice. Un simple manque de détails (offre courte mais légitime) n'est PAS suspicious.
 - evidence : pour chaque email, téléphone, site, adresse et nom d'entreprise retenu, la source ("texte", "page", "image 3"...).
 - post_kind : nature principale de la publication."""
 
