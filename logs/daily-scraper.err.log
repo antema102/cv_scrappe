@@ -1,0 +1,26 @@
+2026-09-18T18:30:44: [18:30:44] INFO — [BATCH 1/2] 10000 entreprise(s) reçue(s) — 4 à traiter (cache=9996, sans website=0)
+2026-09-18T18:30:46: [18:30:46] INFO — Traitement : ERGASIA PLACEMENTS (id=439515) — https://www.ergasia.co.za/
+2026-09-18T18:30:49: [18:30:49] INFO —     [PAGE 1/6] https://www.ergasia.co.za/
+2026-09-18T18:30:54: [18:30:54] INFO —     [PAGE 2/6] https://www.ergasia.co.za/contact
+2026-09-18T18:30:57: [18:30:57] INFO —     [PAGE 3/6] https://www.ergasia.co.za/about-2
+2026-09-18T18:31:01: [18:31:01] INFO —     [PAGE 4/6] https://www.ergasia.co.za/vacancies/feed-mill-team-leader-in-training
+2026-09-18T18:31:05: [18:31:05] INFO —     [PAGE 5/6] https://www.ergasia.co.za/project-category/agriculture/feed-mill-team-leader
+2026-09-18T18:31:09: [18:31:09] INFO —     [PAGE 6/6] https://www.ergasia.co.za/our-industries
+2026-09-18T18:31:13: [18:31:13] INFO —   → 1 email(s) : info@ergasia.co.za (6 page(s) visitée(s))
+2026-09-18T18:31:13: [18:31:13] INFO — Résultats enregistrés pour company_id=439515
+2026-09-18T18:31:13: [18:31:13] INFO — Traitement : ZGSPP (id=192058) — http://Www.zimskillsglobal.co.zw
+2026-09-18T18:31:13: [18:31:13] INFO —     [PAGE 1/6] http://www.zimskillsglobal.co.zw/
+2026-09-18T18:31:14: [18:31:14] INFO —   → 0 email(s) : (aucun) (1 page(s) visitée(s))
+2026-09-18T18:31:14: [18:31:14] INFO — Traitement : DREAMWORKS GLOBAL LOGISTICS LIMITED (id=264650) — https://dreamworksgloballogistics.com/
+2026-09-18T18:31:15: [18:31:15] INFO —     [PAGE 1/6] https://dreamworksgloballogistics.com/
+2026-09-18T18:31:17: [18:31:17] INFO —   → 0 email(s) : (aucun) (1 page(s) visitée(s))
+2026-09-18T18:31:18: [18:31:18] INFO — Traitement : MMA DIGITAL AGENCY (id=1238931) — https://mmadigitalagency.com/
+2026-09-18T18:31:18: [18:31:18] INFO —     [PAGE 1/6] https://mmadigitalagency.com/
+2026-09-18T18:31:20: [18:31:20] INFO —     [PAGE 2/6] https://mmadigitalagency.com/contact
+2026-09-18T18:31:20: [18:31:20] INFO —   → 1 email(s) : contact@mmadigitalagency.com (2 page(s) visitée(s))
+2026-09-18T18:31:20: [18:31:20] INFO — Résultats enregistrés pour company_id=1238931
+2026-09-18T18:31:23: [18:31:23] INFO — [BATCH 1/2] terminé en 38.7s — traitées=4, échecs=0 (cumulé : traitées=4, ignorées=9996, échecs=0) — 90.3% — moyenne=38.7s/batch, ETA≈39s
+2026-09-18T18:31:23: [18:31:23] INFO — [BATCH 2/2] 1072 entreprise(s) reçue(s) — 0 à traiter (cache=1072, sans website=0)
+2026-09-18T18:31:27: [18:31:27] INFO — [BATCH 2/2] terminé en 3.8s — traitées=0, échecs=0 (cumulé : traitées=4, ignorées=11068, échecs=0) — 100.0% — moyenne=21.2s/batch
+2026-09-18T18:31:27: [18:31:27] INFO — Vérification finale OK — 11072/11072 entreprises couvertes (reprise incluse)
+2026-09-18T18:31:27: [18:31:27] INFO — Terminé — traités=4 | emails=2 | cache=11068 | sans website=0 | échecs=0

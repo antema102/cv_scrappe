@@ -4,8 +4,15 @@ run_daily.py
 Planificateur quotidien du scraper (tourne en continu sous PM2, voir ecosystem.config.js).
 
 Chaque cycle :
-    1. python index.py                     -> scrape les offres et les entreprises
-    2. python -m scrapers.emails_website   -> dès la fin de l'étape 1, extrait les emails
+    1. python facebook_script/pages.py --push --headless -> pages et groupes Facebook, analyse IA, envoi au backend
+    2. python index.py                        -> dès la fin de l'étape 1, scrape les offres et les entreprises
+    3. python -m scrapers.emails_website      -> dès la fin de l'étape 2, extrait les emails
+
+Une étape en échec (code de sortie non nul) n'empêche pas les suivantes.
+Le script Facebook tourne sans fenêtre ni terminal : si la session du profil my_custom_profile_facebook
+a expiré, il s'arrête (pas d'attente de connexion manuelle) — reconnecter le profil avec
+    python facebook_script/pages.py --login
+puis laisser le cycle suivant reprendre.
 
 Planification :
     - Premier lancement à minuit (ou tout de suite avec --now).
@@ -39,8 +46,7 @@ SCHEDULE_FILE = PROJECT_ROOT / "downloaded_files" / "daily_schedule.json"
 INTERVAL = timedelta(hours=24)
 
 STEPS: list[tuple[str, list[str]]] = [
-    ("offres d'emploi", [sys.executable, "index.py"]),
-    ("emails entreprises", [sys.executable, "-m", "scrapers.emails_website"]),
+    ("facebook pages et groupes", [sys.executable, "facebook_script/pages.py", "--push", "--headless"]),
 ]
 
 
@@ -78,7 +84,8 @@ def run_cycle() -> None:
     for label, cmd in STEPS:
         log(f"Début : {label} ({' '.join(cmd[1:])})")
         start = time.monotonic()
-        code = subprocess.call(cmd, cwd=PROJECT_ROOT)
+        # stdin fermé : sous PM2 personne ne peut répondre à un input() (connexion manuelle Facebook)
+        code = subprocess.call(cmd, cwd=PROJECT_ROOT, stdin=subprocess.DEVNULL)
         duration = (time.monotonic() - start) / 60
         log(f"Fin : {label} — code {code} en {duration:.1f} min")
 

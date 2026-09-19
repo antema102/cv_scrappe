@@ -5,8 +5,8 @@ module.exports = {
     {
       name: "daily-scraper",
       cwd: __dirname,
-      // Processus permanent : attend l'heure prévue, enchaîne index.py puis
-      // scrapers.emails_website, et décale l'horaire si un cycle dépasse 24 h
+      // Processus permanent : attend l'heure prévue, enchaîne facebook_script/pages.py --push --headless,
+      // index.py puis scrapers.emails_website, et décale l'horaire si un cycle dépasse 24 h
       // (voir run_daily.py). Pas de cron_restart : c'est run_daily.py qui planifie.
       script: "python",
       args: "run_daily.py",

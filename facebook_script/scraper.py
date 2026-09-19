@@ -1191,7 +1191,12 @@ def login_and_wait(sb: SB) -> bool:
     print(f"\nUne fenêtre Chrome est ouverte sur {FACEBOOK_URL}")
     print("Connectez-vous (email/téléphone, mot de passe, code de vérification si demandé).")
     while True:
-        answer = input("\nUne fois connecté, appuyez sur ENTRÉE ici (q + ENTRÉE pour quitter)... ")
+        try:
+            answer = input("\nUne fois connecté, appuyez sur ENTRÉE ici (q + ENTRÉE pour quitter)... ")
+        except EOFError:  # lancement automatique (run_daily.py / PM2) : aucun terminal pour se connecter
+            print("\n[ERREUR] Session Facebook expirée et aucun terminal pour se connecter : "
+                  "relancez à la main avec --login pour reconnecter le profil.")
+            return False
         if answer.strip().lower() == "q":
             return False
         # Pas de navigation ici : ne pas casser une vérification en deux étapes en cours
