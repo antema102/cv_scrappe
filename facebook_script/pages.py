@@ -924,10 +924,8 @@ def _merged_offer(campaign: list[dict[str, Any]]) -> dict[str, Any]:
     for field in ("emails", "phone_numbers"):
         merged[field] = list(dict.fromkeys(item for offer in offers for item in offer.get(field, [])))
     # Une seule republication jugée suspecte suffit (la version "la plus complète" n'est pas forcément celle-là)
-    flagged = next((offer for offer in offers if offer.get("suspicious")), None)
-    if flagged is not None:
+    if any(offer.get("suspicious") for offer in offers):
         merged["suspicious"] = True
-        merged["suspicious_reason"] = flagged.get("suspicious_reason", "")
     return merged
 
 
@@ -939,6 +937,7 @@ def job_document(
     job_url = post.get("post_url") or page.get("page_url", "")
     criteria = {
         "Lieu": offer.get("location", ""),
+        "Secteur": offer.get("sector", ""),
         "Type de contrat": offer.get("contract_type", ""),
         "Salaire": offer.get("salary", ""),
         "Date limite": offer.get("deadline", ""),
@@ -1243,7 +1242,6 @@ def consolidate(
             excluded_offers[job_id] = {
                 "title": offer.get("title", ""), "company_name": offer.get("company_name", ""), "offer_type": kind,
                 "reason": reason, "occurrences": occurrences_review,
-                **({"suspicious_reason": offer.get("suspicious_reason", "")} if reason == "offre_suspecte" else {}),
             }
             continue
         jobs[job_id] = job_document(job_id, offer, first["post"], first["page"], company, company_id, first["published"])
@@ -1298,7 +1296,7 @@ def consolidate(
     if without_contact:
         print(f"  {without_contact} offre(s) écartée(s) : entreprise sans email ni téléphone (--allow-no-contact pour les garder)")
     if suspicious_offers:
-        print(f"  {suspicious_offers} offre(s) écartée(s) : signes d'arnaque détectés par l'IA (--no-suspicious-filter pour les garder, détail -> excluded_offers[...].suspicious_reason)")
+        print(f"  {suspicious_offers} offre(s) écartée(s) : signes d'arnaque détectés par l'IA (--no-suspicious-filter pour les garder)")
     if excluded_offers:
         print(f"  détail -> analysis_{country.code}.json, clé excluded_offers")
 
