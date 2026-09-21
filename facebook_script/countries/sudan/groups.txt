@@ -1,0 +1,2 @@
+# Groupes Facebook à scraper (Soudan) : un lien par ligne.
+# Les lignes vides et celles qui commencent par # sont ignorées.

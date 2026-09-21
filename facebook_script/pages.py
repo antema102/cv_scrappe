@@ -1,9 +1,16 @@
 """
 facebook_script/pages.py
 ========================
-Scraping de pages Facebook (Madagascar pour l'instant, extensible via
-countries.py) + analyse IA OpenAI de chaque publication + JSON au format exact
-du backend, SANS envoi au backend (fichiers à vérifier d'abord).
+Scraping de pages Facebook (multi-pays via --country, voir countries.py) +
+analyse IA OpenAI de chaque publication + JSON au format exact du backend,
+SANS envoi au backend (fichiers à vérifier d'abord).
+
+Un pays = une entrée dans COUNTRIES (countries.py, indicatif téléphonique +
+longueur du numéro national) + un dossier countries/<pays>/ contenant
+pages.txt et groups.txt (un lien par ligne, "#" = commentaire ; --pages-file /
+--groups-file pour un autre chemin). Ajouter un pays = ajouter son
+CountryProfile puis créer countries/<pays>/pages.txt + groups.txt (voir
+countries/maroc/ comme modèle vide).
 
 Pipeline, chaque étape relançable et ne refaisant que ce qui manque :
   1. Scraping (navigateur, profil my_custom_profile_facebook partagé avec scraper.py) :
@@ -27,7 +34,8 @@ Sorties (downloaded_files/facebook_pages/) :
   pages_<pays>.json, posts_<page>.json, images/, ai_cache/ -> données brutes et cache
 
 Usage :
-    python facebook_script/pages.py                                  # pages.txt : scraping + IA + JSON
+    python facebook_script/pages.py                                  # countries/madagascar/{pages,groups}.txt : scraping + IA + JSON
+    python facebook_script/pages.py --country maroc                  # countries/maroc/{pages,groups}.txt
     python facebook_script/pages.py --url https://www.facebook.com/profile.php?id=61559428572369
     python facebook_script/pages.py --max-posts 5                     # test rapide
     python facebook_script/pages.py --max-age-days 30                 # publications des 30 derniers jours (défaut 15)
@@ -38,8 +46,8 @@ Usage :
     python facebook_script/pages.py --push-only                       # envoie au backend les JSON déjà validés
     python facebook_script/pages.py --skip-scrape --push              # IA + JSON puis envoi au backend
     python facebook_script/pages.py --push-only --no-clean            # envoi sans supprimer les doublons déjà envoyés
-    python facebook_script/pages.py --no-groups                       # pages seulement (défaut : pages.txt + groups.txt)
-    python facebook_script/pages.py --no-pages                        # groupes seulement (groups.txt)
+    python facebook_script/pages.py --no-groups                       # pages seulement (défaut : countries/<pays>/pages.txt + groups.txt)
+    python facebook_script/pages.py --no-pages                        # groupes seulement (countries/<pays>/groups.txt)
     python facebook_script/pages.py --keep-images                     # garde les images (défaut : supprimées après analyse)
     python facebook_script/pages.py --group-url https://www.facebook.com/groups/2367943963509691 --push
 
@@ -77,7 +85,6 @@ from countries import COUNTRIES, CountryProfile
 from fb_dates import published_at
 from seleniumbase import SB
 
-PAGES_FILE = fb.SCRIPT_DIR / "pages.txt"
 DEFAULT_MAX_PHOTOS = 60
 # Filtre des images envoyées à l'IA (coût) : contact lu par l'OCR, ou texte suffisant (affiche, offre)
 AI_MIN_TEXT_CHARS = 40
@@ -1393,9 +1400,15 @@ def _offer_types_arg(value: str) -> list[str]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Pages Facebook -> analyse IA -> JSON au format backend")
     parser.add_argument("--url", action="append", default=[], metavar="URL", help="Page Facebook (répétable). Défaut : --pages-file")
-    parser.add_argument("--pages-file", default=str(PAGES_FILE), metavar="FICHIER", help="Un lien de page par ligne (défaut : facebook_script/pages.txt)")
+    parser.add_argument(
+        "--pages-file", default=None, metavar="FICHIER",
+        help="Un lien de page par ligne (défaut : facebook_script/countries/<pays>/pages.txt)",
+    )
     parser.add_argument("--group-url", action="append", default=[], metavar="URL", help="Groupe Facebook (répétable). Défaut : --groups-file")
-    parser.add_argument("--groups-file", default=str(fb.GROUPS_FILE), metavar="FICHIER", help="Un lien de groupe par ligne (défaut : facebook_script/groups.txt)")
+    parser.add_argument(
+        "--groups-file", default=None, metavar="FICHIER",
+        help="Un lien de groupe par ligne (défaut : facebook_script/countries/<pays>/groups.txt)",
+    )
     parser.add_argument("--no-groups", action="store_true", help="Ignore les groupes (pages seulement)")
     parser.add_argument("--no-pages", action="store_true", help="Ignore les pages (groupes seulement)")
     parser.add_argument("--country", choices=sorted(COUNTRIES), default="madagascar", help="Pays des pages (défaut : madagascar)")
@@ -1470,7 +1483,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dump-html", action="store_true", help="HTML brut de chaque publication dans downloaded_files/facebook_html/")
     parser.add_argument("--login", action="store_true", help="Propose la connexion manuelle même si une session est détectée")
     parser.add_argument("--headless", action="store_true", help="Sans fenêtre (profil déjà connecté)")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.pages_file is None:
+        args.pages_file = str(fb.SCRIPT_DIR / "countries" / args.country / "pages.txt")
+    if args.groups_file is None:
+        args.groups_file = str(fb.SCRIPT_DIR / "countries" / args.country / "groups.txt")
+    return args
 
 
 def _print_stats(stats: fb.GroupStats, max_age_days: int) -> None:

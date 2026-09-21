@@ -15,7 +15,7 @@ Détection de session : cookie "c_user" présent (posé par Facebook uniquement
 pour un compte connecté) ET aucune page de connexion/vérification affichée.
 
 Etape 2 - Scraping :
-Pour chaque groupe (facebook_script/groups.txt ou --url), le script ouvre le
+Pour chaque groupe (facebook_script/countries/madagascar/groups.txt ou --url), le script ouvre le
 fil du groupe (tri "nouvelles publications" par défaut) et scrolle à l'infini.
 A chaque passage, les publications pas encore traitées sont :
   1. marquées (attribut data-scrape-key) pour ne jamais être relues,
@@ -47,7 +47,7 @@ Arrêt d'un groupe : fin du fil (rien de nouveau après --max-idle scrolls),
 --max-posts atteint, ou --stop-after-known publications déjà connues d'affilée.
 
 Usage :
-    python facebook_script/scraper.py                          # groupes de groups.txt
+    python facebook_script/scraper.py                          # groupes de countries/madagascar/groups.txt
     python facebook_script/scraper.py --url https://www.facebook.com/groups/506924959474464/
     python facebook_script/scraper.py --max-posts 10            # test rapide
     python facebook_script/scraper.py --stop-after-known 20     # relance incrémentale
@@ -100,7 +100,7 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 
 PROFILE_DIR = PROJECT_ROOT / "my_custom_profile_facebook"
 OUTPUT_DIR = PROJECT_ROOT / "downloaded_files"
-GROUPS_FILE = SCRIPT_DIR / "groups.txt"
+GROUPS_FILE = SCRIPT_DIR / "countries" / "madagascar" / "groups.txt"  # scraper.py seul n'a pas de --country ; via pages.py --country, --groups-file l'emporte
 
 FACEBOOK_URL = "https://www.facebook.com/"
 
@@ -1457,7 +1457,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--groups-file", default=str(GROUPS_FILE), metavar="FICHIER",
-        help="Fichier texte, un lien de groupe par ligne (défaut : facebook_script/groups.txt)",
+        help="Fichier texte, un lien de groupe par ligne (défaut : facebook_script/countries/madagascar/groups.txt)",
     )
     parser.add_argument(
         "--sort", choices=list(SORT_PARAMS), default="chrono",

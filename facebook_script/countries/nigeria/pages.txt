@@ -1,0 +1,2 @@
+# Pages Facebook à scraper (Nigeria) : un lien par ligne.
+# Les lignes vides et celles qui commencent par # sont ignorées.
