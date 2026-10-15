@@ -85,7 +85,7 @@ from urllib.parse import parse_qs, parse_qsl, unquote, urlencode, urljoin, urlpa
 import requests
 from bs4 import BeautifulSoup, Tag
 from bs4.element import Script, Stylesheet
-from fb_dates import is_too_old
+from fb_dates import dates_agree, is_too_old
 from mycdp import dom as cdp_dom  # mycdp est installé avec seleniumbase (pilote du mode CDP)
 from mycdp import input_ as cdp_input
 from mycdp import runtime as cdp_runtime
@@ -581,6 +581,11 @@ def _parse_time_text(anchor: Tag | None) -> str:
     if anchor is None:
         return ""
     text = _normalize_text(anchor.get_text(" "))
+    if not text:
+        # Depuis octobre 2026 l'heure est dessinée en SVG : son texte ("6 octobre à 10:46") est dans un span hors de
+        # la publication (aria-labelledby), recopié dans data-label-text par _outer_html
+        labelled = anchor.select_one("[data-label-text]")
+        text = _normalize_text(labelled.get("data-label-text", "")) if labelled is not None else ""
     return text if len(text) <= 60 else ""
 
 
@@ -1045,6 +1050,42 @@ def write_jobs_export(store: PostStore, target: GroupTarget) -> tuple[Path, int]
 # ---------------------------------------------------------------------------
 
 
+CHROME_LAUNCHERS = ("python.exe", "pythonw.exe", "python", "uc_driver.exe", "uc_driver", "chromedriver.exe", "chromedriver")
+
+
+def close_orphan_chromes(profile_dir: Path) -> None:
+    """
+    Ferme le Chrome d'un lancement interrompu brutalement (fenêtre fermée, processus tué) resté ouvert sur ce profil :
+    tant qu'il tourne, le profil est verrouillé et le Chrome suivant s'arrête aussitôt (SessionNotCreatedException
+    "cannot connect to chrome ... chrome not reachable"). Seulement le processus principal de Chrome dont le lanceur
+    (python / uc_driver) n'existe plus : le Chrome d'un autre script encore actif sur ce profil n'est jamais touché.
+    """
+    try:
+        import psutil
+    except ImportError:
+        return
+    target = os.path.normcase(os.path.abspath(profile_dir))
+    for proc in psutil.process_iter(["name", "cmdline"]):
+        with suppress(psutil.Error, OSError):
+            if (proc.info["name"] or "").lower() not in ("chrome.exe", "chrome"):
+                continue
+            args = proc.info["cmdline"] or []
+            if any(arg.startswith("--type=") for arg in args):
+                continue  # renderer, GPU... : fermés avec leur processus principal
+            dirs = [arg.split("=", 1)[1].strip('"') for arg in args if arg.startswith("--user-data-dir=")]
+            if not dirs or os.path.normcase(os.path.abspath(dirs[0])) != target:
+                continue
+            parent = proc.parent()  # None si le lanceur est mort (psutil écarte un PID réattribué)
+            if parent is not None and (parent.name() or "").lower() in CHROME_LAUNCHERS:
+                continue
+            victims = [*proc.children(recursive=True), proc]
+            for victim in victims:
+                with suppress(psutil.Error):
+                    victim.kill()
+            psutil.wait_procs(victims, timeout=10)
+            print(f"[INFO] Chrome resté ouvert par un lancement interrompu (PID {proc.pid}) sur {profile_dir.name} : fermé")
+
+
 def _reset_profile_exit_state(profile_dir: Path) -> None:
     """
     Même correctif que senegal_script : Chrome marque exit_type="Crashed" après
@@ -1115,10 +1156,17 @@ def _outer_html(sb: SB, key: str) -> str:
     complet (sb.cdp.find_element le refait à chaque appel, très lent sur Facebook).
     """
     selector = json.dumps(f'[data-scrape-key="{key}"]')
+    # Les libellés aria-labelledby (texte de l'heure) sont hors de la publication : recopiés dans data-label-text
+    expression = (
+        f"(() => {{ const post = document.querySelector({selector}); if (!post) return null;"
+        " for (const el of post.querySelectorAll('[aria-labelledby]')) {"
+        " const text = el.getAttribute('aria-labelledby').split(' ').map((id) => document.getElementById(id))"
+        ".filter(Boolean).map((label) => label.textContent || '').join(' ').trim();"
+        " if (text) el.setAttribute('data-label-text', text); }"
+        " return post; })()"
+    )
     try:
-        remote, exception = _cdp_send(
-            sb, cdp_runtime.evaluate(expression=f"document.querySelector({selector})", return_by_value=False)
-        )
+        remote, exception = _cdp_send(sb, cdp_runtime.evaluate(expression=expression, return_by_value=False))
     except Exception:
         return ""
     object_id = getattr(remote, "object_id", None)
@@ -1224,6 +1272,7 @@ class ScrapeOptions:
     any_root: bool = False  # pages : publications hors div[role="feed"]
     exact_dates: bool = False  # survol réel du lien horodatage pour lire la date complète (infobulle)
     max_age_days: int = 0  # 15 = seulement les publications des 15 derniers jours (aujourd'hui compris) ; 0 = toutes
+    max_minutes: float = 0  # durée max du scroll d'un fil ; 0 = illimitée
 
 
 @dataclass(slots=True)
@@ -1235,6 +1284,17 @@ class GroupStats:
 
 
 OLD_STREAK_STOP = 5  # publications trop anciennes d'affilée avant d'arrêter le fil (une vieille épinglée en tête ne l'arrête pas)
+
+
+def _time_is_up(deadline: float, opts: ScrapeOptions) -> bool:
+    """
+    Garde-fou : Facebook ne retire jamais les publications déjà vues du fil d'un groupe, la page grossit à chaque
+    scroll (vu : 270 000 éléments et 4,5 Go après 450 publications, une publication par minute) et finit par figer.
+    """
+    if time.monotonic() <= deadline:
+        return False
+    print(f"  Durée max de {opts.max_minutes:g} min atteinte - arrêt de ce fil")
+    return True
 
 
 def post_too_old(post: dict[str, Any], max_age_days: int) -> bool:
@@ -1329,7 +1389,10 @@ def _scroll_feed(
     known_streak = 0
     old_streak = 0
     idle = 0
+    deadline = time.monotonic() + opts.max_minutes * 60 if opts.max_minutes > 0 else float("inf")
     while True:
+        if _time_is_up(deadline, opts):
+            return
         batch = _run_js(
             sb, COLLECT_POSTS_JS, {"max": BATCH_SIZE, "seeMore": list(SEE_MORE_LABELS), "anyRoot": opts.any_root}
         )
@@ -1342,6 +1405,8 @@ def _scroll_feed(
         if items:
             sb.sleep(EXPAND_WAIT)
         for item in items:
+            if _time_is_up(deadline, opts):
+                return
             post, html = _read_post(sb, item["key"], target, group_name, real_hover)
             if post is None:
                 continue
@@ -1363,7 +1428,10 @@ def _scroll_feed(
 
             known = store.get(post["post_id"])
             if known is None and opts.exact_dates:
-                post["date_tooltip"] = read_date_tooltip(sb, item["key"])
+                tooltip = read_date_tooltip(sb, item["key"])
+                # Toutes les infobulles déjà affichées restent dans la page : une infobulle qui contredit le libellé
+                # de l'heure est celle d'une autre publication (vu : 6 publications du 13 octobre datées du 5)
+                post["date_tooltip"] = tooltip if dates_agree(tooltip, post["time_text"], post["scraped_at"]) else ""
             if opts.max_age_days:
                 # Publication déjà connue : sa date enregistrée (infobulle + date de scraping d'origine)
                 if post_too_old(known or post, opts.max_age_days):
@@ -1534,6 +1602,7 @@ def main() -> None:
         max_age_days=args.max_age_days,
     )
     PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+    close_orphan_chromes(PROFILE_DIR)
     _reset_profile_exit_state(PROFILE_DIR)
 
     totals = GroupStats()

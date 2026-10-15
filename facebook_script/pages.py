@@ -79,6 +79,11 @@ from seleniumbase import SB
 
 PAGES_FILE = fb.SCRIPT_DIR / "pages.txt"
 DEFAULT_MAX_PHOTOS = 60
+# Groupes (tri chronologique) : après N publications déjà en cache d'affilée, le reste a été lu par un lancement
+# précédent. Sans cet arrêt, un groupe très actif (~80 publications/jour) faisait relire ~1 000 publications connues
+# pour atteindre la limite des 15 jours, et la page Facebook, qui ne retire jamais les publications déjà vues, figeait.
+GROUP_STOP_AFTER_KNOWN = 60
+DEFAULT_MAX_SCROLL_MINUTES = 45
 # Filtre des images envoyées à l'IA (coût) : contact lu par l'OCR, ou texte suffisant (affiche, offre)
 AI_MIN_TEXT_CHARS = 40
 WEBSITE_RE = re.compile(r"(?:https?://|www\.)\S+|\b[a-z0-9][a-z0-9\-]*\.(?:mg|com|fr|org|net|io|co)\b", re.I)
@@ -573,9 +578,10 @@ def scrape_page(sb: SB, target: PageTarget, opts: argparse.Namespace, country: C
     name = open_page_feed(sb, target)
     if name is not None:
         scroll_opts = fb.ScrapeOptions(
-            sort="default", max_posts=opts.max_posts, stop_after_known=opts.stop_after_known, max_idle=opts.max_idle,
+            sort="default", max_posts=opts.max_posts, stop_after_known=opts.stop_after_known or 0, max_idle=opts.max_idle,
             scroll_delay=opts.scroll_delay, dump_html=opts.dump_html, download_images=False, ocr=False,
             any_root=True, exact_dates=not opts.no_exact_dates, max_age_days=opts.max_age_days,
+            max_minutes=opts.max_minutes,
         )
         try:
             fb._scroll_feed(sb, target, info["name"] or name, store, scroll_opts, stats)
@@ -1400,7 +1406,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-pages", action="store_true", help="Ignore les pages (groupes seulement)")
     parser.add_argument("--country", choices=sorted(COUNTRIES), default="madagascar", help="Pays des pages (défaut : madagascar)")
     parser.add_argument("--max-posts", type=int, default=0, metavar="N", help="Nouvelles publications max par page (0 = illimité)")
-    parser.add_argument("--stop-after-known", type=int, default=0, metavar="N", help="Arrête une page après N publications déjà en cache d'affilée")
+    parser.add_argument(
+        "--stop-after-known", type=int, default=None, metavar="N",
+        help=f"Arrête une page ou un groupe après N publications déjà en cache d'affilée "
+             f"(défaut : jamais pour les pages, {GROUP_STOP_AFTER_KNOWN} pour les groupes ; 0 = jamais)",
+    )
+    parser.add_argument(
+        "--max-minutes", type=float, default=DEFAULT_MAX_SCROLL_MINUTES, metavar="MIN",
+        help=f"Durée max du scroll d'une page ou d'un groupe (défaut {DEFAULT_MAX_SCROLL_MINUTES} ; 0 = illimitée)",
+    )
     parser.add_argument(
         "--max-age-days", type=int, default=15, metavar="N",
         help="Seulement les publications des N derniers jours, aujourd'hui compris (défaut 15 : le 15 on garde du 1er au 15 ; 0 = toutes)",
@@ -1483,9 +1497,10 @@ def _print_stats(stats: fb.GroupStats, max_age_days: int) -> None:
 def group_scrape_options(args: argparse.Namespace) -> fb.ScrapeOptions:
     """Options du scroll d'un groupe (scraper.py) : tri chronologique, images + OCR nécessaires à l'analyse IA."""
     return fb.ScrapeOptions(
-        sort="chrono", max_posts=args.max_posts, stop_after_known=args.stop_after_known, max_idle=args.max_idle,
+        sort="chrono", max_posts=args.max_posts, max_idle=args.max_idle,
+        stop_after_known=GROUP_STOP_AFTER_KNOWN if args.stop_after_known is None else args.stop_after_known,
         scroll_delay=args.scroll_delay, dump_html=args.dump_html, download_images=True, ocr=not args.no_ocr,
-        exact_dates=not args.no_exact_dates, max_age_days=args.max_age_days,
+        exact_dates=not args.no_exact_dates, max_age_days=args.max_age_days, max_minutes=args.max_minutes,
     )
 
 
@@ -1493,6 +1508,7 @@ def run_scraping(
     targets: list[PageTarget], groups: list[fb.GroupTarget], args: argparse.Namespace, country: CountryProfile
 ) -> None:
     fb.PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+    fb.close_orphan_chromes(fb.PROFILE_DIR)  # avant les Preferences : un Chrome encore ouvert les réécrirait
     fb._reset_profile_exit_state(fb.PROFILE_DIR)
     with SB(uc=True, locale="fr", user_data_dir=str(fb.PROFILE_DIR), headless=args.headless) as sb:
         fb._activate_cdp_mode(sb)

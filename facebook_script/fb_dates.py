@@ -134,6 +134,28 @@ def published_at(tooltip: str, time_text: str, scraped_at: str) -> tuple[str | N
     return None, ""
 
 
+def dates_agree(tooltip: str, time_text: str, scraped_at: str) -> bool:
+    """
+    False si l'infobulle et le libellé de l'horodatage donnent deux moments différents : l'infobulle lue est alors
+    celle d'une autre publication (Facebook garde dans la page toutes les infobulles déjà affichées).
+    True si l'un des deux est illisible ou trop approximatif ("2 h", "3 j") pour trancher.
+    """
+    try:
+        now = datetime.fromisoformat(scraped_at).astimezone()
+    except ValueError:
+        now = datetime.now().astimezone()
+    tip = parse_facebook_date(tooltip or "", now)
+    label = parse_facebook_date(time_text or "", now)
+    if tip is None or label is None:
+        return True
+    (tip_moment, _), (label_moment, label_precision) = tip, label
+    if label_precision == "minute":
+        return tip_moment.replace(second=0, microsecond=0) == label_moment.replace(second=0, microsecond=0)
+    if label_precision == "day":
+        return tip_moment.date() == label_moment.date()
+    return True
+
+
 def is_too_old(tooltip: str, time_text: str, scraped_at: str, max_age_days: int, today: date | None = None) -> bool:
     """
     True si la publication date d'avant les `max_age_days` derniers jours, aujourd'hui compris :
