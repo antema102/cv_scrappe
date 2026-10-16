@@ -1193,3 +1193,1465 @@
 2026-10-14T21:26:57: Ouverture de https://www.facebook.com/groups/255276743595594/?sorting_setting=CHRONOLOGICAL
 2026-10-14T21:27:57: Timeout loading https://www.facebook.com/groups/255276743595594/?sorting_setting=CHRONOLOGICAL
 2026-10-14T21:28:38: Groupe : Recrutement, offre d'emploi, Madagascar - 96 publication(s) déjà en cache
+2026-10-14T21:58:42: [2026-10-14 21:58:42] Aucune sortie depuis 30.1 min : étape bloquée (navigateur figé ?) - arrêt
+2026-10-14T21:58:43: [2026-10-14 21:58:43] 11 processus arrêté(s) (script + son Chrome)
+2026-10-14T21:58:43: [2026-10-14 21:58:43] Étape arrêtée pour blocage après 84.6 min
+2026-10-14T21:58:43: [2026-10-14 21:58:43] Début : facebook pages et groupes (facebook_script/pages.py --push --headless) - relance 1/2
+2026-10-14T21:59:03: 
+2026-10-14T21:59:03: [1/18] Page 61559428572369
+2026-10-14T21:59:10: Page : Tolotr'asa sy stage ho An'i Tanora (582 caractères dans À propos)
+2026-10-14T21:59:10: Ouverture de https://www.facebook.com/profile.php?id=61559428572369
+2026-10-14T21:59:27:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-14T21:59:27:   -> 0 nouvelle(s), 8 déjà connue(s), 5 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-14T21:59:27: 
+2026-10-14T21:59:27: [2/18] Page konatoni.mg
+2026-10-14T21:59:35: Page : Tolotr'asa (510 caractères dans À propos)
+2026-10-14T21:59:35: Ouverture de https://www.facebook.com/konatoni.mg
+2026-10-14T21:59:46:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-14T21:59:46:   -> 0 nouvelle(s), 2 déjà connue(s), 5 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-14T21:59:46: 
+2026-10-14T21:59:46: [3/18] Page 61585153072915
+2026-10-14T21:59:53: Page : Asa Mahasoa (739 caractères dans À propos)
+2026-10-14T21:59:53: Ouverture de https://www.facebook.com/profile.php?id=61585153072915
+2026-10-14T22:00:06:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-14T22:00:06:   -> 0 nouvelle(s), 0 déjà connue(s), 5 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-14T22:00:06: 
+2026-10-14T22:00:06: [4/18] Page 61591631805268
+2026-10-14T22:00:13: Page : Société ASG (927 caractères dans À propos)
+2026-10-14T22:00:13: Ouverture de https://www.facebook.com/profile.php?id=61591631805268
+2026-10-14T22:01:08:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-14T22:01:09:   -> 0 nouvelle(s), 34 déjà connue(s), 5 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-14T22:01:09: 
+2026-10-14T22:01:09: [5/18] Page SolofoharimananaNantenainaJuvence
+2026-10-14T22:01:16: Page : Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (1060 caractères dans À propos)
+2026-10-14T22:01:16: Ouverture de https://www.facebook.com/SolofoharimananaNantenainaJuvence
+2026-10-14T22:01:21:   + #1 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : FID - Fonds d'Intervention pour le Développement Recrutement des consultants ind
+2026-10-14T22:01:21:       5 image(s)
+2026-10-14T22:01:29:   + #2 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : (sans texte)
+2026-10-14T22:01:29:       1 image(s)
+2026-10-14T22:01:29:   + #3 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : (sans texte)
+2026-10-14T22:01:29:       1 image(s)
+2026-10-14T22:01:30:   + #4 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : Vous souhaitez mettre vos compétences financières et managériales au service d'u
+2026-10-14T22:01:30:       email : emploi@ades-solaire.org
+2026-10-14T22:01:30:   + #5 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : (sans texte)
+2026-10-14T22:01:30:       5 image(s)
+2026-10-14T22:01:35:   + #6 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 🏢Vous avez un bon niveau de français, une bonne aisance relationnelle et savez m
+2026-10-14T22:01:35:       1 image(s)
+2026-10-14T22:01:36:   + #7 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 📢 ENVIE DE NOUS REJOINDRE ? RENCONTRONS-NOUS ! Vivetic Group vous ouvre ses port
+2026-10-14T22:01:36:       1 image(s)
+2026-10-14T22:01:36:   + #8 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : Ifaty Beach Club Mangily-Toliara Recrute des serveurs/serveuses/Réceptionniste H
+2026-10-14T22:01:36:       email : contact@ifaty.com | 1 image(s)
+2026-10-14T22:01:37:   + #9 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 🚨 𝐎𝐏𝐏𝐎𝐑𝐓𝐔𝐍𝐈𝐓𝐄́ 𝐃’𝐄𝐌𝐏𝐋𝐎𝐈 | 𝐂𝐎𝐌𝐌𝐄𝐑𝐂𝐈𝐀𝐋 𝐄𝐍 𝐌𝐀𝐆𝐀𝐒𝐈𝐍 (𝐇/𝐅) 🚨 🔥 Vous aimez le contact 
+2026-10-14T22:01:37:       email : jemima.rindraniaina@madajob.mg | 1 image(s)
+2026-10-14T22:01:42:   + #10 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : Vous vous sentez RAF, rejoignez notre équipe à Ivato 😉 Bien lire l'annonce svp
+2026-10-14T22:01:42:       1 image(s)
+2026-10-14T22:01:43:   + #11 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : TANATECH RECRUTE ! Vous souhaitez relever de nouveaux défis professionnels dans 
+2026-10-14T22:01:43:       email : onja@tanatech-group.com | 4 image(s)
+2026-10-14T22:01:48:   + #12 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 🚀 NOUVELLE OPPORTUNITÉ – LEAD DEVELOPER PHP LEGACY Olona Talents recrute pour le
+2026-10-14T22:01:48:       email : recrutement@olona-talents.com | 1 image(s)
+2026-10-14T22:01:49:   + #13 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 🚨UDITEC recrute🚨 📌Contrôleur Interne Poste basé à Ankorondrano Antananarivo ✉️ E
+2026-10-14T22:01:49:       email : rhdev@uditec.mg | 1 image(s)
+2026-10-14T22:01:55:   + #14 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : Plusieurs opportunités sont toujours ouvertes ! 🔍 Vous avez le sens du contact, 
+2026-10-14T22:01:55:       email : recrutement@gethumancall.fr | 2 image(s)
+2026-10-14T22:01:56:   + #15 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : OFFRE D'EMPLOI TATIRANO ENTREPRISE SOCIALE recherche 14 maçons-Toamasina H/F Lie
+2026-10-14T22:01:56:       1 image(s)
+2026-10-14T22:01:57:   + #16 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 🏥 NOUS RECHERCHONS DES TÉLÉSECRÉTAIRES MÉDICALES Vous avez déjà exercé dans le t
+2026-10-14T22:01:57:       email : e.sourcing261@gmail.com | 1 image(s)
+2026-10-14T22:02:02:   + #17 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 📢 𝗥𝗲𝗰𝗿𝘂𝘁𝗲𝗺𝗲𝗻𝘁 𝗜𝗡𝗚𝗘𝗡𝗜𝗘𝗨𝗥 𝗕𝗧𝗣 📍 Lieu de travail : Antananarivo, Madagascar Nous re
+2026-10-14T22:02:02:       email : assistdirarcki@gmail.com | 1 image(s)
+2026-10-14T22:02:03:   + #18 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 💳 VOTRE EXPÉRIENCE EN COMPTABILITÉ NOUS INTÉRESSE ! Elite Sourcing recrute un(e)
+2026-10-14T22:02:03:       email : e.sourcing261@gmail.com | 1 image(s)
+2026-10-14T22:02:04:   + #19 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 🚨 𝐍𝐎𝐔𝐒 𝐑𝐄𝐂𝐑𝐔𝐓𝐎𝐍𝐒 pour la société 𝐓𝐅𝐌 📢 ➡️ 𝐎𝐩𝐞𝐫𝐚𝐭𝐞𝐮𝐫 𝐜𝐨𝐧𝐝𝐢𝐭𝐢𝐨𝐧𝐧𝐞𝐦𝐞𝐧𝐭 🌇 Poste basé
+2026-10-14T22:02:04:       email : recrutement@jobmada.mg | 1 image(s)
+2026-10-14T22:02:12:   + #20 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 🎯 Tu as au moins 2 ans d’expérience en recouvrement B2B ou B2C ? 💼 Relance des i
+2026-10-14T22:02:12:       email : recrutement@eurocrm.mg | 1 image(s)
+2026-10-14T22:02:13:   + #21 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 😎 Tu parles français ? Tu as le goût du challenge et tu cherches une nouvelle op
+2026-10-14T22:02:13:       tél : 0321252354 | email : talents@solync.eu | 1 image(s)
+2026-10-14T22:02:14:   + #22 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 🚀 MOOKA recrute ! . . MOOKA, joint-venture créée par ANKA et MOON, développe un 
+2026-10-14T22:02:14:       email : recrutement@mooka.mg, miarisoa.r@go-anka.com | 1 image(s)
+2026-10-14T22:02:15:   + #23 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : Acquisition des composants et fournitures techniques 👉Pour plus d'information : 
+2026-10-14T22:02:15:       2 image(s)
+2026-10-14T22:02:21:   + #24 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : RECRUTEMENT D’AGENTS ENQUÊTEURS / ENQUÊTRICES 📍 Lieux : Toliara, Fort-Dauphin, A
+2026-10-14T22:02:21:       2 image(s)
+2026-10-14T22:02:22:   + #25 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : AVIS DE RECRUTEMENT Pour étoffer son équipe, le Cabinet HERMES CONSEILS cherche 
+2026-10-14T22:02:22:       email : recrutement@hermes-conseils.mg | 1 image(s)
+2026-10-14T22:02:25:   + #26 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 📣 AVIS DE RECRUTEMENT | REJOIGNEZ CŒUR DE FORÊT MADAGASCAR 🌳 Vous souhaitez mett
+2026-10-14T22:02:25:       email : rh@coeurdeforetmadagascar.com, mitia.a@coeurdeforetmadagascar.com | 5 image(s)
+2026-10-14T22:02:26:   + #27 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : SERVICE REGIONAL DE L'EMPLOI BOENY 1️⃣MAMPITA recrute : 👉Un(e) Assistant(e) Admi
+2026-10-14T22:02:26:       5 image(s)
+2026-10-14T22:02:33:   + #28 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 📢 CARE Madagascar recrute ! Rejoignez-nous ! Vous souhaitez mettre vos compétenc
+2026-10-14T22:02:33:       1 image(s)
+2026-10-14T22:02:34:   + #29 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : Le Groupe NP AKADIN poursuit son expansion et renforce ses équipes en accueillan
+2026-10-14T22:02:34:       email : recrutement@npakadin.mg | 4 image(s)
+2026-10-14T22:02:35:   + #30 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : WWF MADAGASCAR Des opportunités à WWF Madagascar: ✅ Appel D'offres - Entreprises
+2026-10-14T22:02:35:       1 image(s)
+2026-10-14T22:02:36:   + #31 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : CARE INTERNATIONAL MADAGASCAR CARE Madagascar ouvre plusieurs opportunités profe
+2026-10-14T22:02:36:       1 image(s)
+2026-10-14T22:02:38:   + #32 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : SALAMA recrute 𝐔𝐍(𝐄) 𝐏𝐇𝐀𝐑𝐌𝐀𝐂𝐈𝐄𝐍(𝐍𝐄) 𝐑𝐄𝐒𝐏𝐎𝐍𝐒𝐀𝐁𝐋𝐄 𝐀𝐒𝐒𝐈𝐒𝐓𝐀𝐍𝐓(𝐄) 📄 Retrouvez toutes 
+2026-10-14T22:02:38:       1 image(s)
+2026-10-14T22:02:39:   + #33 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : MAMPITA recrute des animateurs de crédits
+2026-10-14T22:02:39:       1 image(s)
+2026-10-14T22:02:40:   + #34 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : RECRUTEMENT D’AGENTS ENQUÊTEURS / ENQUÊTRICES 📍 Lieux : TOLIARA, FORT-DAUPHIN, A
+2026-10-14T22:02:40:       2 image(s)
+2026-10-14T22:03:02:   + #35 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : (sans texte)
+2026-10-14T22:04:40:   + #36 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : (sans texte)
+2026-10-14T22:19:56:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-14T22:20:44:   [images] pfbid0DCszcdsGyfuvMyBEeo9iuytGUSoZ3qGSvhybhp3SbSmzc5D9RvNmXXxAAYGe5We6l : 15/15 (viewer)
+2026-10-14T22:20:49:   [images] pfbid02pq8jotZ4JHsTVhvohxvWA87coMDTxwkbtmL8S3Co5V2V8jVespoRAaBrhMAPph7Kl : 1/1 (viewer)
+2026-10-14T22:20:55:   [images] pfbid02enHAM1tmke27cZNmS5MUJriwSjQPbi37hQps5RA9DooYMWpp5Fzg5wCqwVUMrrwJl : 1/1 (viewer)
+2026-10-14T22:22:00:   [images] pfbid0DKm2JAmydR3EBPQ5rfrcjCoXSj77p4omZbkc7tzMVLQ46cSEsVKXFXTo92MPLemsl : 11/11 (viewer)
+2026-10-14T22:22:05:   [images] pfbid025tHmgQL2Xbein4SYtK6LMyzZcsznD6WmGxwvhTqVsp551nnEGNx8JAa1xnB39i2l : 1/1 (viewer)
+2026-10-14T22:22:10:   [images] pfbid02nXa1Cnsb4mA4YcZLZgrAHYqrB9ZAp2WugTQTDEFT6WbiSgwkFHUfjQvHdBEFBoW3l : 1/1 (viewer)
+2026-10-14T22:22:14:   [images] 3715462328620695 : 1/1 (viewer)
+2026-10-14T22:22:18:   [images] pfbid035uMsj1Zr4RjVi1hN34g22fMKYKBiEk8MTXE8YzAA628yHSq8BMCagdL4qXpqsDkDl : 1/1 (viewer)
+2026-10-14T22:22:27:   [images] pfbid02VK4Zf2yGpeYCBbTzjTQFy4MYeietBNivQFU8kZmrYc74J2dMhb3a8UNHaYq2aWpHl : 1/1 (viewer)
+2026-10-14T22:22:34:   [images] pfbid0UFU7niZSp8JHf94dMWLN6Ed3jEuSJ3MkmqcjSLa2t6DipbLNBzfXewmPL9RbX4PWl : 4/4 (viewer)
+2026-10-14T22:22:37:   [images] pfbid0FC6ZUT7WQidLvdqzEe7uKTVNQ5znm1mWAkeZX3XbBSthFVuXdqdRPoZcoXkST9d9l : 1/1 (viewer)
+2026-10-14T22:22:42:   [images] pfbid0JDVEphaTXnBh3wYgyN317y9ZDqUmfZBK4FAMTTgfEWKo3RENS7DDWSLCgfd2msoWl : 1/1 (viewer)
+2026-10-14T22:22:47:   [images] pfbid0yxuwGFfwFWiFJrF3KeuRfsSXvTwLcuhdGH77xw5EUu8puujT95zKJmBRJK4ssrLSl : 2/2 (viewer)
+2026-10-14T22:22:52:   [images] pfbid02cuHeJkfhEiDDJFEYesU7zaRHmxqkJYQKnEpNWXtDrygGhvBbZ6rhnxABNaJtNEhFl : 1/1 (viewer)
+2026-10-14T22:22:59:   [images] pfbid02KpKGAyqq42sRhmT7ekoSum99avd54BYKrAeLUQioCEMe3SAzgMqYA2gTmXug6ZuRl : 1/1 (viewer)
+2026-10-14T22:23:04:   [images] pfbid0PP3wHrTMtPL7hQHbowc4Eck2Zv5bEshbGgx7h696sTs2LCQnaaMnsZNPyZFMx6mxl : 1/1 (viewer)
+2026-10-14T22:23:09:   [images] pfbid0imohMtq9Kqoz8u8XXQYmjzp9JwjnH5sH4693brLhtGvFZtp7v71LKn65Zy24m4PXl : 1/1 (viewer)
+2026-10-14T22:23:12:   [images] pfbid05Z3rtzdC5rcRhcJyqrQ8kuZWPTAHqFMdyqfHAbqSypDMAhhpdcz2DnHZm29Nmfj6l : 1/1 (viewer)
+2026-10-14T22:23:17:   [images] 1725542006241275 : 1/1 (viewer)
+2026-10-14T22:23:21:   [images] pfbid025zAfUPKCBJcTVjGT2XJ5gqcnQB8b8kYEGUKSa1ssCs16vFXdcwbUhNyS5JN99Lh4l : 1/1 (viewer)
+2026-10-14T22:23:25:   [images] pfbid0y8CtXs4TCXF3A2bvZq1ohqTy3KTmW2onk74Yp9n5FaWD6VfMqQGbtZyaw6JyjNYEl : 1/1 (viewer)
+2026-10-14T22:23:31:   [images] pfbid0ok7wxwLADrehK7vWGbEwkRpKsWjH9mw5D4EZXF7XVWFUdtdhG75SxmJSHncUSc34l : 2/2 (viewer)
+2026-10-14T22:23:35:   [images] pfbid02TEActgUm7i7ytojQKMNd1kYxUjDavGJD6P94Ba7NoGvxmfietDW8obZoAyXa2nEml : 2/2 (viewer)
+2026-10-14T22:23:39:   [images] pfbid02uiyHid7K8Xwdo1S7aQLZerDKyUBDFZ2gDj5FWs8UeUjfuAqy1uyZJvWLjAB6SQW7l : 1/1 (viewer)
+2026-10-14T22:23:51:   [images] pfbid029ZEHGeHtNLjGooLCHUrAhH43K61jyJXhzxpmZgmaPrYbvUYtFLhAuVoKzVTomMx9l : 9/9 (viewer)
+2026-10-14T22:23:58:   [images] pfbid02cxEfeE3cJXzhyjgcG8wU43kfA62sZ6cvE5C8KjyXPjjY38kBFMdQsRNayvKARbh6l : 6/6 (viewer)
+2026-10-14T22:24:03:   [images] pfbid0aQUbcURoVRXnBtD4LoeJk2Lz6x96CGxpvgSQdMg63UScYuHakMdhGa7CrVEXf5d1l : 1/1 (viewer)
+2026-10-14T22:24:09:   [images] pfbid0qYxmTVsoTSDnuZ1PetZV52gLuGbK8d6kFEapnXJmdsrXMQKnkAAapDNUUiEJmw8Hl : 4/4 (viewer)
+2026-10-14T22:24:12:   [images] pfbid0fjYLx2Kzn3AZncM1QTkh5cH7PuokK4BJA3FvFtv6kzx3yB2dFYPkibhuB9B9gT9gl : 1/1 (viewer)
+2026-10-14T22:24:20:   [images] pfbid0wk9vwJqeht5hmqRefiaFE9Gj78moAtWkLgB51jWkpiWYH9L6qnnyfypt8De56qpsl : 1/1 (viewer)
+2026-10-14T22:24:26:   [images] pfbid023E4ir3EVMG9wbPRZYbum1h2tCY9xjwG9erbPnbSbyWXJ8Hvp4uEp3cESHo5ZPSq3l : 1/1 (viewer)
+2026-10-14T22:24:30:   [images] pfbid01FiuxJZicm4uPsKR4CqSmP9LCibsVFd2GVDdW1Y69EVrndi1rymRo1P1z2vjBabwl : 1/1 (viewer)
+2026-10-14T22:24:39:   [images] pfbid0NUjrvmwKCbi7CkTKHaP4GxnmGwd97eCu4w9rnGkxRed6ExSPmYqzLKMV5ttnTtBYl : 2/2 (viewer)
+2026-10-14T22:24:40:   Chargement du moteur OCR (RapidOCR / onnxruntime)...
+2026-10-14T22:24:45:   OCR des images : 80 image(s) dans 33 publication(s) (~0,5 à 2 s par image)...
+2026-10-14T22:25:24:     [1/33] 15 image(s) en 39s - total 15/80
+2026-10-14T22:25:29:     [2/33] 1 image(s) en 5s - total 16/80
+2026-10-14T22:25:34:     [3/33] 1 image(s) en 5s - total 17/80
+2026-10-14T22:27:00:     [4/33] 11 image(s) en 86s - total 28/80
+2026-10-14T22:27:03:     [5/33] 1 image(s) en 3s - total 29/80
+2026-10-14T22:27:05:     [6/33] 1 image(s) en 3s - total 30/80
+2026-10-14T22:27:09:     [7/33] 1 image(s) en 3s - total 31/80
+2026-10-14T22:27:12:     [8/33] 1 image(s) en 4s - total 32/80
+2026-10-14T22:27:22:     [9/33] 1 image(s) en 10s - total 33/80
+2026-10-14T22:27:45:     [10/33] 4 image(s) en 23s - total 37/80
+2026-10-14T22:27:48:     [11/33] 1 image(s) en 3s - total 38/80
+2026-10-14T22:27:53:     [12/33] 1 image(s) en 5s - total 39/80
+2026-10-14T22:28:01:     [13/33] 2 image(s) en 8s - total 41/80
+2026-10-14T22:28:13:     [14/33] 1 image(s) en 11s - total 42/80
+2026-10-14T22:28:15:     [15/33] 1 image(s) en 3s - total 43/80
+2026-10-14T22:28:19:     [16/33] 1 image(s) en 4s - total 44/80
+2026-10-14T22:28:21:     [17/33] 1 image(s) en 2s - total 45/80
+2026-10-14T22:28:25:     [18/33] 1 image(s) en 3s - total 46/80
+2026-10-14T22:28:27:     [19/33] 1 image(s) en 2s - total 47/80
+2026-10-14T22:28:30:     [20/33] 1 image(s) en 3s - total 48/80
+2026-10-14T22:28:36:     [21/33] 1 image(s) en 6s - total 49/80
+2026-10-14T22:28:38:     [22/33] 2 image(s) en 2s - total 51/80
+2026-10-14T22:28:50:     [23/33] 2 image(s) en 11s - total 53/80
+2026-10-14T22:28:56:     [24/33] 1 image(s) en 6s - total 54/80
+2026-10-14T22:30:17:     [25/33] 9 image(s) en 81s - total 63/80
+2026-10-14T22:30:47:     [26/33] 6 image(s) en 30s - total 69/80
+2026-10-14T22:30:51:     [27/33] 1 image(s) en 3s - total 70/80
+2026-10-14T22:31:16:     [28/33] 4 image(s) en 26s - total 74/80
+2026-10-14T22:31:18:     [29/33] 1 image(s) en 2s - total 75/80
+2026-10-14T22:31:20:     [30/33] 1 image(s) en 2s - total 76/80
+2026-10-14T22:31:26:     [31/33] 1 image(s) en 6s - total 77/80
+2026-10-14T22:31:31:     [32/33] 1 image(s) en 4s - total 78/80
+2026-10-14T22:31:40:     [33/33] 2 image(s) en 10s - total 80/80
+2026-10-14T22:31:40:   -> 36 nouvelle(s), 241 déjà connue(s), 16 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-14T22:31:40: 
+2026-10-14T22:31:40: [6/18] Page 61590590183252
+2026-10-14T22:31:47: Page : Trust Squad (375 caractères dans À propos)
+2026-10-14T22:31:47: Ouverture de https://www.facebook.com/profile.php?id=61590590183252
+2026-10-14T22:32:28:   Fin du fil : rien de nouveau après 8 scroll(s)
+2026-10-14T22:32:28:   -> 0 nouvelle(s), 0 déjà connue(s), 3 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-14T22:32:28: 
+2026-10-14T22:32:28: [7/18] Page 61556986846873
+2026-10-14T22:32:37: Page : Offre d'emploi Madagascar (588 caractères dans À propos)
+2026-10-14T22:32:37: Ouverture de https://www.facebook.com/profile.php?id=61556986846873
+2026-10-14T22:32:47:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-14T22:32:47:   -> 0 nouvelle(s), 0 déjà connue(s), 5 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-14T22:32:47: 
+2026-10-14T22:32:47: [8/18] Page LCSRessourcesHumaines
+2026-10-14T22:32:54: Page : LCS RH (817 caractères dans À propos)
+2026-10-14T22:32:54: Ouverture de https://www.facebook.com/LCSRessourcesHumaines
+2026-10-14T22:33:24:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-14T22:33:24:   -> 0 nouvelle(s), 15 déjà connue(s), 5 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-14T22:33:24: 
+2026-10-14T22:33:24: [9/18] Page DigitaleoMada
+2026-10-14T22:33:31: Page : Digitaleo (611 caractères dans À propos)
+2026-10-14T22:33:31: Ouverture de https://www.facebook.com/DigitaleoMada
+2026-10-14T22:33:45:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-14T22:33:45:   -> 0 nouvelle(s), 4 déjà connue(s), 5 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-14T22:33:45: 
+2026-10-14T22:33:45: [10/18] Page alberthinrivosoa.razafimahandry
+2026-10-14T22:33:52: Page : Andry (904 caractères dans À propos)
+2026-10-14T22:33:52: Ouverture de https://www.facebook.com/alberthinrivosoa.razafimahandry
+2026-10-14T22:34:03:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-14T22:34:03:   -> 0 nouvelle(s), 0 déjà connue(s), 5 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-14T22:34:03: 
+2026-10-14T22:34:03: [11/18] Page MyCareerInstitut
+2026-10-14T22:34:09: Page : Facebook (252 caractères dans À propos)
+2026-10-14T22:34:09: Ouverture de https://www.facebook.com/MyCareerInstitut
+2026-10-14T22:34:42:   [ERREUR] Aucune publication trouvée (page vide, restreinte ou modifiée par Facebook ?)
+2026-10-14T22:34:42:   -> 0 nouvelle(s), 0 déjà connue(s), 0 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-14T22:34:42: 
+2026-10-14T22:34:42: [12/18] Page 61591852563303
+2026-10-14T22:34:49: Page : OpportuniX (547 caractères dans À propos)
+2026-10-14T22:34:49: Ouverture de https://www.facebook.com/profile.php?id=61591852563303
+2026-10-14T22:35:21:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-14T22:35:21:   -> 0 nouvelle(s), 15 déjà connue(s), 5 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-14T22:35:21: 
+2026-10-14T22:35:21: [13/18] Groupe 2367943963509691
+2026-10-14T22:35:22: Ouverture de https://www.facebook.com/groups/2367943963509691/?sorting_setting=CHRONOLOGICAL
+2026-10-14T22:35:24: Groupe : Recrutement/emploi/stage/formation/Madagascar - 2343 publication(s) déjà en cache
+2026-10-14T22:35:27:   + #1 Participant(e) anonyme (?) : Salama daholo Mitady asa afaka atao aty antrano..misy connexion sy phone android
+2026-10-14T22:35:33:   + #2 Jeremie RJ Randrianjafimanana (?) : Ny orinasa Inter-GWH dia mitady consultants collaborateurs. Lahy sy vavy, mihoat
+2026-10-14T22:35:33:       tél : 0382974305
+2026-10-14T22:35:33:   + #3 Melodïe Kayrãh (?) : Raha tsy mety amin sipanao ilay sika miresaka,dia Saraho faty any izy tompoko🥹
+2026-10-14T22:35:34:   + #4 Participant(e) anonyme (?) : (sans texte)
+2026-10-14T22:35:34:       images : 4/4 enregistrée(s)
+2026-10-14T22:35:35:   + #5 Participant(e) anonyme (?) : (sans texte)
+2026-10-14T22:35:35:       images : 1/1 enregistrée(s)
+2026-10-14T22:35:35:   + #6 Tølõ Jåñähārÿ (?) : Live jogging,robe,ensemble sns
+2026-10-14T22:35:35:       images : 1/1 enregistrée(s)
+2026-10-14T22:35:43:   + #7 Ramamy-Tech (?) : 💻🔧 Ramamy-Tech – Service Informatique 👉 Professionnalisme | Rapidité | Fiabilité
+2026-10-14T22:35:43:       tél : 0345774282 | email : sergioramaminiaina@gmail.com | images : 5/5 enregistrée(s)
+2026-10-14T22:35:48:   + #8 Melodïe Kayrãh (?) : 💚✨ Infinix HOT 60i vaovao e!miaraka amin'ny accessoire rehetra📱🔥 Sady manja no m
+2026-10-14T22:35:48:       tél : 0347358558 | images : 1/1 enregistrée(s)
+2026-10-14T22:35:48:   + #9 Elite Sourcing (?) : 📞 UN NOUVEAU DÉFI COMMERCIAL À SAISIR TÉLÉPROSPECTEUR(ICE) B2B Vous êtes à l’ais
+2026-10-14T22:35:48:       email : e.sourcing261@gmail.com | images : 1/1 enregistrée(s)
+2026-10-14T22:35:49:   + #10 Melodïe Kayrãh (?) : 💥HEYY!!! LEO AMIN'ILAY MICHARGE TÉLÉPHONE LAVA VE🤩💥 ITY VAHOLANA #REDMI_15 💥 SCE
+2026-10-14T22:35:49:       tél : 0347358558, 0326085189 | images : 1/1 enregistrée(s)
+2026-10-14T22:35:55:   + #11 Sarah RF (?) : sody mba nisy olona nahitsikirika ity lehilahy ity nanodidina ambohibao fa mbola
+2026-10-14T22:35:55:       images : 1/1 enregistrée(s)
+2026-10-14T22:36:01:   + #12 Elite Sourcing (?) : 🌍 UN NOUVEAU DÉFI EN RECRUTEMENT CHARGÉ(E) DE RECRUTEMENT – RECRUTEMENTS INTERNA
+2026-10-14T22:36:01:       email : e.sourcing261@gmail.com | images : 1/1 enregistrée(s)
+2026-10-14T22:36:02:   + #13 Muriella (?) : Opportunité à saisir, n'hésitez pas à envoyer un mail !
+2026-10-14T22:36:02:       images : 1/1 enregistrée(s)
+2026-10-14T22:36:02:   + #14 Melodïe Kayrãh (?) : NATOKANA HO ANAREO MPISEHATRA VENTE EN LIGNE ITY REDMI NOTE 9PRO 5G ITY ❤️ 🔥 Ult
+2026-10-14T22:36:02:       tél : 0347358558, 0326085189 | images : 1/1 enregistrée(s)
+2026-10-14T22:36:07:   + #15 Unishop Mada (?) : 🎀 PROMO🎄 🆕 #COQUE TRANSPARENT #MAGSAFE #MAGNÉTIQUE 🧲 Et PROTÈGE ÉCRAN INCASSABLE
+2026-10-14T22:36:07:       images : 4/4 enregistrée(s)
+2026-10-14T22:36:08:   + #16 Sitrakin'Ny Avo (?) : Mitady asa ve ianao na petit boulot ASA EN LIGNE TENA AHAZOANA KARAMA 🤝🏻🤩 👌🏻20K 
+2026-10-14T22:36:08:       images : 1/1 enregistrée(s)
+2026-10-14T22:36:13:   + #17 Sarobidy Tsioritiana (?) : (sans texte)
+2026-10-14T22:36:13:       images : 1/1 enregistrée(s)
+2026-10-14T22:36:14:   + #18 FTAA-English Club (?) : 🎉 INSCRIPTIONS Ouvertes ! 🎊 🗣️ FTAA ENGLISH CLUB 🇺🇲 Envie de parler anglais avec
+2026-10-14T22:36:14:       tél : 0348206344 | images : 1/1 enregistrée(s)
+2026-10-14T22:36:15:   + #19 FTAA-English Club (?) : 🎉 INSCRIPTIONS Ouvertes ! 🎊 🗣️ FTAA ENGLISH CLUB 🇺🇲 Envie de parler anglais avec
+2026-10-14T22:36:15:       tél : 0348206344 | images : 1/1 enregistrée(s)
+2026-10-14T22:36:15:   + #20 CV Express-Andelson (?) : Lien👇👇👇 https://www.facebook.com/profile.php?id=61578572272289 CV Express-Andels
+2026-10-14T22:36:15:   + #21 Participant(e) anonyme (?) : Mitady asa🥺 : animatrice, modèle photo,... Mba atao mandritran'ity vacances ity 
+2026-10-14T22:36:16:   + #22 Fizarana Tombotsoa (?) : 🚀 TE HANANA PAGE FACEBOOK MATIHANINA SY MAHAY MAMPITOMBO NY ORINASANAO VE IANAO?
+2026-10-14T22:36:16:       images : 1/1 enregistrée(s)
+2026-10-14T22:36:23:   + #23 Ny fahatsarana ofisialy (?) : 𝗧𝗨 𝗗𝗜𝗥𝗜𝗚𝗘𝗦 𝗨𝗡𝗘 𝗢𝗡𝗚 𝗢𝗨 𝗨𝗡𝗘 𝗔𝗦𝗦𝗢𝗖𝗜𝗔𝗧𝗜𝗢𝗡 ? 𝗩𝗢𝗜𝗖𝗜 𝟯𝟬 𝗢𝗥𝗚𝗔𝗡𝗜𝗦𝗔𝗧𝗜𝗢𝗡𝗦 𝗤𝗨𝗜 𝗣𝗘𝗨𝗩𝗘𝗡𝗧 𝗙𝗜𝗡𝗔𝗡
+2026-10-14T22:36:23:       images : 1/1 enregistrée(s)
+2026-10-14T22:36:23:   + #24 Elite Sourcing (?) : 🎓 VOTRE EXPÉRIENCE PEUT FAIRE LA DIFFÉRENCE ! Elite Sourcing recherche un(e) for
+2026-10-14T22:36:23:       email : e.sourcing261@gmail.com | images : 1/1 enregistrée(s)
+2026-10-14T22:36:30:   + #25 Participant(e) anonyme (?) : MIARAHABA TOMPOKO ! Izaho dia mitady asa kely atao ka noho izany dia vonona aho 
+2026-10-14T22:36:32:   + #26 Melodïe Kayrãh (?) : TSY LEFY LAZA, MANANA NY MAHA IZY AZY MANOKANA IZANY TECNO IZANY 😎 🔥 TECNO SPARK
+2026-10-14T22:36:32:       tél : 0347358558, 0326085189 | images : 1/1 enregistrée(s)
+2026-10-14T22:36:32:   + #27 Participant(e) anonyme (?) : Salama daholo tompoko, mitady asa resaka " Secrétariat", fa mahay ny asa momba i
+2026-10-14T22:36:40:   + #28 Fanaka Fitaratra Mahajanga (?) : Salama Tompoko ! mitohy hatrany ny Fandrasaina commande Tompoko! Raha mahaliana 
+2026-10-14T22:36:40:       images : 5/5 enregistrée(s)
+2026-10-14T22:36:48:   + #29 Fanatenana Mdg (?) : Mitady Tanora débutant(e) hanaraka Fiofanana sy hiasa @ CALL CENTER vita formati
+2026-10-14T22:36:48:       tél : 0330185305
+2026-10-14T22:37:13:   + #30 Geline Mimitiana (?) : Annexe Boutik Janice Majunga
+2026-10-14T22:37:13:       images : 5/5 enregistrée(s)
+2026-10-14T22:37:15:   + #31 Participant(e) anonyme (?) : NOUS RECRUTONS ! Dans le cadre de notre prochaine ouverture, nous recherchons un
+2026-10-14T22:37:15:       email : 261.secretgarden@gmail.com | images : 1/1 enregistrée(s)
+2026-10-14T22:37:24:   + #32 Doda Khely Alhanne (?) : ity ary Ilay asa , aty ilay video kely fanazavana mahakasika ireto site roa iret
+2026-10-14T22:37:25:   + #33 Mialirina Ravoson (?) : (sans texte)
+2026-10-14T22:37:33:   + #34 Rivomanato Filohaina (?) : J-4 Aza variana fa ataovy ny fisoratana anarana. Tsy hanenina ianao manaraka io 
+2026-10-14T22:37:33:       images : 1/1 enregistrée(s)
+2026-10-14T22:37:34:   + #35 Assist Educ (?) : (sans texte)
+2026-10-14T22:37:34:       images : 1/1 enregistrée(s)
+2026-10-14T22:39:47:   60 publication(s) déjà connue(s) d'affilée - arrêt du groupe
+2026-10-14T22:39:47: Lecture du texte des images (OCR) : 26 publication(s)...
+2026-10-14T22:42:15:   ... 25/26
+2026-10-14T22:42:18:   [image] Ramanantsoa Vonjiniaina : 0345501220
+2026-10-14T22:42:18:   [image] Participant(e) anonyme : rh.iraydia@gmail.com
+2026-10-14T22:42:18:   [image] Participant(e) anonyme : ongharona@gmail.com
+2026-10-14T22:42:18:   [image] Muriella : tahiana.rakotoarisoa@ifpr.yt, 0639401141
+2026-10-14T22:42:18:   [image] Sarobidy Tsioritiana : 0382876617
+2026-10-14T22:42:18:   [image] Fizarana Tombotsoa : 0331385213
+2026-10-14T22:42:18:   [image] Assist Educ : 0382870036
+2026-10-14T22:42:19: Offres d'emploi : 595 -> C:\Users\Administrator\Desktop\cv_scrappe\downloaded_files\facebook_jobs_2367943963509691.json
+2026-10-14T22:42:20:   [VISIONNEUSE] 4135071266796943 : 4/7 photos, récupération des autres
+2026-10-14T22:42:33:   [images] 4135071266796943 : 6/6 (viewer)
+2026-10-14T22:42:33:   [VISIONNEUSE] 4134985843472152 : 5/12 photos, récupération des autres
+2026-10-14T22:42:43:   [images] 4134985843472152 : 11/11 (viewer)
+2026-10-14T22:42:44:   [VISIONNEUSE] 4133560993614637 : 5/9 photos, récupération des autres
+2026-10-14T22:42:52:   [images] 4133560993614637 : 8/8 (viewer)
+2026-10-14T22:42:53:   -> 35 nouvelle(s), 100 déjà connue(s), 2 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-14T22:42:53: 
+2026-10-14T22:42:53: [14/18] Groupe recrutement.emploi.madagascar
+2026-10-14T22:42:53: Ouverture de https://www.facebook.com/groups/recrutement.emploi.madagascar/?sorting_setting=CHRONOLOGICAL
+2026-10-14T22:42:55: Groupe : Recrutement, offre d'emploi, Madagascar - 760 publication(s) déjà en cache
+2026-10-14T22:42:57:   + #1 Participant(e) anonyme (?) : (sans texte)
+2026-10-14T22:42:57:       images : 1/1 enregistrée(s)
+2026-10-14T22:43:02:   + #2 Maya Michella (?) : 📢 RECRUTEMENT D'URGENCE – TÉLÉPROSPECTRICE (TÉLÉTRAVAIL) 📢 Vous avez une premièr
+2026-10-14T22:43:02:   + #3 Participant(e) anonyme (?) : 💼 **VOUS GÉREZ VOTRE ENTREPRISE, NOUS GÉRONS VOS MESSAGES !** 📩 Trop de messages
+2026-10-14T22:43:02:       tél : +261338207398, 0388380719 | images : 1/1 enregistrée(s)
+2026-10-14T22:43:08:   + #4 Liane Yau (?) : 📢 RECRUTEMENT – SERVEUR / SERVEUSE 📞 Appelez au 032 84 888 35
+2026-10-14T22:43:08:       tél : 0328488835 | images : 1/1 enregistrée(s)
+2026-10-14T22:43:14:   + #5 Participant(e) anonyme (?) : (sans texte)
+2026-10-14T22:43:14:       images : 1/1 enregistrée(s)
+2026-10-14T22:43:20:   + #6 Offre d'emploi Madagascar (?) : 🎯 Offre d'emploi 💼 Animateurs(trices) nutrition 🏢 Gret Madagascar 📋 Contrat : CD
+2026-10-14T22:43:20:       images : 1/1 enregistrée(s)
+2026-10-14T22:43:31:   + #7 Rouge Hexagone (?) : Coordonner à distance fabricants, fournisseurs et prestataires logistiques, c'es
+2026-10-14T22:43:32:   + #8 Rouge Hexagone (?) : De la conception à l'évaluation, vous maîtrisez tout le cycle d'un projet market
+2026-10-14T22:44:45:   60 publication(s) déjà connue(s) d'affilée - arrêt du groupe
+2026-10-14T22:44:45: Lecture du texte des images (OCR) : 5 publication(s)...
+2026-10-14T22:45:29:   [image] Participant(e) anonyme : recrutement@arbiochem.mg
+2026-10-14T22:45:29:   [image] Participant(e) anonyme : logistique@madicon.mg
+2026-10-14T22:45:29: Offres d'emploi : 638 -> C:\Users\Administrator\Desktop\cv_scrappe\downloaded_files\facebook_jobs_recrutement.emploi.madagascar.json
+2026-10-14T22:45:30:   -> 8 nouvelle(s), 79 déjà connue(s), 0 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-14T22:45:30: 
+2026-10-14T22:45:30: [15/18] Groupe 414326263961327
+2026-10-14T22:45:30: Ouverture de https://www.facebook.com/groups/414326263961327/?sorting_setting=CHRONOLOGICAL
+2026-10-14T22:45:33: Groupe : Recrutement, offre d'emploi, Madagascar - 364 publication(s) déjà en cache
+2026-10-14T22:45:37:   + #1 Participant(e) anonyme (?) : (sans texte)
+2026-10-14T22:45:37:       images : 1/1 enregistrée(s)
+2026-10-14T22:45:42:   + #2 Oui-call (?) : Oui-Call recrute !!! Offre d’emploi : Télévendeurs (H/F)/ Téléprospecteurs (H/F)
+2026-10-14T22:45:42:       email : job@oui-call.com | images : 1/1 enregistrée(s)
+2026-10-14T22:45:42:   + #3 Participant(e) anonyme (?) : 💼 **VOUS GÉREZ VOTRE ENTREPRISE, NOUS GÉRONS VOS MESSAGES !** 📩 Trop de messages
+2026-10-14T22:45:42:       tél : +261338207398, 0388380719 | images : 1/1 enregistrée(s)
+2026-10-14T22:45:42:   + #4 Participant(e) anonyme (?) : NOUS RECRUTONS ! Dans le cadre de notre prochaine ouverture, nous recherchons un
+2026-10-14T22:45:42:       email : 261.secretgarden@gmail.com | images : 1/1 enregistrée(s)
+2026-10-14T22:45:47:   + #5 Onintsoa Randriabe (?) : 🍽️ MiRab Solutions: LES MINUTES DU CONTRÔLE DE GESTION. LE SEUIL DE RENTABILITÉ 
+2026-10-14T22:45:47:       tél : 0375604661, 0345167483 | images : 1/1 enregistrée(s)
+2026-10-14T22:45:53:   + #6 Tsiaro Raharimanana (?) : Si vous êtes intéressé(e), n’hésitez pas à envoyer votre CV via WhatsApp au 034 
+2026-10-14T22:45:53:       tél : 0341475013 | images : 1/1 enregistrée(s)
+2026-10-14T22:45:54:   + #7 Fitiavana Rajaoharinosy (?) : 🚨 NOUS RECRUTONS ! REJOIGNEZ NOTRE ÉQUIPE ! 🚨 📢 Vous êtes passionné(e), dynamiqu
+2026-10-14T22:45:54:       email : recrutementgroup323@gmail.com | images : 1/1 enregistrée(s)
+2026-10-14T22:45:54:   + #8 D.G. Conseil (?) : 🌟 Brillons ensemble 🌟 Nous recrutons actuellement pour les postes suivants : 🔹 A
+2026-10-14T22:45:54:       images : 1/1 enregistrée(s)
+2026-10-14T22:47:18:   60 publication(s) déjà connue(s) d'affilée - arrêt du groupe
+2026-10-14T22:47:18: Lecture du texte des images (OCR) : 8 publication(s)...
+2026-10-14T22:48:31:   [image] Participant(e) anonyme : recrutement@arbiochem.mg
+2026-10-14T22:48:31:   [image] Tsiaro Raharimanana : appuirh2@lcs.mg, 0345475013
+2026-10-14T22:48:32: Offres d'emploi : 311 -> C:\Users\Administrator\Desktop\cv_scrappe\downloaded_files\facebook_jobs_414326263961327.json
+2026-10-14T22:48:33:   -> 8 nouvelle(s), 67 déjà connue(s), 2 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-14T22:48:33: 
+2026-10-14T22:48:33: [16/18] Groupe 255276743595594
+2026-10-14T22:48:33: Ouverture de https://www.facebook.com/groups/255276743595594/?sorting_setting=CHRONOLOGICAL
+2026-10-14T22:48:39:     [JS] 
+2026-10-14T22:48:39: exceptionId: 1
+2026-10-14T22:48:39: text: Uncaught
+2026-10-14T22:48:39: lineNumber: 6
+2026-10-14T22:48:39: columnNumber: 35
+2026-10-14T22:48:39: scriptId: 2037
+2026-10-14T22:48:39: exception: 
+2026-10-14T22:48:39: 	type: object
+2026-10-14T22:48:39: 	subtype: error
+2026-10-14T22:48:39: 	className: TypeError
+2026-10-14T22:48:39: 	description: TypeError: Cannot read properties of null (re
+2026-10-14T22:48:45: Groupe : TOLOTRA ASA ANTANANARIVO - 96 publication(s) déjà en cache
+2026-10-14T22:48:55:   + #1 Sarobidy Tsioritiana (?) : (sans texte)
+2026-10-14T22:48:55:       images : 1/1 enregistrée(s)
+2026-10-14T22:49:07:   + #2 Alpha jess (?) : RF RAYAA Abonné page @Alpha jess
+2026-10-14T22:49:07:       images : 1/1 enregistrée(s)
+2026-10-14T22:50:40:   + #3 Mpanao Vidange Wc (?) : MIARAHABA O☺FENO VE NY WC ANAO😤NA KOA MISY OLANA (mrefoule,mamoka fofona)🤧. 😤AFA
+2026-10-14T22:50:40:       tél : 0344279763 | images : 3/3 enregistrée(s)
+2026-10-14T22:51:48:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-14T22:51:48: Lecture du texte des images (OCR) : 3 publication(s)...
+2026-10-14T22:52:01:   [image] Sarobidy Tsioritiana : 0330063338
+2026-10-14T22:52:01: Offres d'emploi : 19 -> C:\Users\Administrator\Desktop\cv_scrappe\downloaded_files\facebook_jobs_255276743595594.json
+2026-10-14T22:52:02:   -> 3 nouvelle(s), 78 déjà connue(s), 13 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-14T22:52:02: 
+2026-10-14T22:52:02: [17/18] Groupe 984150507256574
+2026-10-14T22:52:02: Ouverture de https://www.facebook.com/groups/984150507256574/?sorting_setting=CHRONOLOGICAL
+2026-10-14T22:52:05:     [JS] 
+2026-10-14T22:52:05: exceptionId: 2
+2026-10-14T22:52:05: text: Uncaught
+2026-10-14T22:52:05: lineNumber: 6
+2026-10-14T22:52:05: columnNumber: 35
+2026-10-14T22:52:05: scriptId: 2037
+2026-10-14T22:52:05: exception: 
+2026-10-14T22:52:05: 	type: object
+2026-10-14T22:52:05: 	subtype: error
+2026-10-14T22:52:05: 	className: TypeError
+2026-10-14T22:52:05: 	description: TypeError: Cannot read properties of null (re
+2026-10-14T22:52:07: Groupe : OFFRE ET DEMANDE D'EMPLOI ETO MADAGASCAR - 908 publication(s) déjà en cache
+2026-10-14T22:52:14:   + #1 Lalin RF (?) : Hoan'izay mitady asa gratuit tsisy vola aloa✅🤑 ity misy app mora kely nefa tena 
+2026-10-14T22:52:14:       images : 1/1 enregistrée(s)
+2026-10-14T22:52:35:   + #2 Ry Zareo (?) : [Buplication nalaina tao amin'ny page IST Antananarivo ] OFFRE en Génie Civil !
+2026-10-14T22:52:35:       images : 1/1 enregistrée(s)
+2026-10-14T22:52:39:   + #3 Participant(e) anonyme (?) : (sans texte)
+2026-10-14T22:52:39:       images : 1/1 enregistrée(s)
+2026-10-14T22:52:40:   + #4 Thysøn Mike (?) : Ity misy JEUX Azahoana 🥇50.000ar ✅Abonné ny page C.A Zay Olona(3) TSARA VINTANA 
+2026-10-14T22:52:40:       images : 2/2 enregistrée(s)
+2026-10-14T22:53:00:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-14T22:53:00: Lecture du texte des images (OCR) : 4 publication(s)...
+2026-10-14T22:53:39:   [image] Ry Zareo : noveco.recrutement@gmail.com
+2026-10-14T22:53:39:   [image] Participant(e) anonyme : fe.rasoanirina@vatel.mg
+2026-10-14T22:53:39: Offres d'emploi : 239 -> C:\Users\Administrator\Desktop\cv_scrappe\downloaded_files\facebook_jobs_984150507256574.json
+2026-10-14T22:53:40:   -> 4 nouvelle(s), 0 déjà connue(s), 5 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-14T22:53:40: 
+2026-10-14T22:53:40: [18/18] Groupe asajobmadagascard
+2026-10-14T22:53:40: Ouverture de https://www.facebook.com/groups/asajobmadagascard/?sorting_setting=CHRONOLOGICAL
+2026-10-14T22:53:42: Groupe : ASA - JOB Madagascar - 174 publication(s) déjà en cache
+2026-10-14T22:53:46:   + #1 Elite Sourcing (?) : 📞 UN NOUVEAU DÉFI COMMERCIAL À SAISIR TÉLÉPROSPECTEUR(ICE) B2B Vous êtes à l’ais
+2026-10-14T22:53:46:       email : e.sourcing261@gmail.com | images : 1/1 enregistrée(s)
+2026-10-14T22:53:51:   + #2 Elite Sourcing (?) : 🌍 UN NOUVEAU DÉFI EN RECRUTEMENT CHARGÉ(E) DE RECRUTEMENT – RECRUTEMENTS INTERNA
+2026-10-14T22:53:51:       email : e.sourcing261@gmail.com | images : 1/1 enregistrée(s)
+2026-10-14T22:53:57:   + #3 Virtual Madagascar Support Recrutement (?) : 📢 RECRUTEMENT – DESSINATEUR PROJETEUR EN CHARPENTE BOIS 🌳 Nous recherchons un(e)
+2026-10-14T22:53:57:       images : 1/1 enregistrée(s)
+2026-10-14T22:54:08:   + #4 Good-ID JOB Madagascar (?) : Abonnez vous à 👉 Good-ID JOB Madagascar et déposer votre cv sur notre site pour 
+2026-10-14T22:54:09:   + #5 Oworkers Madagascar (?) : Le recrutement continue toujours chez OWOERKERS! Rejoignez une aventure en plein
+2026-10-14T22:54:09:       images : 1/1 enregistrée(s)
+2026-10-14T22:54:09:   + #6 Oworkers Madagascar (?) : Le recrutement continue toujours chez OWORKERS! Rejoignez une aventure en pleine
+2026-10-14T22:54:09:       images : 1/1 enregistrée(s)
+2026-10-14T22:54:10:   + #7 Tolotr’asa ho anao (?) : 🚨RECRUTEMENT D’AGENT DE SECURITÉ À ANTANANARIVO 🚨
+2026-10-14T22:54:10:       images : 1/1 enregistrée(s)
+2026-10-14T22:54:10:   + #8 Elite Sourcing (?) : 🎓 VOTRE EXPÉRIENCE PEUT FAIRE LA DIFFÉRENCE ! Elite Sourcing recherche un(e) for
+2026-10-14T22:54:10:       email : e.sourcing261@gmail.com | images : 1/1 enregistrée(s)
+2026-10-14T22:54:19:   + #9 Virtual Madagascar Support Recrutement (?) : 📢 RECRUTEMENT – DESSINATEUR PROJETEUR EN CHARPENTE BOIS 🌳 Nous recherchons un(e)
+2026-10-14T22:54:19:       images : 1/1 enregistrée(s)
+2026-10-14T22:54:20:   + #10 Nm Razafi (?) : Magy, entreprise d’externalisation basée à Antananarivo, recrute pour un de ses 
+2026-10-14T22:54:20:       email : adm@magy.mg | images : 1/1 enregistrée(s)
+2026-10-14T22:54:20:   + #11 Zara Madagascan (?) : AVIS DE RECRUTEMENT – SUPERVISEUR DES CHAUFFEURS 261 Job Hiring recrute ! Vous ê
+2026-10-14T22:54:20:       email : 261madagascarhr@gmail.com | images : 1/1 enregistrée(s)
+2026-10-14T22:55:02:   + #12 Serge Ralambo (?) : (sans texte)
+2026-10-14T22:55:02:       images : 1/1 enregistrée(s)
+2026-10-14T22:56:55:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-14T22:56:55: Lecture du texte des images (OCR) : 11 publication(s)...
+2026-10-14T22:57:39:   [image] Virtual Madagascar Support Recrutement : rh@virtualmadagascarsupport.com
+2026-10-14T22:57:39:   [image] Oworkers Madagascar : recrutement@oworkers.com
+2026-10-14T22:57:39:   [image] Oworkers Madagascar : recrutement@oworkers.com
+2026-10-14T22:57:39:   [image] Tolotr’asa ho anao : 0320135059, 0380674707
+2026-10-14T22:57:39:   [image] Virtual Madagascar Support Recrutement : rh@virtualmadagascarsupport.com
+2026-10-14T22:57:39:   [image] Serge Ralambo : direction@hazoall.mg
+2026-10-14T22:57:40: Offres d'emploi : 128 -> C:\Users\Administrator\Desktop\cv_scrappe\downloaded_files\facebook_jobs_asajobmadagascard.json
+2026-10-14T22:57:40:   -> 12 nouvelle(s), 88 déjà connue(s), 13 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-14T22:57:43: 
+2026-10-14T22:57:43: IA : modèle gpt-4o-mini, clé sk-s…mBIA
+2026-10-14T22:57:44: 
+2026-10-14T22:57:44: Analyse IA - Tolotr'asa sy stage ho An'i Tanora : 1 publication(s)
+2026-10-14T22:58:38:   + pfbid02F9Fp3xbCqa1sEieZavGVMBR… [job_offer] images jointes 0, texte OCR seul 23, écartées 7 | tokens 12381 -> entreprises : Groupe User, Futurmap, Jobmada, Baobab, LCS, BRED Madagascar | offres : 22
+2026-10-14T22:58:38: 
+2026-10-14T22:58:38: Analyse IA - Société ASG : 6 publication(s)
+2026-10-14T22:58:43:   + pfbid02YLZbpiq6iCvLj3YfLnttR3H… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2599 -> entreprises : Société ASG | offres : 1
+2026-10-14T22:58:43:   [SANS EMAIL] 5 publication(s) sans aucun email (texte ni OCR des images) : pas envoyée(s) à l'IA, 0 token (--no-email-filter pour les analyser quand même)
+2026-10-14T22:58:44: 
+2026-10-14T22:58:44: [ANCIENNES] 57 publication(s) de plus de 15 jours non analysée(s)
+2026-10-14T22:58:44: 
+2026-10-14T22:58:44: Analyse IA - Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence : 76 publication(s)
+2026-10-14T22:58:49:   + pfbid0tjXZqF22EsnXTNWo2bWKxrdB… [job_offer] images jointes 0, texte OCR seul 0, écartées 0 | tokens 2501 -> entreprises : GROUPE METROPOLE | offres : 1
+2026-10-14T22:58:54:   + pfbid02PSmDQHaSBTnjswVBjAkc1Hi… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2583 -> entreprises : Kaloes | offres : 1
+2026-10-14T22:59:00:   + pfbid02t7vZZx5LAHFiWdLKhJ3t3Wm… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2751 -> entreprises : Madajob-RH | offres : 1
+2026-10-14T22:59:12:   + pfbid02S6XmpstDAZVF3FVmuP4XWLW… [job_offer] images jointes 0, texte OCR seul 2, écartées 0 | tokens 3512 -> entreprises : MADAPLAST | offres : 2
+2026-10-14T22:59:19:   + pfbid036VyqWVTWC8TQCYB8f7936v2… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2646 -> entreprises : Buro Services Madagascar | offres : 1
+2026-10-14T22:59:25:   + pfbid02ao5iPCkzEUrFTQDVFcAsoKD… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2598 -> entreprises : LCS | offres : 1
+2026-10-14T22:59:30:   + pfbid0HX5ccwxwshkqS6ySpLu2V1XA… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2765 -> entreprises : Madajob-RH | offres : 1
+2026-10-14T22:59:38:   + pfbid035iz9nzWMhedJwsp6qJGBDB4… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2986 -> entreprises : TFM | offres : 1
+2026-10-14T22:59:45:   + pfbid02u88gbyMCyx7FjYoHLuB1KFg… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 3161 -> entreprises : LOGISTIQUE PETROLIERE S.A. | offres : 1
+2026-10-14T22:59:50:   + pfbid02NcPCFjsNkiZfWcSWTwuUGy1… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2406 -> entreprises : Cotisse Transport | offres : 1
+2026-10-14T22:59:56:   + pfbid02vMZExWwp8k888UFfJQnNFjf… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2594 -> entreprises : Raffia Connection | offres : 1
+2026-10-14T23:00:00:   + pfbid0Vg981NXwRm2555EcfiF8hJ4c… [job_offer] images jointes 1, texte OCR seul 0, écartées 0 | tokens 51019 -> entreprises : Invecta Outsourcing | offres : 1
+2026-10-14T23:00:07:   + pfbid0CiA6wLNYpQKcPMsMfbMZUgzi… [job_offer] images jointes 0, texte OCR seul 2, écartées 0 | tokens 4348 -> entreprises : Programme DEFIS | offres : 1
+2026-10-14T23:00:12:   + pfbid035fbnvi7Lvb9fM69MyAmsAKR… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2409 -> entreprises : BPO CSS | offres : 1
+2026-10-14T23:00:19:   + pfbid0Zzn5YVei2xqZPYnQjfJJwHM3… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2562 -> entreprises : Buro Services Madagascar | offres : 1
+2026-10-14T23:00:23:   + pfbid02h5qsWsw99XE8KrF4CBH2pFy… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2379 -> entreprises : Tetika | offres : 1
+2026-10-14T23:00:28:   + pfbid054SHAfF91iNnoQ8xaPgMHcst… [job_offer] images jointes 0, texte OCR seul 4, écartées 0 | tokens 3151 -> entreprises : Fondation pour les Aires Protégées et la Biodiversité de Madagascar (FAPBM) | offres : 1
+2026-10-14T23:00:52:   + pfbid0J5jY5YdZTNoEQ9y29ZKG9J5E… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 3234 -> entreprises : MADAJOB | offres : 21
+2026-10-14T23:01:24:   + pfbid02rTVT7m1Ea8c83GhbLHzL9h2… [job_offer] images jointes 0, texte OCR seul 12, écartées 0 | tokens 8195 -> entreprises : Agile Conseils | offres : 12
+2026-10-14T23:01:32:   + pfbid0DaWAQmJeo42bU5iEKDdLYYUJ… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2683 -> entreprises : SALAMA | offres : 1
+2026-10-14T23:01:40:   + pfbid02teHSZ4FaQZp5RF1XWYVeFfA… [job_offer] images jointes 0, texte OCR seul 2, écartées 0 | tokens 2617 -> entreprises : Elite Communication | offres : 2
+2026-10-14T23:01:46:   + pfbid02NP4Q7n9meoruuRN8WpmvDrW… [job_offer] images jointes 0, texte OCR seul 2, écartées 0 | tokens 3992 -> entreprises : Coalition des Radios de Madagascar | offres : 1
+2026-10-14T23:01:52:   + pfbid0RL5o4Nxzuq7GZUP8ZS2kGZgY… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2611 -> entreprises : Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence | offres : 1
+2026-10-14T23:01:56:   + pfbid024xDAstKpfTzwRKon4wWk7PA… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2653 -> entreprises : Elite Sourcing | offres : 1
+2026-10-14T23:02:04:   + pfbid0sLvutSPFGP48W3T748yzEJdY… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2690 -> entreprises : Canopy | offres : 1
+2026-10-14T23:02:14:   + pfbid023A2MgYJq12LUMwjBq4sV7HW… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2837 -> entreprises : LLD Fampandrosoana Ifotony | offres : 3
+2026-10-14T23:02:15:   + pfbid0dx1WcfCYquEXq6bs5PCpCS52… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2231 -> entreprises : Copilotas | offres : 1
+2026-10-14T23:02:22:   + pfbid02BjoaWJPaWUEt3uyHAK7KcZF… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2718 -> entreprises : JobMada | offres : 1
+2026-10-14T23:02:28:   + pfbid0EdsyYfTzYGbKn2ntjrjUugHA… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2765 -> entreprises : JobMada | offres : 1
+2026-10-14T23:02:32:   + pfbid02pq8jotZ4JHsTVhvohxvWA87… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2234 -> entreprises : Teen'Ketrika | offres : 1
+2026-10-14T23:02:36:   + pfbid02enHAM1tmke27cZNmS5MUJri… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2346 -> entreprises : Teen'Ketrika | offres : 1
+2026-10-14T23:02:41:   + pfbid0p2W6paBTKSyY22TNbHom7rxt… [job_offer] images jointes 0, texte OCR seul 0, écartées 0 | tokens 2438 -> entreprises : ADES | offres : 1
+2026-10-14T23:02:47:   + pfbid025tHmgQL2Xbein4SYtK6LMyz… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2597 -> entreprises : Opti-Serv | offres : 1
+2026-10-14T23:02:52:   + 3715462328620695… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2353 -> entreprises : Ifaty Beach Club | offres : 1
+2026-10-14T23:03:00:   + pfbid035uMsj1Zr4RjVi1hN34g22fM… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2649 -> entreprises : Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence | offres : 1
+2026-10-14T23:03:11:   + pfbid02VK4Zf2yGpeYCBbTzjTQFy4M… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2687 -> entreprises : Garden & Design | offres : 1
+2026-10-14T23:03:23:   + pfbid0UFU7niZSp8JHf94dMWLN6Ed3… [job_offer] images jointes 0, texte OCR seul 4, écartées 0 | tokens 3753 -> entreprises : Tanatech | offres : 3
+2026-10-14T23:03:29:   + pfbid0FC6ZUT7WQidLvdqzEe7uKTVN… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 3340 -> entreprises : Olona Talents | offres : 1
+2026-10-14T23:03:34:   + pfbid0JDVEphaTXnBh3wYgyN317y9Z… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2473 -> entreprises : Uditec | offres : 1
+2026-10-14T23:03:50:   + pfbid0yxuwGFfwFWiFJrF3KeuRfsSX… [job_offer] images jointes 0, texte OCR seul 2, écartées 0 | tokens 3424 -> entreprises : GetHumanCall | offres : 6
+2026-10-14T23:03:57:   + pfbid02cuHeJkfhEiDDJFEYesU7zaR… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2877 -> entreprises : TATIRANO ENTREPRISE SOCIALE | offres : 1
+2026-10-14T23:04:02:   + pfbid02KpKGAyqq42sRhmT7ekoSum9… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2427 -> entreprises : Elite Sourcing | offres : 1
+2026-10-14T23:04:07:   + pfbid0PP3wHrTMtPL7hQHbowc4Eck2… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2901 -> entreprises : ARCKI | offres : 1
+2026-10-14T23:04:07:   + pfbid0imohMtq9Kqoz8u8XXQYmjzp9… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2653 -> entreprises : Elite Sourcing | offres : 1
+2026-10-14T23:04:14:   + pfbid05Z3rtzdC5rcRhcJyqrQ8kuZW… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2883 -> entreprises : JOBMADA | offres : 1
+2026-10-14T23:04:18:   + 1725542006241275… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2325 -> entreprises : EuroCRM | offres : 1
+2026-10-14T23:04:24:   + pfbid025zAfUPKCBJcTVjGT2XJ5gqc… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2782 -> entreprises : SOLYNC | offres : 1
+2026-10-14T23:04:32:   + pfbid0y8CtXs4TCXF3A2bvZq1ohqTy… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2738 -> entreprises : MOOKA | offres : 1
+2026-10-14T23:04:38:   + pfbid02TEActgUm7i7ytojQKMNd1kY… [job_offer] images jointes 0, texte OCR seul 1, écartées 1 | tokens 2602 -> entreprises : iDE | offres : 1
+2026-10-14T23:04:43:   + pfbid02uiyHid7K8Xwdo1S7aQLZerD… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2795 -> entreprises : HERMES CONSEILS | offres : 1
+2026-10-14T23:05:08:   + pfbid029ZEHGeHtNLjGooLCHUrAhH4… [job_offer] images jointes 0, texte OCR seul 9, écartées 0 | tokens 10696 -> entreprises : Cœur de Forêt Madagascar | offres : 3
+2026-10-14T23:05:26:   + pfbid02cxEfeE3cJXzhyjgcG8wU43k… [job_offer] images jointes 0, texte OCR seul 5, écartées 1 | tokens 4405 -> entreprises : MAMPITA, CHAMBRE DE COMMERCE ET D'INDUSTRIE DE MAHAJANGA, PECHEXPORT | offres : 3
+2026-10-14T23:05:39:   + pfbid0qYxmTVsoTSDnuZ1PetZV52gL… [job_offer] images jointes 0, texte OCR seul 4, écartées 0 | tokens 3535 -> entreprises : Groupe NP AKADIN | offres : 4
+2026-10-14T23:05:48:   + pfbid023E4ir3EVMG9wbPRZYbum1h2… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2685 -> entreprises : SALAMA | offres : 1
+2026-10-14T23:05:56:   + pfbid01FiuxJZicm4uPsKR4CqSmP9L… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2581 -> entreprises : MAMPITA | offres : 1
+2026-10-14T23:06:00:   + pfbid0NUjrvmwKCbi7CkTKHaP4Gxnm… [job_offer] images jointes 0, texte OCR seul 1, écartées 1 | tokens 2598 -> entreprises : iDE | offres : 1
+2026-10-14T23:06:00:   [SANS EMAIL] 20 publication(s) sans aucun email (texte ni OCR des images) : pas envoyée(s) à l'IA, 0 token (--no-email-filter pour les analyser quand même)
+2026-10-14T23:06:01: 
+2026-10-14T23:06:01: Analyse IA - LCS RH : 3 publication(s)
+2026-10-14T23:06:08:   + pfbid02zQFQc3sVCoBfhpQonvoXH7P… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2469 -> entreprises : LCS RH | offres : 1
+2026-10-14T23:06:14:   + pfbid0tTukf2T9eHUx7YZY4RTLWsLV… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2435 -> entreprises : LCS RH | offres : 1
+2026-10-14T23:06:14:   [SANS EMAIL] 1 publication(s) sans aucun email (texte ni OCR des images) : pas envoyée(s) à l'IA, 0 token (--no-email-filter pour les analyser quand même)
+2026-10-14T23:06:14:   Chargement du moteur OCR (RapidOCR / onnxruntime)...
+2026-10-14T23:06:14:   OCR des images : 25 image(s) dans 3 publication(s) (~0,5 à 2 s par image)...
+2026-10-14T23:06:39:     [1/3] 6 image(s) en 25s - total 6/25
+2026-10-14T23:07:26:     [2/3] 11 image(s) en 47s - total 17/25
+2026-10-14T23:07:36:     [3/3] 8 image(s) en 10s - total 25/25
+2026-10-14T23:07:37: 
+2026-10-14T23:07:37: [DOUBLON] 348 publication(s) déjà connue(s) sous un autre pfbid : jamais envoyée(s) à l'IA
+2026-10-14T23:07:37: 
+2026-10-14T23:07:37: Analyse IA - Recrutement/emploi/stage/formation/Madagascar : 87 publication(s)
+2026-10-14T23:07:43:   + 4134846600152743… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2483 -> entreprises : Olo | offres : 1
+2026-10-14T23:07:47:   + 4134602296843840… [job_offer] images jointes 0, texte OCR seul 0, écartées 0 | tokens 1892 -> entreprises : Recrutement/emploi/stage/formation/Madagascar | offres : 1
+2026-10-14T23:07:47:   + 4133678460269557… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2966 -> entreprises : Mahe Talent Recruit | offres : 1
+2026-10-14T23:07:51:   + 4133632443607492… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 1922 -> entreprises : ECG Probat | offres : 1
+2026-10-14T23:08:07:   + 4135071266796943… [job_offer] images jointes 0, texte OCR seul 6, écartées 0 | tokens 3911 -> entreprises : IrayDia | offres : 6
+2026-10-14T23:08:11:   + 4135063330131070… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2093 -> entreprises : ONG HARONA | offres : 1
+2026-10-14T23:08:17:   + 4134934096810660… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2299 -> entreprises : Elite Sourcing | offres : 1
+2026-10-14T23:08:23:   + 4134665773504159… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2253 -> entreprises : Elite Sourcing | offres : 1
+2026-10-14T23:08:27:   + 4134649343505802… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2183 -> entreprises : IFPR Antananarivo | offres : 1
+2026-10-14T23:08:31:   + 4134423953528341… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2141 -> entreprises : Elite Sourcing | offres : 1
+2026-10-14T23:08:35:   + 4133560630281340… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2187 -> entreprises : Secret Garden | offres : 1
+2026-10-14T23:08:35:   [HORS SUJET] 68 publication(s) de groupe sans mot-clé d'offre : pas envoyée(s) à l'IA, 0 token (--no-job-filter pour les analyser quand même)
+2026-10-14T23:08:35:   [SANS EMAIL] 8 publication(s) sans aucun email (texte ni OCR des images) : pas envoyée(s) à l'IA, 0 token (--no-email-filter pour les analyser quand même)
+2026-10-14T23:08:36: 
+2026-10-14T23:08:36: [DOUBLON] 47 publication(s) déjà connue(s) sous un autre pfbid : jamais envoyée(s) à l'IA
+2026-10-14T23:08:36: 
+2026-10-14T23:08:36: Analyse IA - Recrutement, offre d'emploi, Madagascar : 25 publication(s)
+2026-10-14T23:08:41:   + 1450036960390247… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2206 -> entreprises : Oui-Call | offres : 1
+2026-10-14T23:08:46:   + 1450096703717606… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2276 -> entreprises : Secret Garden | offres : 1
+2026-10-14T23:08:51:   + 1450303883696888… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2489 -> entreprises : Kentia-RH SA | offres : 1
+2026-10-14T23:08:54:   + 1450142403713036… [job_offer] images jointes 0, texte OCR seul 0, écartées 0 | tokens 1894 -> entreprises : Voiture de Location | offres : 1
+2026-10-14T23:08:58:   + 1449598540434089… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2494 -> entreprises : LCS | offres : 1
+2026-10-14T23:09:02:   + 1449435280450415… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2199 -> entreprises : Mih Mich | offres : 1
+2026-10-14T23:09:02:   + 1449288107131799… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2276 -> entreprises : Secret Garden | offres : 1
+2026-10-14T23:09:15:   + 1448681813859095… [job_offer] images jointes 0, texte OCR seul 3, écartées 0 | tokens 3243 -> entreprises : ANKA | offres : 3
+2026-10-14T23:09:19:   + 1448790840514859… [job_offer] images jointes 0, texte OCR seul 0, écartées 0 | tokens 1922 -> entreprises : TalentaRh.MG | offres : 1
+2026-10-14T23:09:24:   + 1450501133677163… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2228 -> entreprises : Arbiochem | offres : 1
+2026-10-14T23:09:31:   + 1448396800554263… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2267 -> entreprises : MADICON | offres : 1
+2026-10-14T23:09:31:   [HORS SUJET] 6 publication(s) de groupe sans mot-clé d'offre : pas envoyée(s) à l'IA, 0 token (--no-job-filter pour les analyser quand même)
+2026-10-14T23:09:31:   [SANS EMAIL] 8 publication(s) sans aucun email (texte ni OCR des images) : pas envoyée(s) à l'IA, 0 token (--no-email-filter pour les analyser quand même)
+2026-10-14T23:09:31: 
+2026-10-14T23:09:31: [DOUBLON] 21 publication(s) déjà connue(s) sous un autre pfbid : jamais envoyée(s) à l'IA
+2026-10-14T23:09:31: 
+2026-10-14T23:09:31: Analyse IA - Recrutement, offre d'emploi, Madagascar : 27 publication(s)
+2026-10-14T23:09:36:   + 1450267600367183… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2043 -> entreprises : EKL Export | offres : 1
+2026-10-14T23:09:40:   + 1450303883696888… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2481 -> entreprises : Kentia-RH SA | offres : 1
+2026-10-14T23:09:44:   + 1448460820547861… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2661 -> entreprises : Taly Consulting | offres : 1
+2026-10-14T23:09:50:   + 1448807637179846… [job_offer] images jointes 0, texte OCR seul 0, écartées 0 | tokens 2082 -> entreprises : TalentaRh.MG | offres : 1
+2026-10-14T23:10:01:   + 1448681813859095… [job_offer] images jointes 0, texte OCR seul 3, écartées 0 | tokens 3235 -> entreprises : ANKA | offres : 3
+2026-10-14T23:10:01:   + 1449386440455299… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2960 -> entreprises : Mahe Talent Recruit | offres : 1
+2026-10-14T23:10:12:   + 1445673330826610… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2037 -> entreprises : Fitia RH | offres : 6
+2026-10-14T23:10:18:   + 1450501133677163… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2220 -> entreprises : Arbiochem | offres : 1
+2026-10-14T23:10:22:   + 1450036960390247… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2198 -> entreprises : Oui-Call | offres : 1
+2026-10-14T23:10:22:   + 1450096703717606… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2268 -> entreprises : Secret Garden | offres : 1
+2026-10-14T23:10:26:   + 1449598540434089… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2486 -> entreprises : LCS | offres : 1
+2026-10-14T23:10:30:   + 1448621830531760… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2149 -> entreprises : Recrutement, offre d'emploi, Madagascar | offres : 1
+2026-10-14T23:10:30:   [HORS SUJET] 8 publication(s) de groupe sans mot-clé d'offre : pas envoyée(s) à l'IA, 0 token (--no-job-filter pour les analyser quand même)
+2026-10-14T23:10:30:   [SANS EMAIL] 7 publication(s) sans aucun email (texte ni OCR des images) : pas envoyée(s) à l'IA, 0 token (--no-email-filter pour les analyser quand même)
+2026-10-14T23:10:31: 
+2026-10-14T23:10:31: [DOUBLON] 46 publication(s) déjà connue(s) sous un autre pfbid : jamais envoyée(s) à l'IA
+2026-10-14T23:10:31: 
+2026-10-14T23:10:31: Analyse IA - TOLOTRA ASA ANTANANARIVO : 2 publication(s)
+2026-10-14T23:10:31:   [HORS SUJET] 1 publication(s) de groupe sans mot-clé d'offre : pas envoyée(s) à l'IA, 0 token (--no-job-filter pour les analyser quand même)
+2026-10-14T23:10:31:   [SANS EMAIL] 1 publication(s) sans aucun email (texte ni OCR des images) : pas envoyée(s) à l'IA, 0 token (--no-email-filter pour les analyser quand même)
+2026-10-14T23:10:31: 
+2026-10-14T23:10:31: [ANCIENNES] 2 publication(s) de plus de 15 jours non analysée(s)
+2026-10-14T23:10:31: 
+2026-10-14T23:10:31: [DOUBLON] 133 publication(s) déjà connue(s) sous un autre pfbid : jamais envoyée(s) à l'IA
+2026-10-14T23:10:31: 
+2026-10-14T23:10:31: Analyse IA - OFFRE ET DEMANDE D'EMPLOI ETO MADAGASCAR : 4 publication(s)
+2026-10-14T23:10:38:   + 1409416721396615… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2304 -> entreprises : Noveco | offres : 1
+2026-10-14T23:10:42:   + 1409415901396697… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 1961 -> entreprises : CO'Pain | offres : 2
+2026-10-14T23:10:42:   [HORS SUJET] 2 publication(s) de groupe sans mot-clé d'offre : pas envoyée(s) à l'IA, 0 token (--no-job-filter pour les analyser quand même)
+2026-10-14T23:10:43: 
+2026-10-14T23:10:43: [DOUBLON] 6 publication(s) déjà connue(s) sous un autre pfbid : jamais envoyée(s) à l'IA
+2026-10-14T23:10:43: 
+2026-10-14T23:10:43: Analyse IA - ASA - JOB Madagascar : 11 publication(s)
+2026-10-14T23:10:49:   + 1420311942937201… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2289 -> entreprises : Elite Sourcing | offres : 1
+2026-10-14T23:10:58:   + 1420182272950168… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2243 -> entreprises : Elite Sourcing | offres : 1
+2026-10-14T23:11:02:   + 1420146992953696… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2014 -> entreprises : Virtual Madagascar Support | offres : 1
+2026-10-14T23:11:06:   + 1419918866309842… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2056 -> entreprises : Oworkers Madagascar | offres : 1
+2026-10-14T23:11:10:   + 1419918016309927… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2208 -> entreprises : Oworkers Madagascar | offres : 1
+2026-10-14T23:11:15:   + 1419890179646044… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2131 -> entreprises : Elite Sourcing | offres : 1
+2026-10-14T23:11:18:   + 1419235633044832… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 1999 -> entreprises : Virtual Madagascar Support | offres : 1
+2026-10-14T23:11:22:   + 1419200183048377… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2552 -> entreprises : Magy | offres : 1
+2026-10-14T23:11:27:   + 1419140499721012… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2298 -> entreprises : 261 Job Hiring | offres : 1
+2026-10-14T23:11:31:   + 1412665327035196… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2224 -> entreprises : Hazoall | offres : 1
+2026-10-14T23:11:31:   [SANS EMAIL] 1 publication(s) sans aucun email (texte ni OCR des images) : pas envoyée(s) à l'IA, 0 token (--no-email-filter pour les analyser quand même)
+2026-10-14T23:11:31: 
+2026-10-14T23:11:31: Analyse IA - OpportuniX : 1 publication(s)
+2026-10-14T23:11:36:   + pfbid02B3ixTA3PdkN1F8x5Ch6iViF… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2186 -> entreprises : Bajaj Madagascar | offres : 2
+2026-10-14T23:11:36: 
+2026-10-14T23:11:36: IA : 402449 tokens consommés par les nouveaux appels de ce lancement
+2026-10-14T23:11:41: 
+2026-10-14T23:11:41: Images : 381 fichier(s) supprimé(s) du disque (41.9 Mo libérés), analyse terminée (--keep-images pour les garder)
+2026-10-14T23:11:46: 
+2026-10-14T23:11:46: Consolidation Madagascar : 2150 publication(s), 2375 mention(s) d'entreprise -> 639 entreprise(s) (407 regroupée(s)), 1894 offre(s) (1113 republication(s) regroupée(s)), 139 contact(s) partagé(s) ignoré(s)
+2026-10-14T23:11:46:   -> C:\Users\Administrator\Desktop\cv_scrappe\downloaded_files\facebook_pages
+2026-10-14T23:11:46:   liste d'exclusion / IA : 214 entreprise(s) et 972 offre(s) écartée(s)
+2026-10-14T23:11:46:     liste nommée : AFG Bank Madagascar, Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence, EUROP'ALU, Groupe NP AKADIN, MADAJOB, MINISTERE DE LA FANAJARIANA NY TANY SY NY RAHARAHAN-TANY, MVola, Madajob-RH, MiASA (Ministère de l'Agriculture et de la Souveraineté Alimentaire), Ministère de l'Agriculture et de la Souveraineté Alimentaire, Ministère de l'Agriculture et de la Souveraineté Alimentaire (MiASA), Ministère de la Jeunesse et des Sports, Ministère de l’Environnement et du Développement Durable, Olona Talents, PAMF
+2026-10-14T23:11:46:     portails/agences relais (IA) : 261 Job, A.L Human, AGENCE-UPWORK, ASA - JOB Madagascar, ASSIST PRO MG, Asa Ho Anao, Buroservices Madagascar, CRM, Centre d'Accompagnement et d'Encadrement Métiers, Elite Sourcing, Elitesourcing, FLORAMAD, Fandresena Recrutement, Fani'RH, Fehikanto, Fitia RH, Her'tiana Ralalaniaina, Human Key, IN-NOVA, IrayDia, JobMada, Kentia-RH SA, Kentsie Laou Tseng, LCS, Lifervl Recrutement, My Career, N/A, Naina Ramarosata, Natacha Ramananjoelina, Non spécifié, OFFRE ET DEMANDE D'EMPLOI ETO MADAGASCAR, Offre d'emploi Madagascar, OpportuniX, RECRUTEMENT DES COMMERCIAUX A TANA, Rdb Danielo Maïden, Recru Job, Recrutement BTP, Recrutement Externe, Recrutement RH, Recrutement Tanà, Recrutement, offre d'emploi, Madagascar, Recrutement/emploi/stage/formation/Madagascar, SOCIÉTÉ RECRUTEMENT, Shop Shobs, Sourcing Corporation, TOLOTRA ASA ANTANANARIVO, Talent Madagascar, TalentaRh.MG, Tanatech Group, Technoalarme, Tina Fashion, Tolotr'asa, Tolotr'asa sy stage ho An'i Tanora, recrutement, san.recrutement@gmail.com, speed.embauche@gmail.com
+2026-10-14T23:11:46:     ONG/organisations internationales/institutions (IA) : A2DM — Association d'Appui au Développement de Madagascar, ABCD Centre, ADES Madagascar, ADRA Madagascar, APDRA, ARTEC, ASSOCIATION MAHAVOTSE, AVSF, Action Intercoopération Madagascar, Action Intercoopération Madagascar (AIM), Agence Routière, Association FANJIRY, Association KOLOAINA, Association Manampy Mahatony, Association Écoles du Monde, Aéroports de Madagascar (ADEMA S.A.), B-lossom Center, Banque Africaine de Développement, CARE Madagascar, CBM Global, CFFAMMA, CHAMBRE DE COMMERCE ET D'INDUSTRIE DE MAHAJANGA, CROIX-ROUGE MALAGASY, CTAS, Coalition des Radios de Madagascar, Conservation International, Cétamada, Cœur de Forêt Madagascar, DURRELL MADAGASCAR, Deutsche Gesellschaft für Internationale Zusammenarbeit (GIZ) GmbH, Doctors for Madagascar, Douleurs Sans Frontières Madagascar, ESIGE Mahajanga, Economic Development Board of Madagascar (EDBM), Expert’Izy, FEEDBACK MADAGASCAR, FHI 360, FMA Madagascar, FOLUR MADAGASCAR, Fondation pour les Aires Protégées et la Biodiversité de Madagascar (FAPBM), Fonds Malgache de Formation Professionnelle (FMFP), France Volontaires, GRET, GSDM, Goethe-Zentrum Antananarivo / Cercle Germano-Malagasy (CGM), Grandir à Antsirabe, H.E.L.P.Africa, HARDI Madagascar, HELVETAS Swiss Intercooperation, HENKA SURU, Health In Harmony, Hetsika Val'OR, Humanité & Inclusion, IECD Madagascar, IFPR Antananarivo, IKMalagasy, ININFRA, INSETS, Initiative International, Institut International des Sciences Sociales (IISS ONG), Institut National de Formation Administrative, Jhpiego, LLD Fampandrosoana Ifotony, Ligue de Football Nouvelle-Aquitaine, Lycée Français Sadi Carnot, MAMPITA, MATSF, MEDISLIE-HM, MEFRA, MSIS-TATAO, MTEFOP, Madagascar National Parks, Madagasikara Voakajy, Malagasy Indo Educational Link, Malagasy Youth Biodiversity Network, Maliasili, Médecins du Monde, Nitidae, ONG Capacity-building for Communities (C-for-C), ONG EDENa, ONG HARONA, ONG JEADD, ONG Lalana, ONG MIARINTSOA, ONG Ran’Eau, ONG Saint Gabriel, ONG TOKOTANY IRAISANA, ONG TSINJO MANAMPY NY ANKIZY, Organisation Médicale Interentreprises de Nosy Be (O.M.I.NO.), PICAS-1, PPI, PROMES, PSI Madagascar, Passerelles Numériques, Planète Urgence, Plate Forme Société Civile pour l'Enfance, Programme Alimentaire Mondial (PAM), Programme DEFIS, Programme DEFIS Coordination Inter-Régionale de Fianarantsoa, Programme PROGRES, Projet MIONJO, Projet Sandratra, Projet TEFIALA, SAF/FJKM, SAHI Mpanasoa, SOS Villages d'Enfants Madagascar, Santé Sud Madagascar, Saramba Initiative, Save the Children, Save the Children International, TANTANA, TATIRANO, TRANOBEN'NY TANTSAHA MPAMOKATRA, Tafatafa by Michel, Tily Eto Madagasikara, UWS Madagascar, Unité de Coordination pour la Reconstruction, Unité de Gestion de TOAMASINA, Université d'Antananarivo, Université d'Antananarivo - École Supérieure des Sciences Agronomiques, Université de Fianarantsoa, Welthungerhilfe, Welthungerhilfe (WHH), YSS MDG, Youth Community, Youth for Global Impact, groupe.radhamante, iDE, École Supérieure de Droit et de Science Politique (ESD)
+2026-10-14T23:11:46:   15 annonce(s) écartée(s), hors types gardés (emploi,stage) : 3 appel_offres, 8 autre, 4 formation
+2026-10-14T23:11:46:   214 offre(s) écartée(s) : entreprise sans email ni téléphone (--allow-no-contact pour les garder)
+2026-10-14T23:11:46:   détail -> analysis_madagascar.json, clé excluded_offers
+2026-10-14T23:11:47: 
+2026-10-14T23:11:47: Envoi au backend http://localhost:3500
+2026-10-14T23:11:48:   entreprises : 56 envoyée(s), 583 inchangée(s), 0 en échec
+2026-10-14T23:11:55:   offres : 302 envoyée(s), 1592 inchangée(s), 0 en échec
+2026-10-14T23:11:57:   dates de publication : 70 envoyée(s), 1824 inchangée(s), 0 en échec
+2026-10-14T23:11:58:   doublons offres : 1 supprimé(s) du backend (remplacés par la version regroupée)
+2026-10-14T23:11:58:   [INFO] 40 offres gardée(s) en base, plus dans les JSON mais aucune offre équivalente envoyée (ex. offre que la dernière analyse IA n'a pas retrouvée) : fb-post-1416487040411906-2, fb-post-1418611416866135-1, fb-post-1418611416866135-2, fb-post-1420615073332436-1, fb-post-1423309129729697 … (+35)
+2026-10-14T23:11:58:   1 entreprise(s) retirée(s) du backend, liste d'exclusion : fb-cd9ee9cb9781-2
+2026-10-14T23:11:58:   [INFO] 14 entreprises gardée(s) en base, plus dans les JSON mais pas fusionnée dans une entreprise envoyée, ou encore liée à une offre gardée : fb-0a675a989c79, fb-0c9367c32c4a, fb-3be23708b214, fb-4b4ba1554ed4, fb-4c350445fffc … (+9)
+2026-10-14T23:12:02: [2026-10-14 23:12:02] Fin : facebook pages et groupes — code 0 en 73.3 min
+2026-10-14T23:12:02: 
+2026-10-14T23:12:02: [2026-10-14 23:12:02] Prochain lancement : 2026-10-15 20:34:06
+2026-10-15T20:34:06: [2026-10-15 20:34:06] Début : facebook pages et groupes (facebook_script/pages.py --push --headless)
+2026-10-15T20:34:26: 
+2026-10-15T20:34:26: [1/18] Page 61559428572369
+2026-10-15T20:34:34: Page : Tolotr'asa sy stage ho An'i Tanora (643 caractères dans À propos)
+2026-10-15T20:34:34: Ouverture de https://www.facebook.com/profile.php?id=61559428572369
+2026-10-15T20:34:40:   + #1 Tolotr'asa sy stage ho An'i Tanora (?) : opportunités d'emploi le 15/10/2026
+2026-10-15T20:34:40:       5 image(s)
+2026-10-15T20:34:55:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-15T20:35:19:   [images] pfbid0rdkySW8Qx4KABj8G3wG95RTLvCSz4qhyC7TQG1eGQ5Au3FqwwNKz6d7bBeZ8H4jxl : 28/28 (viewer)
+2026-10-15T20:35:19:   Chargement du moteur OCR (RapidOCR / onnxruntime)...
+2026-10-15T20:35:22:   OCR des images : 28 image(s) dans 1 publication(s) (~0,5 à 2 s par image)...
+2026-10-15T20:37:19:     [1/1] 28 image(s) en 117s - total 28/28
+2026-10-15T20:37:19:   -> 1 nouvelle(s), 7 déjà connue(s), 5 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-15T20:37:19: 
+2026-10-15T20:37:19: [2/18] Page konatoni.mg
+2026-10-15T20:37:26: Page : Tolotr'asa (510 caractères dans À propos)
+2026-10-15T20:37:26: Ouverture de https://www.facebook.com/konatoni.mg
+2026-10-15T20:37:39:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-15T20:37:39:   -> 0 nouvelle(s), 0 déjà connue(s), 5 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-15T20:37:39: 
+2026-10-15T20:37:39: [3/18] Page 61585153072915
+2026-10-15T20:37:46: Page : Asa Mahasoa (739 caractères dans À propos)
+2026-10-15T20:37:46: Ouverture de https://www.facebook.com/profile.php?id=61585153072915
+2026-10-15T20:37:54:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-15T20:37:54:   -> 0 nouvelle(s), 0 déjà connue(s), 5 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-15T20:37:54: 
+2026-10-15T20:37:54: [4/18] Page 61591631805268
+2026-10-15T20:38:02: Page : Société ASG (926 caractères dans À propos)
+2026-10-15T20:38:02: Ouverture de https://www.facebook.com/profile.php?id=61591631805268
+2026-10-15T20:38:07:   + #1 Société ASG (?) : 🥕🥦🇨🇦 ASA ANY CANADA – TRIAGE DE LÉGUMES À QUÉBEC! 🇨🇦🥦🥕 🌍 Mitady asa any Canada v
+2026-10-15T20:38:07:       tél : 0380453914 | 1 image(s)
+2026-10-15T20:38:10:   + #2 Société ASG (?) : 🇷🇪🌋 ASA ANY LA RÉUNION — 🇷🇪 📢 MITADY ASA ANY LA RÉUNION VE IANAO NEFA MBOLA ETO 
+2026-10-15T20:38:10:       tél : +261380453914 | 1 image(s)
+2026-10-15T20:38:11:   + #3 Société ASG (?) : 🇨🇦🍎 ASA ANY CANADA – TRIAGE DE FRUITS À QUÉBEC 🇨🇦 🌍 Mitady asa any Canada ve ian
+2026-10-15T20:38:11:       tél : 0380453914 | 1 image(s)
+2026-10-15T20:38:14:   + #4 Société ASG (?) : 🌊 ASA – PLONGEUR DE CROISIÈRE (EUROPE 🇪🇺) ⏰ Asa : CDI – Temps plein – Horaires r
+2026-10-15T20:38:14:       tél : 0380453914 | 1 image(s)
+2026-10-15T20:39:01:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-15T20:39:05:   [images] pfbid027Y3ixR6p4iejCeL8nJz3k35brqdHH8ZqMK5bxrhciBsvEpf87fmUc5oKS448dDk6l : 1/1 (viewer)
+2026-10-15T20:39:09:   [images] pfbid02XTzu282YiNECfJad6bkAUtK9wtqVVJ9oYLSVvFjA3nq4HZxmkkGjXkKPjTGG6XRZl : 1/1 (viewer)
+2026-10-15T20:39:12:   [images] pfbid02aQoZj6S4gnX4wVZ7m6EZKArmcrchxXREhjPNJ3uHRwZLHcErnUMZPBhmCeJQMirul : 1/1 (viewer)
+2026-10-15T20:39:16:   [images] pfbid01MQHrqoztgnKATFqsd6DdYJyLqPNFCbaq8xQ7zXqQaxj7B1zG1KrWBYrMouxM8y9l : 1/1 (viewer)
+2026-10-15T20:39:16:   Chargement du moteur OCR (RapidOCR / onnxruntime)...
+2026-10-15T20:39:16:   OCR des images : 4 image(s) dans 4 publication(s) (~0,5 à 2 s par image)...
+2026-10-15T20:39:22:     [1/4] 1 image(s) en 5s - total 1/4
+2026-10-15T20:39:23:     [2/4] 1 image(s) en 2s - total 2/4
+2026-10-15T20:39:26:     [3/4] 1 image(s) en 3s - total 3/4
+2026-10-15T20:39:29:     [4/4] 1 image(s) en 3s - total 4/4
+2026-10-15T20:39:29:   -> 4 nouvelle(s), 34 déjà connue(s), 5 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-15T20:39:29: 
+2026-10-15T20:39:29: [5/18] Page SolofoharimananaNantenainaJuvence
+2026-10-15T20:39:37: Page : Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (1060 caractères dans À propos)
+2026-10-15T20:39:37: Ouverture de https://www.facebook.com/SolofoharimananaNantenainaJuvence
+2026-10-15T20:39:42:   + #1 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : Nous recrutons pour une société œuvrant dans l'énergie solaire un.e Gestionnaire
+2026-10-15T20:39:42:       tél : 0341082636 | 1 image(s)
+2026-10-15T20:39:47:   + #2 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 🌍 UN NOUVEAU DÉFI EN RECRUTEMENT CHARGÉ(E) DE RECRUTEMENT – RECRUTEMENTS INTERNA
+2026-10-15T20:39:47:       email : e.sourcing261@gmail.com | 1 image(s)
+2026-10-15T20:39:47:   + #3 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : OFFRES DU JOUR : Découvrez les opportunités de nos entreprises partenaires ! 💼 ❗
+2026-10-15T20:39:47:       2 image(s)
+2026-10-15T20:39:48:   + #4 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 🚨 EPSILON RECRUTE ! Nous recherchons un(e) CHEF DE CHAÎNE 📩 Postulez : recruteme
+2026-10-15T20:39:48:       email : recrutement@epsilon-mada.com | 1 image(s)
+2026-10-15T20:39:49:   + #5 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 🚨 NOUS RECRUTONS : CONSEILLERS(ÈRES) CLIENTÈLE TERRAIN 🚨 Vous avez le goût du te
+2026-10-15T20:39:49:       tél : 0349975040, 0389975024 | email : gestionnaire.rh@lcs.mg | 1 image(s)
+2026-10-15T20:39:50:   + #6 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 📞 UN NOUVEAU DÉFI COMMERCIAL À SAISIR TÉLÉPROSPECTEUR(ICE) B2B Vous êtes à l’ais
+2026-10-15T20:39:50:       email : e.sourcing261@gmail.com | 1 image(s)
+2026-10-15T20:39:54:   + #7 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : Pour le compte de notre client, Nous recrutons : DES HOTESSES EVENEMENTIELS Réfé
+2026-10-15T20:39:54:       tél : +261388378133 | email : candidature@humankey.pro | 1 image(s)
+2026-10-15T20:39:55:   + #8 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 🚨 OFFRE D’EMPLOI : CADRE COMPTABLE ET FINANCIER (H/F) 🚨 L’institution IFRA - Éta
+2026-10-15T20:39:55:       email : jobs@netinter.ovh
+2026-10-15T20:39:56:   + #9 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 🤝 La première impression se joue avant le premier mot. En quelques secondes, le 
+2026-10-15T20:39:56:       1 image(s)
+2026-10-15T20:39:57:   + #10 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 🔍 Votre candidature parle pour vous, même dans les détails. Avant d'envoyer, pre
+2026-10-15T20:39:57:       1 image(s)
+2026-10-15T20:40:02:   + #11 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 📢 OPPORTUNITE A SAISIR : CHEFS DE ZONE📢 Pour accompagner sa croissance, la socié
+2026-10-15T20:40:02:       tél : 0341475013, 0389975024 | email : appuirh2@lcs.mg | 1 image(s)
+2026-10-15T20:40:03:   + #12 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : APPEL DE MANIFESTATION D'INTÉRÊT 👉 Recrutements #MPEB #PPSPAS
+2026-10-15T20:40:03:       2 image(s)
+2026-10-15T20:40:04:   + #13 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 📢 𝗠𝗔𝗗𝗔𝗝𝗢𝗕 𝗥𝗘𝗖𝗥𝗨𝗧𝗘 : (𝟮) 𝗔𝗚𝗘𝗡𝗧 𝗗’𝗔𝗖𝗖𝗨𝗘𝗜𝗟 (𝗙) 📍 Lieu de Travail : Ankorondrano 📑 C
+2026-10-15T20:40:04:       tél : +261341180126 | email : recrutement@madajob.mg | 1 image(s)
+2026-10-15T20:40:04:   + #14 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 🚨 𝐍𝐎𝐔𝐒 𝐑𝐄𝐂𝐑𝐔𝐓𝐎𝐍𝐒 pour la société 𝐓𝐅𝐌 📢 ➡️ 𝐎𝐩𝐞𝐫𝐚𝐭𝐞𝐮𝐫 𝐝𝐞 𝐩𝐫𝐨𝐝𝐮𝐜𝐭𝐢𝐨𝐧 🌇 Poste basé à
+2026-10-15T20:40:04:       email : recrutement@jobmada.mg | 1 image(s)
+2026-10-15T20:40:05:   + #15 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 🚨APPEL D'OFFRES🚨 Vous avez l'expertise, nous avons des missions, collaborons ens
+2026-10-15T20:40:05:       email : complaints@welthungerhilfe.de | 1 image(s)
+2026-10-15T20:40:12:   + #16 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 📢 SETEX recrute un stagiaire contrôleur qualité ! 🚀 Vous souhaitez développer vo
+2026-10-15T20:40:12:       email : recrutement@setex.mg | 1 image(s)
+2026-10-15T20:40:13:   + #17 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 🚨 RECRUTEMENT : ANIMATRICES DE VENTE (GMS) 🚨 L'Agence LCS recherche de nouveaux 
+2026-10-15T20:40:13:       tél : +261349975002, +261349975044 | 1 image(s)
+2026-10-15T20:40:20:   + #18 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 📢 𝗠𝗢𝗥𝗢𝗡𝗗𝗔𝗩𝗔 : 𝗡𝗬 𝗛𝗔𝗩𝗔𝗡𝗔 𝗥𝗘𝗖𝗥𝗨𝗧𝗘 ⵑ 🔴⚪ ✨ 𝗧𝘂 𝗮𝘀 𝗲𝗻𝘁𝗿𝗲 𝟭𝟴 𝗲𝘁 𝟯𝟬 𝗮𝗻𝘀 ? Souriante, dyn
+2026-10-15T20:40:20:       tél : +261386189273 | 1 image(s)
+2026-10-15T20:40:27:   + #19 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : LE RECRUTEMENT CONTINUE POUR LES HISPANOPHONES ! 🚀 🇫🇷 🇪🇸 MODÉRATION INFLUENCEURS
+2026-10-15T20:40:27:       email : work@iscale-solutions.com
+2026-10-15T20:40:28:   + #20 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : TOLOTR'ASA MADA ZARAIKO HO AN'IREO MITADY ASA SAO MBA MAHASOA MIDIRA AMIN'ITY LI
+2026-10-15T20:40:28:       2 image(s)
+2026-10-15T20:40:28:   + #21 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : Pour le compte de notre client, Nous recrutons ANIMATRICE BANQUE Référence : AR-
+2026-10-15T20:40:28:       tél : +261388378133 | email : candidature@humankey.pro | 1 image(s)
+2026-10-15T20:40:46:   + #22 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 🚨 LCS RECRUTE : ANIMATRICES DE VENTE (GMS) 🚨 Vous avez le sens du contact, un es
+2026-10-15T20:40:46:       tél : +261349975002, +261349975044 | 1 image(s)
+2026-10-15T20:40:47:   + #23 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : Nouvelle opportunité : FIDUCIAIRE CHAFII recrute 🚨 Fiduciaire Chafii, recrute un
+2026-10-15T20:40:47:       1 image(s)
+2026-10-15T20:40:49:   + #24 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 📣 𝐉𝐎𝐔𝐑𝐍𝐄́𝐄𝐒 𝐏𝐎𝐑𝐓𝐄𝐒 𝐎𝐔𝐕𝐄𝐑𝐓𝐄𝐒 : 𝐓𝐞́𝐥𝐞́𝐜𝐨𝐧𝐬𝐞𝐢𝐥𝐥𝐞𝐫𝐬 𝐜𝐥𝐢𝐞𝐧𝐭𝐬 𝐞𝐱𝐩𝐞́𝐫𝐢𝐦𝐞𝐧𝐭𝐞́𝐬, 𝐧𝐨𝐮𝐬 𝐯𝐨𝐮
+2026-10-15T20:40:49:       1 image(s)
+2026-10-15T20:41:20:   + #25 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : STAR MADAGASCAR Nous recrutons actuellement pour les postes suivants : 🔹 Analyst
+2026-10-15T20:41:20:       1 image(s)
+2026-10-15T20:41:53:   + #26 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : (sans texte)
+2026-10-15T20:44:20:   + #27 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : (sans texte)
+2026-10-15T20:45:16:   + #28 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : (sans texte)
+2026-10-15T20:45:34:   + #29 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : (sans texte)
+2026-10-15T20:51:17:   + #30 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : (sans texte)
+2026-10-15T20:51:17:       1 image(s)
+2026-10-15T20:57:38:   + #31 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : 📌 Vous avez une expérience en environnement international et êtes à l’aise avec 
+2026-10-15T20:57:38:       1 image(s)
+2026-10-15T20:57:53:   + #32 Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence (?) : Nous recherchons un(e) CHARGÉ(E) DE RECRUTEMENT INTERNATIONAUX ➡️ CE QUE VOUS AU
+2026-10-15T20:57:53:       1 image(s)
+2026-10-15T20:59:02:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-15T20:59:11:   [images] pfbid0XVxyNzWerfP4BvD6EEaTF2wggkDi6eLcGkNU7GPKpP76wXji2ox6QMcKy2DgsfCPl : 1/1 (viewer)
+2026-10-15T20:59:22:   [images] pfbid0NKtpMbSfqmtxHCVKnRYZ5CecaC4yZDp8v3KvmDgW41MRFPVntpesvLLPbBoSR7utl : 1/1 (viewer)
+2026-10-15T20:59:28:   [images] 1407057458299208 : 2/2 (viewer)
+2026-10-15T20:59:33:   [images] pfbid0A6MaqdHpPGuuMoRV9vy6rPeAuhLXt45AYbmHP3P5NveTvVnvrhbsC7AuPP71ucZql : 1/1 (viewer)
+2026-10-15T20:59:37:   [images] pfbid0iM1tLMnWGMjiFCg7LNfsThZUA9yM4N5kAxiLHx1YMwrBmuPzLmvndoNnjXv7W46Al : 1/1 (viewer)
+2026-10-15T20:59:41:   [images] pfbid02Y6appnDwstr6RTG6GsU9zLrWddCc3a4D3g76yjtc1tRX57u1HizVagDKcqXFnxWfl : 1/1 (viewer)
+2026-10-15T20:59:44:   [images] pfbid0o8JPGw4HQ3PDgLynrfHVPCWsnxE6RNkQCCP4JLnqoqRPVtYMfx3rWR8nJX1T9Ftpl : 1/1 (viewer)
+2026-10-15T20:59:49:   [images] pfbid02ag6MKU6Wf3PN2jDSdFnEJ14Fd8FL4x2ZiKTqSN2dN7gGqYFv3ogXVvNvjDQura2jl : 1/1 (viewer)
+2026-10-15T20:59:53:   [images] pfbid028bRY6KG9oq2o6ogw77nuBzaGzn24HTNLjYPx9TY56paaJ3jmDu2G9KwaiYnrNyXcl : 1/1 (viewer)
+2026-10-15T20:59:57:   [images] pfbid0227JbiKxLWFvr7YwcmcTcATm8XeyQoTWbzsNNtbhnFUCpN34qtPMh1f795RtSVHRul : 1/1 (viewer)
+2026-10-15T21:00:02:   [images] pfbid0CY13mipcKNDd5RC9gjzGT18XM9hUCGvPXQ6ULs7aUaNAeKWEECGQc9XvPdD6rakSl : 2/2 (viewer)
+2026-10-15T21:00:06:   [images] pfbid022vbJU5kkVEif9y8HgPVHvJJUL2pUsfaN1Nq6NYxE72HYGWGURrStgQ9dG2FKBMDNl : 1/1 (viewer)
+2026-10-15T21:00:10:   [images] pfbid06EUXXPiw4iAh7hz48EPAGN8CFpmhSMEYp3HV4DcrFDvDbUt1pBWoxa778UR6cw8Xl : 1/1 (viewer)
+2026-10-15T21:00:17:   [images] pfbid0qrSHaPuwg9bx3XNv7ALfoChKAx9RzbmM7HLhfLXmr1WEWDdaQAfsEb9z6VinAstBl : 1/1 (viewer)
+2026-10-15T21:00:21:   [images] pfbid02aEyVGrWM8fWxmbXF5zTNsoThcNsUsHYmxk4qJGUsAkPYWm9PW8K2oVTFnJhZDEzdl : 1/1 (viewer)
+2026-10-15T21:00:26:   [images] pfbid0zKt8CQDmLcz3bcmcfTrhiQ7c5ykYDyW4P6tv72qhqyJRBgFycseiR4uDKopuEcodl : 1/1 (viewer)
+2026-10-15T21:00:33:   [images] pfbid02zH3NmuhTmdGY2pzYL5i1D6yFDjTW4ZFueGBvcM1RdNDYsjwZg7nPeVAv3Qz2Cv1xl : 1/1 (viewer)
+2026-10-15T21:00:39:   [images] pfbid0H9M8srQty66uRB6FKWNecw49XVWfi3B6coxQvvMq2jP6Eduvdwq3RtJpvYWiKzNel : 2/2 (viewer)
+2026-10-15T21:00:43:   [images] pfbid02yq3qfg56pHkuFA5XFBPzFqedM32Nyy74xisjMrF92KNCy41f8nn7rQbNCjmfT86rl : 1/1 (viewer)
+2026-10-15T21:00:49:   [images] pfbid024zHa2CwjytGUqREhyZM7XzXvCMcpWHMAkxJadnhfxEq3h1ZkfUEZFjpdJqVo6QVbl : 1/1 (viewer)
+2026-10-15T21:00:54:   [images] 1408321464839474 : 1/1 (viewer)
+2026-10-15T21:00:59:   [images] pfbid0SXsPYMXBpLEXG6sEErgjkrPPDZoTeXDqPSvoSCqrsW4ya4nQ6S3bEYs8GRivivDgl : 1/1 (viewer)
+2026-10-15T21:01:14:   [images] pfbid02dGUXSYNB2CuzEQ4RykccfrRxKrm3wpjxKkawyCqZNCUSyy9QcdNcR54XH3Y93gxNl : 1/1 (viewer)
+2026-10-15T21:01:20:   [images] pfbid02hoTDoL8NhGY5c7gUor8XssGw3uaQoknYJfMzjU3RDpGCnAQpst5fhH3NpSGapxu3l : 1/1 (feed)
+2026-10-15T21:01:24:   [images] pfbid02spERZ7oqmPAhu2oEcy9AZnGprhxtaUkG5D1cJG8XjDCjSoh6b45S6JgQxRznhqZtl : 1/1 (viewer)
+2026-10-15T21:01:29:   [images] pfbid02eMAMAsaoubPXTNCCVNcpWNu14RTjnhBB3RAzvHuz8VovMqXvyyjgKckuXaK4ArtVl : 1/1 (viewer)
+2026-10-15T21:01:30:   Chargement du moteur OCR (RapidOCR / onnxruntime)...
+2026-10-15T21:01:30:   OCR des images : 29 image(s) dans 26 publication(s) (~0,5 à 2 s par image)...
+2026-10-15T21:01:40:     [1/26] 1 image(s) en 10s - total 1/29
+2026-10-15T21:01:44:     [2/26] 1 image(s) en 4s - total 2/29
+2026-10-15T21:01:52:     [3/26] 2 image(s) en 8s - total 4/29
+2026-10-15T21:02:02:     [4/26] 1 image(s) en 10s - total 5/29
+2026-10-15T21:02:10:     [5/26] 1 image(s) en 8s - total 6/29
+2026-10-15T21:02:14:     [6/26] 1 image(s) en 5s - total 7/29
+2026-10-15T21:02:19:     [7/26] 1 image(s) en 5s - total 8/29
+2026-10-15T21:02:23:     [8/26] 1 image(s) en 4s - total 9/29
+2026-10-15T21:02:27:     [9/26] 1 image(s) en 3s - total 10/29
+2026-10-15T21:02:35:     [10/26] 1 image(s) en 9s - total 11/29
+2026-10-15T21:02:49:     [11/26] 2 image(s) en 14s - total 13/29
+2026-10-15T21:02:52:     [12/26] 1 image(s) en 3s - total 14/29
+2026-10-15T21:02:56:     [13/26] 1 image(s) en 3s - total 15/29
+2026-10-15T21:03:09:     [14/26] 1 image(s) en 13s - total 16/29
+2026-10-15T21:03:14:     [15/26] 1 image(s) en 6s - total 17/29
+2026-10-15T21:03:19:     [16/26] 1 image(s) en 5s - total 18/29
+2026-10-15T21:03:24:     [17/26] 1 image(s) en 5s - total 19/29
+2026-10-15T21:03:33:     [18/26] 2 image(s) en 9s - total 21/29
+2026-10-15T21:03:37:     [19/26] 1 image(s) en 4s - total 22/29
+2026-10-15T21:03:41:     [20/26] 1 image(s) en 4s - total 23/29
+2026-10-15T21:03:44:     [21/26] 1 image(s) en 3s - total 24/29
+2026-10-15T21:03:46:     [22/26] 1 image(s) en 3s - total 25/29
+2026-10-15T21:03:49:     [23/26] 1 image(s) en 3s - total 26/29
+2026-10-15T21:03:51:     [24/26] 1 image(s) en 2s - total 27/29
+2026-10-15T21:03:53:     [25/26] 1 image(s) en 2s - total 28/29
+2026-10-15T21:03:55:     [26/26] 1 image(s) en 2s - total 29/29
+2026-10-15T21:03:55:   -> 32 nouvelle(s), 278 déjà connue(s), 18 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-15T21:03:55: 
+2026-10-15T21:03:55: [6/18] Page 61590590183252
+2026-10-15T21:04:02: Page : Trust Squad (405 caractères dans À propos)
+2026-10-15T21:04:02: Ouverture de https://www.facebook.com/profile.php?id=61590590183252
+2026-10-15T21:04:40:   Fin du fil : rien de nouveau après 8 scroll(s)
+2026-10-15T21:04:40:   -> 0 nouvelle(s), 0 déjà connue(s), 3 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-15T21:04:40: 
+2026-10-15T21:04:40: [7/18] Page 61556986846873
+2026-10-15T21:04:48: Page : Offre d'emploi Madagascar (588 caractères dans À propos)
+2026-10-15T21:04:48: Ouverture de https://www.facebook.com/profile.php?id=61556986846873
+2026-10-15T21:04:58:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-15T21:04:58:   -> 0 nouvelle(s), 0 déjà connue(s), 5 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-15T21:04:58: 
+2026-10-15T21:04:58: [8/18] Page LCSRessourcesHumaines
+2026-10-15T21:05:04: Page : LCS RH (812 caractères dans À propos)
+2026-10-15T21:05:04: Ouverture de https://www.facebook.com/LCSRessourcesHumaines
+2026-10-15T21:05:10:   + #1 LCS RH (?) : ✈️📢 𝐇𝐈 𝐇𝐈 𝐇𝐈 ! 𝐍𝐄 𝐏𝐀𝐒𝐒𝐄𝐙 𝐏𝐀𝐒 𝐀̀ 𝐂𝐎̂𝐓𝐄́ 𝐃𝐄 𝐂𝐄𝐓𝐓𝐄 𝐎𝐏𝐏𝐎𝐑𝐓𝐔𝐍𝐈𝐓𝐄́! ❤️ 🌍 LCS recrute d
+2026-10-15T21:05:10:       tél : 0349975040, 0389975024 | email : gestionnaire.rh@lcs.mg | 2 image(s)
+2026-10-15T21:05:14:   + #2 LCS RH (?) : 📢 LCS RECRUTE ! 🔴 👥 Animateurs/Animatrices sur terrain 📍 Plusieurs localités : A
+2026-10-15T21:05:14:       tél : +261341475018, +261389975024 | email : recrutement@lcs.mg | 1 image(s)
+2026-10-15T21:05:15:   + #3 LCS RH (?) : 📢 OFFRE D’EMPLOI – DES COORDINATEURS(TRICES) TRADE MARKETING📢 Vous avez de l'exp
+2026-10-15T21:05:15:       tél : +261349975040, +261389975024 | email : gestionnaire.rh@lcs.mg | 1 image(s)
+2026-10-15T21:05:15:   + #4 LCS RH (?) : 🚨 RECRUTEMENT URGENT : ÉLECTRICIENS 🚨 LCS recherche des Électriciens qualifiés p
+2026-10-15T21:05:15:       tél : 0349975040, 0389975024 | email : gestionnaire.rh@lcs.mg | 1 image(s)
+2026-10-15T21:05:15:   + #5 LCS RH (?) : 🚨 LCS RECRUTE : ANIMATRICES DE VENTE (GMS) 🚨 Vous avez le sens du contact, un es
+2026-10-15T21:05:15:       tél : +261349975002, +261349975044 | 1 image(s)
+2026-10-15T21:05:34:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-15T21:05:39:   [images] pfbid02Hf3yXkoS47dDS3U9kBVfZzKPvHqL9rhaPYbyht2M6LjsCMJDKbLBejbF8iCzQZ55l : 2/2 (viewer)
+2026-10-15T21:05:42:   [images] pfbid0ExZ9SZAZ8STQDnHNajeeV1Va6aDU428FaUVjK352uHo97GCCfRVvUmYr5QNtWQVfl : 1/1 (viewer)
+2026-10-15T21:05:45:   [images] pfbid02yKiWNXH8YeyukniHdCFE6poTGU93h3XFZ9vmeQMU4zSasNyyMTiqXPLHjmBo6nKl : 1/1 (viewer)
+2026-10-15T21:05:50:   [images] pfbid0wt8Kt6wCUZUicExAXiwcnCFq1r4jmrUgr27qbbfeuANtS4qEFFB7JcNc5ywTbaR8l : 1/1 (viewer)
+2026-10-15T21:05:53:   [images] pfbid08E26XpEVHD9BctdTB5NyXdThFvvbNjkRB1jncTbhnm4scegTu9mgvuZBbNHZBax9l : 1/1 (viewer)
+2026-10-15T21:05:53:   Chargement du moteur OCR (RapidOCR / onnxruntime)...
+2026-10-15T21:05:53:   OCR des images : 6 image(s) dans 5 publication(s) (~0,5 à 2 s par image)...
+2026-10-15T21:06:05:     [1/5] 2 image(s) en 12s - total 2/6
+2026-10-15T21:06:12:     [2/5] 1 image(s) en 6s - total 3/6
+2026-10-15T21:06:18:     [3/5] 1 image(s) en 6s - total 4/6
+2026-10-15T21:06:23:     [4/5] 1 image(s) en 5s - total 5/6
+2026-10-15T21:06:27:     [5/5] 1 image(s) en 4s - total 6/6
+2026-10-15T21:06:27:   -> 5 nouvelle(s), 12 déjà connue(s), 5 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-15T21:06:27: 
+2026-10-15T21:06:27: [9/18] Page DigitaleoMada
+2026-10-15T21:06:35: Page : Digitaleo (611 caractères dans À propos)
+2026-10-15T21:06:35: Ouverture de https://www.facebook.com/DigitaleoMada
+2026-10-15T21:06:49:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-15T21:06:49:   -> 0 nouvelle(s), 4 déjà connue(s), 5 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-15T21:06:49: 
+2026-10-15T21:06:49: [10/18] Page alberthinrivosoa.razafimahandry
+2026-10-15T21:06:56: Page : Andry (399 caractères dans À propos)
+2026-10-15T21:06:56: Ouverture de https://www.facebook.com/alberthinrivosoa.razafimahandry
+2026-10-15T21:07:07:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-15T21:07:07:   -> 0 nouvelle(s), 0 déjà connue(s), 5 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-15T21:07:07: 
+2026-10-15T21:07:07: [11/18] Page MyCareerInstitut
+2026-10-15T21:07:13: Page : Facebook (252 caractères dans À propos)
+2026-10-15T21:07:13: Ouverture de https://www.facebook.com/MyCareerInstitut
+2026-10-15T21:07:46:   [ERREUR] Aucune publication trouvée (page vide, restreinte ou modifiée par Facebook ?)
+2026-10-15T21:07:47:   -> 0 nouvelle(s), 0 déjà connue(s), 0 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-15T21:07:47: 
+2026-10-15T21:07:47: [12/18] Page 61591852563303
+2026-10-15T21:07:54: Page : OpportuniX (577 caractères dans À propos)
+2026-10-15T21:07:54: Ouverture de https://www.facebook.com/profile.php?id=61591852563303
+2026-10-15T21:08:21:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-15T21:08:21:   -> 0 nouvelle(s), 13 déjà connue(s), 5 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-15T21:08:21: 
+2026-10-15T21:08:21: [13/18] Groupe 2367943963509691
+2026-10-15T21:08:21: Ouverture de https://www.facebook.com/groups/2367943963509691/?sorting_setting=CHRONOLOGICAL
+2026-10-15T21:08:24: Groupe : Recrutement/emploi/stage/formation/Madagascar - 2378 publication(s) déjà en cache
+2026-10-15T21:08:26:   + #1 Mãrįa Alęxįæ (?) : 👉👉 💸💰Mazoto ve ianao 💰💸 Ampianariko asa en'ligne Azahoana vola 31400ar par jour 
+2026-10-15T21:08:31:   + #2 Said Rouzaqui (?) : (sans texte)
+2026-10-15T21:08:31:       images : 1/1 enregistrée(s)
+2026-10-15T21:08:31:   + #3 Tafatafa by Michel (?) : #tafatafabymichel #conseillerclient #zara_asa #recrutement
+2026-10-15T21:08:31:       images : 1/1 enregistrée(s)
+2026-10-15T21:08:31:   + #4 D.G. Conseil (?) : 🟡🔴⚫️RECRUTEMENT SMMEC🟡🔴⚫️ "Envie de relever un nouveau défi dans le secteur de l
+2026-10-15T21:08:31:       images : 1/1 enregistrée(s)
+2026-10-15T21:08:32:   + #5 Participant(e) anonyme (?) : Bonjour groupe. 👋🏻 Vehivavy 22 ans, efa manan-janaka ray. Mitady asa tsy mitaky 
+2026-10-15T21:08:32:   + #6 Wellden Carim (?) : Mitady ankizy ivarotra mandende Olona manodidina ivato ambohibao Olona mazoto sy
+2026-10-15T21:08:37:   + #7 Meuble et Cuisine (?) : 💥🥰 HAAAAAAA..... ✨✨ COMPRESSE PREMIUM ✨ Vonjivonje-o ny Couleur Maman aaa.... To
+2026-10-15T21:08:37:       tél : 0347848636 | images : 5/5 enregistrée(s)
+2026-10-15T21:08:38:   + #8 MCBTP (?) : Modely vaovao ho anareo tia trano tsotra, tsara tarehy ary maoderina. 💬 Inona no
+2026-10-15T21:08:38:       images : 1/1 enregistrée(s)
+2026-10-15T21:08:38:   + #9 Melodïe Kayrãh (?) : (sans texte)
+2026-10-15T21:08:38:   + #10 Melo Compta (?) : (sans texte)
+2026-10-15T21:08:51:   + #11 Myh'razf Raz (?) : Envoyé votre CV
+2026-10-15T21:08:51:       images : 1/1 enregistrée(s)
+2026-10-15T21:08:51:   + #12 Yardi Romi (?) : Mitady findramambola hanatanterahana projet na tetikasa tinao atao vé ianao? 📌 F
+2026-10-15T21:08:51:       images : 3/3 enregistrée(s)
+2026-10-15T21:08:51:   + #13 Lilian Merelle (?) : ALERTE RECRUTEMENT 🚨 CHARGÉ(E) DE RECRUTEMENT INTERNATIONAUX
+2026-10-15T21:08:51:       images : 1/1 enregistrée(s)
+2026-10-15T21:08:52:   + #14 Lilian Merelle (?) : ALERTE RECRUTEMENT 🚨 CHARGÉ(E) DE RECRUTEMENT INTERNATIONAUX
+2026-10-15T21:08:52:       images : 1/1 enregistrée(s)
+2026-10-15T21:08:57:   + #15 Tafatafa by Michel (?) : #tafatafabymichel #zara_asa #recrutement #infirmier
+2026-10-15T21:08:57:       images : 1/1 enregistrée(s)
+2026-10-15T21:08:57:   + #16 Lanyah Ratsara (?) : (sans texte)
+2026-10-15T21:08:57:   + #17 Lanyah Ratsara (?) : (sans texte)
+2026-10-15T21:08:58:   + #18 Melodïe Kayrãh (?) : (sans texte)
+2026-10-15T21:09:03:   + #19 Anandyservice (?) : 📢 RECRUTEMENT – RESPONSABLE RH (Andasibe) Nous recherchons un(e) Responsable des
+2026-10-15T21:09:03:       tél : 0389509239, 0388496912 | email : anandyservice@gmail.com
+2026-10-15T21:09:04:   + #20 Mirana Harison (?) : 🚀 Forum National des Entrepreneurs, by Club des Entrepreneurs de MED 🎤 Concours 
+2026-10-15T21:09:04:       images : 1/1 enregistrée(s)
+2026-10-15T21:09:05:   + #21 Vidange Fosse Wc Mora (?) : 🚨🆘📢STOP OLANA 🚾🚫🚫 MISY OLANA amin' 🚾 ianaooo??? 🔴m'fuite,m'deborde na ko mamofon
+2026-10-15T21:09:05:       tél : 0348846477 | images : 4/4 enregistrée(s)
+2026-10-15T21:09:05:   + #22 Chryslène Dakadisy (?) : (sans texte)
+2026-10-15T21:09:05:       images : 1/1 enregistrée(s)
+2026-10-15T21:09:06:   + #23 Niaina Nilaina (?) : (sans texte)
+2026-10-15T21:09:06:       images : 1/1 enregistrée(s)
+2026-10-15T21:09:11:   + #24 Cabinet Nakay Formation et Stage (?) : À LA RECHERCHE D’UNE FORMATION PRATIQUE ? REJOIGNEZ LE CABINET EXCELLENT ! 🎓 🚀 V
+2026-10-15T21:09:11:       tél : +261344440022, +261384740022 | email : accueil.cabex@gmail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:09:12:   + #25 Annick Noah (?) : 🌴 VOUS PARLEZ FRANÇAIS ET AVEZ DE L’EXPÉRIENCE EN HÔTELLERIE ?🌊 🇬🇧 La connaissan
+2026-10-15T21:09:12:       tél : 0346117982 | email : contact@ifaty.com | images : 1/1 enregistrée(s)
+2026-10-15T21:09:13:   + #26 IM TECH INFO (?) : 🌟Lasa lavitra amin'ny informatique miaraka amin'ny IMTECH INFO! Tsy misy ho solo
+2026-10-15T21:09:13:       tél : 0389269338 | email : admin@imtechinfo.com | images : 1/1 enregistrée(s)
+2026-10-15T21:09:14:   + #27 Syl Valence (?) : RECHERCHE D'EMPLOI À TEMPS PARTIEL Bonjour à tous, Je suis actuellement étudiant
+2026-10-15T21:09:20:   + #28 Rivomanato Filohaina (?) : Raha resy lahatra ianao dia misoratà anarana na tongava mialoha amin'ny 17 oktob
+2026-10-15T21:09:21:   + #29 Chez Infirmiers Tana (?) : 🚨🚑🌍 𝗠𝗶𝘁𝗮𝗱𝘆 𝗺𝗽𝗶𝗸𝗮𝗿𝗮𝗸𝗮𝗿𝗮 𝗮𝘇𝗼 𝗶𝘁𝗼𝗸𝗶𝘀𝗮𝗻𝗮 𝘁𝘀𝗮𝗿𝗮 𝘃𝗲 𝗶𝗮𝗻𝗮𝗼 🌸Afaka manampy sy mikarakara
+2026-10-15T21:09:21:       tél : 0346702895, 0336859487 | images : 1/1 enregistrée(s)
+2026-10-15T21:09:21:   + #30 Andrianasolo Mialisoa (?) : 🎓 ASTUCE SOUTENANCE | NRTECH SERVICE 📚 🤔 Slide, Speech....... inona no maha samy
+2026-10-15T21:09:21:       tél : 0382183862, 0334097040 | images : 1/1 enregistrée(s)
+2026-10-15T21:09:22:   + #31 Måürïciã RM (?) : Trano ahofa a Mangarivotra nord akaiky arabe ts matotra ilay olona nitazona anaz
+2026-10-15T21:09:22:       tél : 0348799935 | images : 1/1 enregistrée(s)
+2026-10-15T21:09:27:   + #32 Tsin Ar (?) : RECRUTEMENT – TÉLÉPROSPECTEUR(TRICE) B2B EXPÉRIMENTÉ(E) Antananarivo – EKL Expor
+2026-10-15T21:09:27:       images : 1/1 enregistrée(s)
+2026-10-15T21:09:29:   + #33 D.G. Conseil (?) : https://www.facebook.com/100060686073597/posts/1504573174908871/?app=fbl
+2026-10-15T21:09:29:       images : 2/2 enregistrée(s)
+2026-10-15T21:09:29:   + #34 Participant(e) anonyme (?) : salama daoly ah reto mba mitady asa toy ny vendeuse,caissière,réceptionniste... 
+2026-10-15T21:09:38:   + #35 Mi Tia Diavolana (?) : asa en ligne hoan'izay mazoto✅ afaka atao vadin'asa tsara ity aa😅 mbola mande ts
+2026-10-15T21:09:38:       images : 2/2 enregistrée(s)
+2026-10-15T21:09:39:   + #36 ZaraHay (?) : Une équipe soudée est une équipe qui vous emmène au sommet 🔥
+2026-10-15T21:09:39:       images : 5/5 enregistrée(s)
+2026-10-15T21:09:47:   + #37 Sandra Raharimalala (?) : #formation #tchatting #Tana #enligne #téletravail #ofm
+2026-10-15T21:09:47:       images : 1/1 enregistrée(s)
+2026-10-15T21:09:47:   + #38 Sarobidy Tsioritiana (?) : (sans texte)
+2026-10-15T21:09:47:       images : 1/1 enregistrée(s)
+2026-10-15T21:09:48:   + #39 Participant(e) anonyme (?) : ‼️ Urgent ‼️ Mitady stage tompoko aho hi valideko ny licence ko hoan'izay afaka 
+2026-10-15T21:09:55:   + #40 Ni Andry (?) : 📢OPPORTUNITÉS DE STAGE : DEUX POSTES À POURVOIR ! Vous souhaitez acquérir une ex
+2026-10-15T21:09:55:       email : admin@uaceem.mg | images : 1/1 enregistrée(s)
+2026-10-15T21:09:58:   + #41 D.G. Conseil (?) : ⭐ Le PAM Madagascar recrute ! ⭐ Rejoignez notre équipe pour #Sauverdesvies et #C
+2026-10-15T21:09:58:       images : 1/1 enregistrée(s)
+2026-10-15T21:10:13:   + #42 Clara Randrianasolo (?) : @à la une
+2026-10-15T21:10:49:   + #43 Cabinet Nakay Formation et Stage (?) : 📢 OFFRE DE STAGE – CABINET EXCELLENT 🏢 CABINET EXCELLENT – SERVICE D’EXTERNALISA
+2026-10-15T21:10:49:       tél : +261344440022, +261343281166 | email : accueil.cabex@gmail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:10:49:   + #44 Raharinirina Mamy Aina (?) : Mba Mitady asa Lehilahy 23 ans Niveau : Licence Mahafehy informatique 0388986910
+2026-10-15T21:10:49:       tél : 0388986910
+2026-10-15T21:11:07:   + #45 Diane Marolahy (?) : BATITSARA, votre partenaire en construction et rénovation. ✨ Du sérieux dans l'é
+2026-10-15T21:11:07:       tél : 0341626621 | images : 4/4 enregistrée(s)
+2026-10-15T21:11:09:   + #46 Ny Aiko (?) : ‼️ Ndao hitady vola ‼️
+2026-10-15T21:11:09:       images : 5/5 enregistrée(s)
+2026-10-15T21:11:09:   + #47 Tsiaro Raharimanana (?) : Si vous êtes intéressé(e), n’hésitez pas à envoyer votre CV via WhatsApp au 034 
+2026-10-15T21:11:09:       tél : 0341475013 | images : 1/1 enregistrée(s)
+2026-10-15T21:11:45:   + #48 Tafatafa by Michel (?) : #tolotrasa #tafatafabymichel #zara_asa #tenykelyatsipy #économiste
+2026-10-15T21:11:45:       images : 1/1 enregistrée(s)
+2026-10-15T21:14:35:   60 publication(s) déjà connue(s) d'affilée - arrêt du groupe
+2026-10-15T21:14:35: Lecture du texte des images (OCR) : 33 publication(s)...
+2026-10-15T21:17:38:   ... 25/33
+2026-10-15T21:18:18:   [image] Myh'razf Raz : +261383420162
+2026-10-15T21:18:18:   [image] Lilian Merelle : recrutement@activsolutionsmadagascar.fr
+2026-10-15T21:18:18:   [image] Lilian Merelle : recrutement@activsolutionsmadagascar.fr
+2026-10-15T21:18:18:   [image] Mirana Harison : +261345821822, +261345761307
+2026-10-15T21:18:18:   [image] Niaina Nilaina : 0347581063
+2026-10-15T21:18:18:   [image] Chez Infirmiers Tana : +261346702895, +261336859487
+2026-10-15T21:18:18:   [image] Andrianasolo Mialisoa : nrtech.serviceinfo@gmail.com
+2026-10-15T21:18:18:   [image] Tsin Ar : olivahfitahiana@gmail.com
+2026-10-15T21:18:18:   [image] Sarobidy Tsioritiana : 0330063338
+2026-10-15T21:18:18:   [image] Ny Aiko : recas5@outlook.fr
+2026-10-15T21:18:18:   [image] Tsiaro Raharimanana : appuirh2@lcs.mg, 0345475013
+2026-10-15T21:18:18: Offres d'emploi : 613 -> C:\Users\Administrator\Desktop\cv_scrappe\downloaded_files\facebook_jobs_2367943963509691.json
+2026-10-15T21:18:19:   [VISIONNEUSE] 4136052553365481 : 5/9 photos, récupération des autres
+2026-10-15T21:18:30:   [images] 4136052553365481 : 8/8 (viewer)
+2026-10-15T21:18:30:   [VISIONNEUSE] 4134964130140990 : 5/10 photos, récupération des autres
+2026-10-15T21:18:39:   [images] 4134964130140990 : 9/9 (viewer)
+2026-10-15T21:18:39:   [VISIONNEUSE] 4133957923574944 : 5/17 photos, récupération des autres
+2026-10-15T21:18:52:   [images] 4133957923574944 : 16/16 (viewer)
+2026-10-15T21:18:53:   -> 48 nouvelle(s), 113 déjà connue(s), 4 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-15T21:18:53: 
+2026-10-15T21:18:53: [14/18] Groupe recrutement.emploi.madagascar
+2026-10-15T21:18:53: Ouverture de https://www.facebook.com/groups/recrutement.emploi.madagascar/?sorting_setting=CHRONOLOGICAL
+2026-10-15T21:18:56:     [JS] 
+2026-10-15T21:18:56: exceptionId: 1
+2026-10-15T21:18:56: text: Uncaught
+2026-10-15T21:18:56: lineNumber: 6
+2026-10-15T21:18:56: columnNumber: 35
+2026-10-15T21:18:56: scriptId: 2141
+2026-10-15T21:18:56: exception: 
+2026-10-15T21:18:56: 	type: object
+2026-10-15T21:18:56: 	subtype: error
+2026-10-15T21:18:56: 	className: TypeError
+2026-10-15T21:18:56: 	description: TypeError: Cannot read properties of null (re
+2026-10-15T21:18:59: Groupe : Recrutement, offre d'emploi, Madagascar - 768 publication(s) déjà en cache
+2026-10-15T21:19:03:   + #1 Honie Cynthia (?) : 📢 RECRUTEMENT : COMMERCIALE EN LIGNE (Shift Nuit - Kilasy Mandry) Séduction MDG 
+2026-10-15T21:19:03:       tél : 0341152292 | images : 1/1 enregistrée(s)
+2026-10-15T21:19:08:   + #2 SIERRAConsulting (?) : 👉Envoyez-nous votre candidature et donnez un nouvel élan à votre carrière ! 📩 re
+2026-10-15T21:19:08:       email : recrutement.sierraconsulting@gmail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:19:08:   + #3 SIERRAConsulting (?) : 👉 Prêt(e) à relever ce nouveau défi ? Postulez dès maintenant ! 📩 recrutement.si
+2026-10-15T21:19:08:       email : recrutement.sierraconsulting@gmail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:19:08:   + #4 Kentia-RH SA (?) : (sans texte)
+2026-10-15T21:19:08:   + #5 AVN Recrutement (?) : Vous correspondez au profil ? Envoyez-nous votre candidature dès maintenant : [m
+2026-10-15T21:19:08:       email : miora@assistant-ventures.com | images : 1/1 enregistrée(s)
+2026-10-15T21:19:09:   + #6 PODToDigital (?) : 🇲🇬 Salama daholo
+2026-10-15T21:19:09:       images : 1/1 enregistrée(s)
+2026-10-15T21:19:09:   + #7 Participant(e) anonyme (?) : (sans texte)
+2026-10-15T21:19:09:       images : 1/1 enregistrée(s)
+2026-10-15T21:19:10:   + #8 Participant(e) anonyme (?) : (sans texte)
+2026-10-15T21:19:10:       images : 1/1 enregistrée(s)
+2026-10-15T21:19:14:   + #9 Participant(e) anonyme (?) : NOUS RECRUTONS ! Dans le cadre de notre prochaine ouverture, nous recherchons un
+2026-10-15T21:19:14:       email : 261.secretgarden@gmail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:19:14:   + #10 Tolotr’asa ho anao (?) : 🚨RECRUTEMENT D’AGENT DE SECURITÉ À ANTANANARIVO 🚨
+2026-10-15T21:19:14:       images : 1/1 enregistrée(s)
+2026-10-15T21:19:15:   + #11 VIRTUEASE7801 (?) : NOUS RECRUTONS – AGENT SERVICE CLIENT E-COMMERCE (H/F) LIEU : ITAOSY ANDRANONAHO
+2026-10-15T21:19:15:       email : team@miavirtuease.com
+2026-10-15T21:19:15:   + #12 Recrutement Pro Call (?) : si vous habitez aux alentours d'Ampamantanana Androndra , ceci est pour vous 🙂
+2026-10-15T21:19:15:       images : 1/1 enregistrée(s)
+2026-10-15T21:19:21:   + #13 Niaina Nilaina (?) : (sans texte)
+2026-10-15T21:19:21:       images : 1/1 enregistrée(s)
+2026-10-15T21:19:21:   + #14 WIPwork (?) : Nouvelle opportunité : Le groupe TANATECH recrute un INGENIEUR BIOGAZ 📝 Descript
+2026-10-15T21:19:21:       images : 1/1 enregistrée(s)
+2026-10-15T21:19:22:   + #15 Kentia-RH SA (?) : 🚀 𝐎𝐏𝐏𝐎𝐑𝐓𝐔𝐍𝐈𝐓𝐄́ - 𝐔𝐍(𝐄) 𝐑𝐄𝐒𝐏𝐎𝐍𝐒𝐀𝐁𝐋𝐄 𝐃𝐄𝐒 𝐕𝐄𝐍𝐓𝐄𝐒 🎯 Notre client recherche un profil
+2026-10-15T21:19:22:       images : 1/1 enregistrée(s)
+2026-10-15T21:19:23:   + #16 Recrutement BTP (?) : RECRUTEMENT : DESSINATEUR PROJETEUR 3D EN BATIMENT Poste : Dessinateur Projeteur
+2026-10-15T21:19:23:       email : mnrecrut23@gmail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:19:23:   + #17 Gaëlle Gouzen (?) : Urgent ‼️ Envoyez vite votre candidature à l’adresse suivante : emploirecru66@gm
+2026-10-15T21:19:23:       email : emploirecru66@gmail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:19:23:   + #18 Maha-SOA (?) : 📢 OFFRE D’EMPLOI – RECRUTEMENT IMMÉDIAT 🎨 DESSINATEUR / DESSINATRICE DE BANDES D
+2026-10-15T21:19:23:       email : recrutement@madagascarteletravail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:19:33:   + #19 Amir Spaer Rajerison (?) : 🚨 RECRUTEMENT URGENT – SPAER TECHNOLOGY 🚨 📢 NOUS RECRUTONS DES ÉVALUATEURS DE MO
+2026-10-15T21:19:33:       tél : 0334351668 | images : 1/1 enregistrée(s)
+2026-10-15T21:19:34:   + #20 Recrutement BTP (?) : RECRUTEMENT : DESSINATEUR PROJETEUR 3D EN BATIMENT Poste : Dessinateur Projeteur
+2026-10-15T21:19:34:       email : mnrecrut23@gmail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:19:47:   + #21 Offre d'emploi Madagascar (?) : AVIS DE RECRUTEMENT « MAKIRA SITE COORDINATOR » IDENTIFICATION DU POSTE : Titre 
+2026-10-15T21:19:47:       images : 3/3 enregistrée(s)
+2026-10-15T21:19:48:   + #22 Participant(e) anonyme (?) : Je cherche un emploi en tant que Photographe au sein d'une entreprise ou d'une s
+2026-10-15T21:19:55:   + #23 Rouge Hexagone (?) : Vous êtes le couteau suisse administratif capable d'assister deux directions à l
+2026-10-15T21:19:55:   + #24 Rouge Hexagone (?) : Le e-commerce est votre terrain de jeu ? Nous recherchons un Développeur Shopify
+2026-10-15T21:21:32:   60 publication(s) déjà connue(s) d'affilée - arrêt du groupe
+2026-10-15T21:21:32: Lecture du texte des images (OCR) : 19 publication(s)...
+2026-10-15T21:23:44:   [image] Participant(e) anonyme : recrutement@arbiochem.mg
+2026-10-15T21:23:44:   [image] Participant(e) anonyme : rh.tlt@transit-madagascar.com
+2026-10-15T21:23:44:   [image] Tolotr’asa ho anao : 0320135059, 0380674707
+2026-10-15T21:23:44:   [image] Recrutement Pro Call : hiavintsoa5@gmail.com
+2026-10-15T21:23:44:   [image] Niaina Nilaina : 0347581063
+2026-10-15T21:23:44:   [image] Kentia-RH SA : jobapply@kentia-rh.com
+2026-10-15T21:23:45: Offres d'emploi : 658 -> C:\Users\Administrator\Desktop\cv_scrappe\downloaded_files\facebook_jobs_recrutement.emploi.madagascar.json
+2026-10-15T21:23:45:   -> 24 nouvelle(s), 80 déjà connue(s), 2 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-15T21:23:45: 
+2026-10-15T21:23:45: [15/18] Groupe 414326263961327
+2026-10-15T21:23:45: Ouverture de https://www.facebook.com/groups/414326263961327/?sorting_setting=CHRONOLOGICAL
+2026-10-15T21:23:47: Groupe : Recrutement, offre d'emploi, Madagascar - 372 publication(s) déjà en cache
+2026-10-15T21:23:54:   + #1 Honie Cynthia (?) : 📢 RECRUTEMENT : COMMERCIALE EN LIGNE (Shift Nuit - Kilasy Mandry) Séduction MDG 
+2026-10-15T21:23:54:       tél : 0341152292 | images : 1/1 enregistrée(s)
+2026-10-15T21:23:59:   + #2 SIERRAConsulting (?) : 👉 Prêt(e) à relever ce nouveau défi ? Postulez dès maintenant ! 📩 recrutement.si
+2026-10-15T21:23:59:       email : recrutement.sierraconsulting@gmail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:23:59:   + #3 Kentia-RH SA (?) : (sans texte)
+2026-10-15T21:24:00:   + #4 AVN Recrutement (?) : Vous correspondez au profil ? Envoyez-nous votre candidature dès maintenant : [m
+2026-10-15T21:24:00:       email : miora@assistant-ventures.com | images : 1/1 enregistrée(s)
+2026-10-15T21:24:00:   + #5 PODToDigital (?) : 🇲🇬 Salama daholo
+2026-10-15T21:24:00:       images : 1/1 enregistrée(s)
+2026-10-15T21:24:05:   + #6 Participant(e) anonyme (?) : (sans texte)
+2026-10-15T21:24:05:       images : 1/1 enregistrée(s)
+2026-10-15T21:24:05:   + #7 Charis Company (?) : 💼 CHARIS RECRUTE ! 💼 Vous avez la fibre commerciale et le goût du terrain ? Rejo
+2026-10-15T21:24:05:       email : dir.charis@gmail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:24:05:   + #8 Participant(e) anonyme (?) : NOUS RECRUTONS ! Dans le cadre de notre prochaine ouverture, nous recherchons un
+2026-10-15T21:24:05:       email : 261.secretgarden@gmail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:24:06:   + #9 Tolotr’asa ho anao (?) : 🚨RECRUTEMENT D’AGENT DE SECURITÉ À ANTANANARIVO 🚨
+2026-10-15T21:24:06:       images : 1/1 enregistrée(s)
+2026-10-15T21:24:07:   + #10 Bouffie Naiarah (?) : (sans texte)
+2026-10-15T21:24:07:       images : 1/1 enregistrée(s)
+2026-10-15T21:24:12:   + #11 Participant(e) anonyme (?) : (sans texte)
+2026-10-15T21:24:12:       images : 1/1 enregistrée(s)
+2026-10-15T21:24:12:   + #12 Manambina Rakoto (?) : (sans texte)
+2026-10-15T21:24:12:       images : 1/1 enregistrée(s)
+2026-10-15T21:24:12:   + #13 Fy Soa (?) : NOUS RECRUTONS ! Vous êtes dynamique, organisé(e), polyvalent(e) et passionné(e)
+2026-10-15T21:24:12:       email : agv.recru@gmail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:24:13:   + #14 Niaina Nilaina (?) : (sans texte)
+2026-10-15T21:24:13:       images : 1/1 enregistrée(s)
+2026-10-15T21:24:16:   + #15 Gaëlle Gouzen (?) : Urgent ‼️ Envoyez vite votre candidature à l’adresse suivante : emploirecru66@gm
+2026-10-15T21:24:16:       email : emploirecru66@gmail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:24:17:   + #16 Maha-SOA (?) : 📢 OFFRE D’EMPLOI – RECRUTEMENT IMMÉDIAT 🎨 DESSINATEUR / DESSINATRICE DE BANDES D
+2026-10-15T21:24:17:       email : recrutement@madagascarteletravail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:24:22:   + #17 Bouffie Naiarah (?) : Redispo ireto poste ireto ooooooo..... Izay tonga voaloha ihany
+2026-10-15T21:24:22:       images : 2/2 enregistrée(s)
+2026-10-15T21:24:48:   + #18 Rouge Hexagone (?) : L'automatisation et le séquençage n'ont aucun secret pour vous ? Nous recrutons 
+2026-10-15T21:24:48:   + #19 Recrutement IScale (?) : 📣 DES POSTES À POURVOIR – PRISE DE POSTE IMMÉDIATE ! Tu t’intéresses aux réseaux
+2026-10-15T21:24:48:       email : work@iscale-solutions.com
+2026-10-15T21:24:48:   + #20 Data Outsourcing (?) : Envoyez votre candidature dès maintenant à : secretariat.otsg@gmail.com
+2026-10-15T21:24:48:       email : secretariat.otsg@gmail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:26:35:   60 publication(s) déjà connue(s) d'affilée - arrêt du groupe
+2026-10-15T21:26:35: Lecture du texte des images (OCR) : 17 publication(s)...
+2026-10-15T21:28:26:   [image] Participant(e) anonyme : rh.tlt@transit-madagascar.com
+2026-10-15T21:28:26:   [image] Tolotr’asa ho anao : 0320135059, 0380674707
+2026-10-15T21:28:26:   [image] Bouffie Naiarah : sourcing@olo.mg, +261320300912
+2026-10-15T21:28:26:   [image] Participant(e) anonyme : recrutement@arbiochem.mg
+2026-10-15T21:28:26:   [image] Manambina Rakoto : 0329130472
+2026-10-15T21:28:26:   [image] Niaina Nilaina : 0347581063
+2026-10-15T21:28:26:   [image] Bouffie Naiarah : +261320300912
+2026-10-15T21:28:26:   [image] Data Outsourcing : 7secretariat.otsg@gmail.com
+2026-10-15T21:28:26: Offres d'emploi : 328 -> C:\Users\Administrator\Desktop\cv_scrappe\downloaded_files\facebook_jobs_414326263961327.json
+2026-10-15T21:28:26:   -> 20 nouvelle(s), 82 déjà connue(s), 3 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-15T21:28:26: 
+2026-10-15T21:28:26: [16/18] Groupe 255276743595594
+2026-10-15T21:28:26: Ouverture de https://www.facebook.com/groups/255276743595594/?sorting_setting=CHRONOLOGICAL
+2026-10-15T21:28:28: Groupe : TOLOTRA ASA ANTANANARIVO - 99 publication(s) déjà en cache
+2026-10-15T21:28:33:   + #1 Alpha jess (?) : Mitady ankizy vavy izahay iasa antrano kilasy mandry eto Tana karama 120.000ar-1
+2026-10-15T21:28:33:       tél : 0385580166
+2026-10-15T21:28:42:   + #2 Cyber Ndriana (?) : 💫 Salama tompoko ! 🔸Ho anao mitady asa na stage 🔸 Izahay dia manamboatra : 👉 Cv 
+2026-10-15T21:28:42:       images : 5/5 enregistrée(s)
+2026-10-15T21:28:43:   + #3 CFP Miss Et Mister Ampasampito (?) : 👑🇲🇬 "Casting Miss Francophonie Madagasikara" : misokatra ny fisoratana anarana M
+2026-10-15T21:28:43:       images : 1/1 enregistrée(s)
+2026-10-15T21:29:44:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-15T21:29:44: Lecture du texte des images (OCR) : 2 publication(s)...
+2026-10-15T21:30:37:   [image] Cyber Ndriana : cyberndriana@gmail.com, ndrianacyber@gmail.com, ndianacyber@gmail.com, +261000000000, +2616666666, +261666666666, +261341091656
+2026-10-15T21:30:37: Offres d'emploi : 20 -> C:\Users\Administrator\Desktop\cv_scrappe\downloaded_files\facebook_jobs_255276743595594.json
+2026-10-15T21:30:37:   -> 3 nouvelle(s), 49 déjà connue(s), 9 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-15T21:30:37: 
+2026-10-15T21:30:37: [17/18] Groupe 984150507256574
+2026-10-15T21:30:37: Ouverture de https://www.facebook.com/groups/984150507256574/?sorting_setting=CHRONOLOGICAL
+2026-10-15T21:30:40: Groupe : OFFRE ET DEMANDE D'EMPLOI ETO MADAGASCAR - 912 publication(s) déjà en cache
+2026-10-15T21:30:42:   + #1 Participant(e) anonyme (?) : 🇲🇬 Asa tsara karama _Agent de saisie _Partage de publication sur Facebook _Répon
+2026-10-15T21:30:42:       images : 1/1 enregistrée(s)
+2026-10-15T21:30:46:   + #2 Sadiah Fanantenana (?) : 📯 Mitady Tanora Vonona hiasa @ CALL CENTER eto TANA Formation 2 semaine miasa av
+2026-10-15T21:30:46:       tél : 0349435194
+2026-10-15T21:30:46:   + #3 Ry Zareo (?) : [Source: LCS RH ] 📢 LCS RECRUTE ! 🔴 👥 Animateurs/Animatrices sur terrain 📍 Plusi
+2026-10-15T21:30:46:       tél : +261341475018, +261389975024 | email : recrutement@lcs.mg | images : 1/1 enregistrée(s)
+2026-10-15T21:30:46:   + #4 Varotra Telecommande Mamitianah (?) : Miarahaba daholo oh✋🏻😁0387071983 ☎️ 📞 Izahay dia.mivarotra telecomande tout marq
+2026-10-15T21:30:46:       tél : 0387071983 | images : 5/5 enregistrée(s)
+2026-10-15T21:30:47:   + #5 Ry Zareo (?) : 📃 ARCHIVISTE - H/F 📍 Lieu : Ampasimazava - #TOAMASINA 👉 Mission principale : col
+2026-10-15T21:30:47:       tél : 0320331525 | images : 1/1 enregistrée(s)
+2026-10-15T21:30:51:   + #6 Tolotrasa Madagascar 2026 (?) : Manaiky sy mino ve ianao raha ilazako fa ianao mamaky io no ho reharehan'ny fian
+2026-10-15T21:30:51:   + #7 Shop Ntsika (?) : 🔥💡 VAOVAO TONGA! JIRO SOLAIRE VINTAGE 💡🔥 ✨ Mitady jiro tsara tarehy sy manazava 
+2026-10-15T21:30:51:       tél : 0343571699, 0383431814 | images : 5/5 enregistrée(s)
+2026-10-15T21:30:52:   + #8 Bizzina Pro (?) : (sans texte)
+2026-10-15T21:30:52:       images : 1/1 enregistrée(s)
+2026-10-15T21:30:52:   + #9 Toptec Solaire Madagascar (?) : (sans texte)
+2026-10-15T21:30:58:   + #10 Hally s Homesourcing (?) : RECRUTEMENT 🚀 Vous avez le sens du contact, mais personne ne vous a encore donné
+2026-10-15T21:30:58:       images : 1/1 enregistrée(s)
+2026-10-15T21:30:59:   + #11 Tulear Hoteltulear (?) : 🌴 HÔTEL B52 – TULÉAR 🌅 Profitez d’un séjour confortable au cœur de Tuléar ! 🏨 No
+2026-10-15T21:30:59:       tél : 0385305252 | images : 5/5 enregistrée(s)
+2026-10-15T21:30:59:   + #12 Tolotrasa Madagascar 2026 (?) : IROTSAKA AMINAO IREO FAHASOAVANA REHETRA MANOMBOKA IZAO HAVAKO
+2026-10-15T21:30:59:   + #13 Call center pro (?) : (sans texte)
+2026-10-15T21:30:59:       images : 1/1 enregistrée(s)
+2026-10-15T21:30:59:   + #14 FPRC Madagascar (?) : 🔴Aza Varina Mitady asa intsony Andao ampiasa vola,Manana 50 000ariary ve ianao? 
+2026-10-15T21:31:00:   + #15 Elysa myh (?) : 🚨 TOLOTR'ASA | RECRUTEMENT 🚨 📢 Mitady Assistant(e)s Commercial sy Agent Prospect
+2026-10-15T21:31:00:       images : 1/1 enregistrée(s)
+2026-10-15T21:31:11:   + #16 Shakil Ahmed (?) : Mandray Tanora Maniry Te-hiasa @ CALL CENTER Formation 2 semaine miasa aveo Kara
+2026-10-15T21:31:11:       tél : 0340270045
+2026-10-15T21:31:11:   + #17 Lilian Merelle (?) : ALERTE RECRUTEMENT 🚨 CHARGÉ(E) DE RECRUTEMENT INTERNATIONAUX
+2026-10-15T21:31:11:       images : 1/1 enregistrée(s)
+2026-10-15T21:31:12:   + #18 Mizara Asa (?) : Ataovy fitaovana hanatsarana fahaizana-manao iny finday ampelantananao iny. ✅Asa
+2026-10-15T21:31:12:       images : 1/1 enregistrée(s)
+2026-10-15T21:31:12:   + #19 Mizara Asa (?) : Ataovy fitaovana hanatsarana fahaizana-manao iny finday ampelantananao iny. ✅Asa
+2026-10-15T21:31:12:       images : 1/1 enregistrée(s)
+2026-10-15T21:31:13:   + #20 Tolotra azo antoka (?) : Fanampiana no ataoko matoa zah mampindrambola . ary mbola mampindrana aho anio .
+2026-10-15T21:31:13:       images : 2/2 enregistrée(s)
+2026-10-15T21:31:13:   + #21 WIPwork (?) : 🚨 BOOSTEZ VOTRE CARRIÈRE DANS LE DIGITAL ! 💼⚡ Plusieurs de nos entreprises parte
+2026-10-15T21:31:13:       images : 2/2 enregistrée(s)
+2026-10-15T21:31:21:   + #22 Randrianarison Roddin (?) : Misy compte tinao ho entina ve nefa tsy fantatra ny mot de pass ohatra compte va
+2026-10-15T21:31:22:   + #23 call center pro (?) : (sans texte)
+2026-10-15T21:31:22:       images : 1/1 enregistrée(s)
+2026-10-15T21:31:22:   + #24 Andrianantenaina Mamisoa Ondilan (?) : Salama Daholo oh....!!! Hoan'tsika mbola tsy nahazo ny ONDULEUR STABILISATEUR IN
+2026-10-15T21:31:22:       images : 1/1 enregistrée(s)
+2026-10-15T21:31:23:   + #25 Digitalisation - secteur restauration (?) : 📢 OFFRE DE RECRUTEMENT — 25 COMMERCIAUX SUR TERRAIN ! 🚀 Tu es dynamique, motivé(
+2026-10-15T21:31:23:       tél : 0345235882 | email : fidy.harimamy@gmail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:31:28:   + #26 Tulear Hoteltulear (?) : 🌴🏨 HÔTEL B52 – TULÉAR TSIMIRORO 🌊 ✨ Votre confort, notre priorité ! ✨ 📍 Situé au
+2026-10-15T21:31:28:       tél : 0385305252 | images : 5/5 enregistrée(s)
+2026-10-15T21:31:28:   + #27 Sadiah Fanantenana (?) : 📯 Mitady Tanora Vonona hiasa @ CALL CENTER eto TANA Formation 2 semaine miasa av
+2026-10-15T21:31:28:       tél : 0349435194
+2026-10-15T21:31:29:   + #28 Shakil Ahmed (?) : Mandray Tanora Maniry Te-hiasa @ CALL CENTER Formation 2 semaine miasa aveo Kara
+2026-10-15T21:31:29:       tél : 0340270045
+2026-10-15T21:31:29:   + #29 Rec Mad Papier (?) : Salama tompoko!izahay dia mividy taratasy tsy miasa intsony,Papier A4,cahier lan
+2026-10-15T21:31:29:   + #30 Hwang Antananarivo (?) : 🚀 K-Blind Recrute ! 🚀 Nous sommes à la recherche d’une Commerciale (F) dynamique
+2026-10-15T21:31:29:       email : kblindstore@gmail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:31:30:   + #31 Vidange Fosse Wc Mora (?) : 🚨🆘📢STOP OLANA 🚾🚫🚫 MISY OLANA amin' 🚾 ianaooo??? 🔴m'fuite,m'deborde na ko mamofon
+2026-10-15T21:31:30:       tél : 0348846477 | images : 4/4 enregistrée(s)
+2026-10-15T21:31:35:   + #32 E-Anatra Business (?) : 🔔Misy vonona hi ASA vé⁉️ 📂Formation 2 semaines miasa avy atrany✍️ 💵Karama 30000 
+2026-10-15T21:31:35:       tél : 0337673756
+2026-10-15T21:31:36:   + #33 Sandrinah Lantonirina (?) : 🚀 **ENVIE DE RÉUSSIR AVEC POPPOLIVE ? 💻📱** 🌟 Vous cherchez une opportunité de tr
+2026-10-15T21:31:36:       images : 3/3 enregistrée(s)
+2026-10-15T21:31:37:   + #34 Participant(e) anonyme (?) : http://Moraraha.com
+2026-10-15T21:31:37:   + #35 Talentia (?) : 🚀 ANALYST FINANCE BUSINESS PARTNER 🚀 📍 LIEU : Fort-Dauphin, Madagascar 📄 TYPE DE
+2026-10-15T21:31:37:       tél : 0320300612, 0320331525 | email : sourcing@olo.mg | images : 1/1 enregistrée(s)
+2026-10-15T21:31:44:   + #36 Motivation by Lovasoa (?) : (sans texte)
+2026-10-15T21:31:45:   + #37 Shakil Ahmed (?) : Mandray Tanora Maniry Te-hiasa @ CALL CENTER Formation 2 semaine miasa aveo Kara
+2026-10-15T21:31:45:       tél : 0340270045
+2026-10-15T21:31:46:   + #38 Nivo Harimalala (?) : Nahasoa ahy ity de zaraiko eto Sao mahasoa n'y hafa🥰♥️ Mp n'a 📞 0385346338
+2026-10-15T21:31:46:       tél : 0385346338 | images : 1/1 enregistrée(s)
+2026-10-15T21:31:47:   + #39 Dina Fiarentatsoa (?) : Mandaitra Tsara 🤞🏻☺ Natoraly 100%🌿🍃 Herinandro monja ianao dia mahita vokatra re
+2026-10-15T21:31:47:       tél : 0345598607 | images : 1/1 enregistrée(s)
+2026-10-15T21:31:48:   + #40 Angelïca Raz (?) : Ndao hitady vola 🙂 Ketrika atoroko ampitiavana❤️ 20000ar,30000ar par/j💵 minimum 
+2026-10-15T21:32:02:   + #41 Participant(e) anonyme (?) : MBA mitady asa maika izay mba mahita ,manana bacc,efa nampianatra efa nitantana 
+2026-10-15T21:32:03:   + #42 Jeremie RJ Randrianjafimanana (?) : Ny orinasa Inter-GWH dia mitady consultants collaborateurs. Lahy sy vavy, mihoat
+2026-10-15T21:32:03:       tél : 0382974305
+2026-10-15T21:32:04:   + #43 Maître Pact Satanique Madagascar 666 (?) : SALAMA TOPOKO🤘👿 MARO NY MALAGASY VOAFITAKA RESAKA FIKAMBANANA SATANIKA ITY ETO M
+2026-10-15T21:32:04:       images : 1/1 enregistrée(s)
+2026-10-15T21:32:05:   + #44 Ariary Mutual Aid (?) : Efa firy #millions d'Ariary ny Rubi block voaangonareo 🥳 Vola be amin'ny hoavy, 
+2026-10-15T21:32:05:       images : 1/1 enregistrée(s)
+2026-10-15T21:32:06:   + #45 Shakil Ahmed (?) : Mandray Tanora Maniry Te-hiasa @ CALL CENTER Formation 2 semaine miasa aveo Kara
+2026-10-15T21:32:06:       tél : 0340270045
+2026-10-15T21:32:07:   + #46 Rivomanato Filohaina (?) : Raha resy lahatra ianao dia misoratà anarana na tongava mialoha amin'ny 17 oktob
+2026-10-15T21:32:13:   + #47 IDEF Consulting (?) : ✨ MASTERCLASS organisée par IDEF Consulting . ✨Aza variana fa ataovy ny fisorata
+2026-10-15T21:32:14:   + #48 Sadiah Fanantenana (?) : 📯 Mitady Tanora Vonona hiasa @ CALL CENTER eto TANA Formation 2 semaine miasa av
+2026-10-15T21:32:14:       tél : 0349435194
+2026-10-15T21:32:14:   + #49 TFI Madagascar (?) : TSY NY CENTRE DE FORMATION IHANY NO AFAKA MANAMPY ANAO. Misy ihany koa ny cours 
+2026-10-15T21:32:14:       images : 1/1 enregistrée(s)
+2026-10-15T21:32:15:   + #50 Ravaka Nomena Andriahiarimalala (?) : (sans texte)
+2026-10-15T21:32:15:       images : 1/1 enregistrée(s)
+2026-10-15T21:32:16:   + #51 Ravaka Nomena Andriahiarimalala (?) : (sans texte)
+2026-10-15T21:32:16:       images : 1/1 enregistrée(s)
+2026-10-15T21:32:22:   + #52 Conseiller client (?) : 🚨 TOLOTR'ASA | RECRUTEMENT 🚨 📢 Mitady Assistant(e)s Commercial sy Agent Prospect
+2026-10-15T21:32:22:       images : 1/1 enregistrée(s)
+2026-10-15T21:32:23:   + #53 Ry Zareo (?) : [Source: ECE - Entreprise de Construction et d'Études ] ECE RECRUTE : ASSISTANT(
+2026-10-15T21:32:23:       email : recrutement@ece.mg | images : 1/1 enregistrée(s)
+2026-10-15T21:32:24:   + #54 Sarobidy Tsioritiana (?) : (sans texte)
+2026-10-15T21:32:24:       images : 1/1 enregistrée(s)
+2026-10-15T21:32:24:   + #55 𝗪𝗶𝗙𝗶 à 𝗗𝗼𝗺𝗶𝗰𝗶𝗹𝗲 (?) : 🎉𝗣𝗥𝗢𝗠𝗢𝗧𝗜𝗢𝗡 𝗪𝗶𝗙𝗶 à 𝗗𝗼𝗺𝗶𝗰𝗶𝗹𝗲 ✅𝗜𝗻𝘀𝘁𝗮𝗹𝗹𝗮𝘁𝗶𝗼𝗻&𝗠𝗮𝘁é𝗿𝗶𝗲𝗹𝘀 𝗚𝗿𝗮𝘁𝘂𝗶𝘁𝘀 💬𝗠𝗽 𝗻𝗮 𝗠𝗶𝗮𝗻𝘁𝘀𝗼 : 𝟬𝟯𝟴
+2026-10-15T21:32:24:       tél : 0383064555, +261383064555 | images : 1/1 enregistrée(s)
+2026-10-15T21:32:24:   + #56 IDEF Consulting (?) : ✨ MASTERCLASS organisée par IDEF Consulting . ✨Aza variana fa ataovy ny fisorata
+2026-10-15T21:32:31:   + #57 D.G. Conseil (?) : ⭐ Le PAM Madagascar recrute ! ⭐ Rejoignez notre équipe pour #Sauverdesvies et #C
+2026-10-15T21:32:31:       images : 1/1 enregistrée(s)
+2026-10-15T21:32:39:   + #58 Tolotr'asa sy stage ho An'i Tanora (?) : opportunités d'emploi le 14/10/2026
+2026-10-15T21:32:39:       images : 5/5 enregistrée(s)
+2026-10-15T21:32:41:   + #59 IDEF Consulting (?) : Telo andro sisa dia ho avy ny fiofanana hataontsika. Isaorana isika izay efa nis
+2026-10-15T21:32:41:       images : 1/1 enregistrée(s)
+2026-10-15T21:32:50:   + #60 Recrute.mu (?) : 💼 Vous cherchez un nouveau défi professionnel ? Nous avons une super opportunité
+2026-10-15T21:32:53:   + #61 Shakil Ahmed (?) : #TOLOTR_ASA_CALL_CENTER #FANDRAISANA_VAGUE_VAOVAO #MANDRAY_TANORA_VONONA_SY_MANI
+2026-10-15T21:32:53:       tél : 0340270045 | images : 1/1 enregistrée(s)
+2026-10-15T21:32:54:   + #62 Tsila RJ (?) : Salama e misy ankizy lahy 19 Taona avy any fianaratsoa ato amiko mitady asa kila
+2026-10-15T21:32:55:   + #63 MfR Model Coaching (?) : 🎆✨Aza Misalasala Misoratra Anarana o📩 RAHA LIANA NY HAMPITOMBO FAHALALANA SY IDI
+2026-10-15T21:32:55:       images : 1/1 enregistrée(s)
+2026-10-15T21:32:56:   + #64 Participant(e) anonyme (?) : bonjour, mitady mpampanao formation resaka varotra reto zäh ah, fampianarana mom
+2026-10-15T21:32:56:       images : 1/1 enregistrée(s)
+2026-10-15T21:33:06:   + #65 Rindra Hubert (?) : (sans texte)
+2026-10-15T21:33:06:   + #66 Dina Fiarentatsoa (?) : Andao indray aloha hiara-dalana @ity huile BIO HAREA ity raha te hanana volo lav
+2026-10-15T21:33:06:       tél : 0345598607 | images : 1/1 enregistrée(s)
+2026-10-15T21:33:07:   + #67 Inspnmad Antsiranana (?) : INSCRIPTIONS ET RÉINSCRIPTIONS OUVERTES !🎉 L'Institut Supérieur Privé Novateurs 
+2026-10-15T21:33:07:       tél : 0321706229, 0322555685 | images : 2/2 enregistrée(s)
+2026-10-15T21:33:07:   + #68 Sitrakin'Ny Avo (?) : (sans texte)
+2026-10-15T21:33:07:       images : 1/1 enregistrée(s)
+2026-10-15T21:33:11:   + #69 Chez tsanta (?) : 💼 OFFRE D'EMPLOI – COMMERCIAL(E) SUR TERRAIN 📣 Mitady asa ve ianao? Misy fahafah
+2026-10-15T21:33:11:       tél : 0342734877, 0328446021 | images : 1/1 enregistrée(s)
+2026-10-15T21:33:13:   + #70 Ry Zareo (?) : 📢 RECRUTEMENT À TAMATAVE ! La société VITAFOAM MADAGASCAR recrute 1 COMMERCIAL(E
+2026-10-15T21:33:13:       email : vitafoam.recrutement@vitafoammadagascar.com | images : 1/1 enregistrée(s)
+2026-10-15T21:33:14:   + #71 Yardi Romi (?) : Mitady findramambola hanatanterahana projet na tetikasa tinao atao vé ianao? 📌 F
+2026-10-15T21:33:14:       images : 4/4 enregistrée(s)
+2026-10-15T21:33:15:   + #72 Assist Educ (?) : 📢 📢 📢 KELY SISA ! KELY SISA ! Ho anao manomana fanadinana EFA KELY SISA ! 🎓 Cour
+2026-10-15T21:33:15:       tél : 0382870036 | images : 1/1 enregistrée(s)
+2026-10-15T21:33:23:   + #73 Hosea Rabe (?) : Société SERVEX (ANKARAOBATO - TANJOMBATO): Pour étoffer notre équipe, nous recru
+2026-10-15T21:33:23:       tél : +261344175177, +261343792587 | email : assistancecomptabilitemg@gmail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:33:23:   + #74 Aina Mirah (?) : Sode Misy Liana hanao formation Resaka importation avy any Ivelany?☺️ Tongava Mp
+2026-10-15T21:33:23:   + #75 Participant(e) anonyme (?) : Ingénieur d'études Une entreprise du secteur BTP basée à Anosimasina Itaosy recr
+2026-10-15T21:33:23:       tél : 0374922886
+2026-10-15T21:33:24:   + #76 Agence nounou Madagascar (?) : 🏡 𝟭𝟲 𝙋𝙍𝙊𝙁𝙄𝙇𝙎 𝘿𝙄𝙎𝙋𝙊𝙉𝙄𝘽𝙇𝙀𝙎 𝙀𝙉 𝙄𝙉𝙏𝙀𝙍𝙉𝙀 — 𝙋𝙍𝙀̂𝙏𝙎 𝘼̀ 𝙍𝙀𝙅𝙊𝙄𝙉𝘿𝙍𝙀 𝙑𝙊𝙏𝙍𝙀 𝙁𝙊𝙔𝙀𝙍 Vous reche
+2026-10-15T21:33:24:       tél : 0324095483 | images : 5/5 enregistrée(s)
+2026-10-15T21:33:25:   + #77 Romarick Fbs (?) : 🎧 SERVICE TRANSCRIPTION PRO - AUDIO → TEXTE 📝 Salama daholo! Manolotra serivisy 
+2026-10-15T21:33:25:       tél : 0327468540
+2026-10-15T21:33:26:   + #78 Mahafinaritra page (?) : ✨ Manaiky izay lazainao ny olona Mandaitra eo no eo, tsy mampivoak'alina ary iza
+2026-10-15T21:33:26:       images : 1/1 enregistrée(s)
+2026-10-15T21:33:34:   + #79 Chez tsanta (?) : Tokony ho fantatrao iany 🥰 Tsy voatery ho tantarainao @olona rehetra drafitrao M
+2026-10-15T21:33:34:       images : 1/1 enregistrée(s)
+2026-10-15T21:33:36:   + #80 ohappydeal.mg (?) : Androany no andro farany andraisana CV an’ireo hiditra livreur Rahampitso izahay
+2026-10-15T21:33:37:   + #81 Haingo Tina (?) : LEHILAHY MITADY ASA ✅Taona: 24ans ✅Fiaviany: Fianarantsoa ✅Tsy misy aretina mita
+2026-10-15T21:33:37:       tél : 0343559135, 0387134614 | images : 1/1 enregistrée(s)
+2026-10-15T21:33:48:   5 publication(s) de plus de 15 jours d'affilée - fin des publications récentes
+2026-10-15T21:33:48: Lecture du texte des images (OCR) : 52 publication(s)...
+2026-10-15T21:35:59:   ... 25/52
+2026-10-15T21:37:10:   ... 50/52
+2026-10-15T21:37:12:   [image] Call center pro : 0389237007
+2026-10-15T21:37:12:   [image] Lilian Merelle : recrutement@activsolutionsmadagascar.fr
+2026-10-15T21:37:12:   [image] call center pro : 0389237007
+2026-10-15T21:37:12:   [image] Andrianantenaina Mamisoa Ondilan : 0349093767
+2026-10-15T21:37:12:   [image] Tulear Hoteltulear : htelb52@gmail.com
+2026-10-15T21:37:12:   [image] Sandrinah Lantonirina : 0000220222
+2026-10-15T21:37:12:   [image] Ravaka Nomena Andriahiarimalala : direction@teenketrika.com, 0340717263
+2026-10-15T21:37:12:   [image] Ravaka Nomena Andriahiarimalala : direction@teenketrika.com
+2026-10-15T21:37:12:   [image] Sarobidy Tsioritiana : 0330063338
+2026-10-15T21:37:12:   [image] Tolotr'asa sy stage ho An'i Tanora : rrh@groupeuser.mg
+2026-10-15T21:37:12:   [image] Inspnmad Antsiranana : admin.inspnmad@gmail.com, +261322555685, +261321706229
+2026-10-15T21:37:12:   [image] Agence nounou Madagascar : +261324095483
+2026-10-15T21:37:12: Offres d'emploi : 265 -> C:\Users\Administrator\Desktop\cv_scrappe\downloaded_files\facebook_jobs_984150507256574.json
+2026-10-15T21:37:12:   [VISIONNEUSE] 1410300107974943 : 5/31 photos, récupération des autres
+2026-10-15T21:37:34:   [images] 1410300107974943 : 30/30 (viewer)
+2026-10-15T21:37:35:   [VISIONNEUSE] 1410284524643168 : 5/7 photos, récupération des autres
+2026-10-15T21:37:41:   [images] 1410284524643168 : 6/6 (viewer)
+2026-10-15T21:37:42:   [VISIONNEUSE] 1410256131312674 : 5/41 photos, récupération des autres
+2026-10-15T21:38:23:   [images] 1410256131312674 : 39/39 (viewer)
+2026-10-15T21:38:23:   [VISIONNEUSE] 1409913638013590 : 5/36 photos, récupération des autres
+2026-10-15T21:38:48:   [images] 1409913638013590 : 35/35 (viewer)
+2026-10-15T21:38:48:   [VISIONNEUSE] 1409177018087252 : 5/31 photos, récupération des autres
+2026-10-15T21:39:09:   [images] 1409177018087252 : 30/30 (viewer)
+2026-10-15T21:39:09:   [VISIONNEUSE] 1408913548113599 : 5/17 photos, récupération des autres
+2026-10-15T21:39:22:   [images] 1408913548113599 : 16/16 (viewer)
+2026-10-15T21:39:23:   -> 81 nouvelle(s), 4 déjà connue(s), 15 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-15T21:39:23: 
+2026-10-15T21:39:23: [18/18] Groupe asajobmadagascard
+2026-10-15T21:39:23: Ouverture de https://www.facebook.com/groups/asajobmadagascard/?sorting_setting=CHRONOLOGICAL
+2026-10-15T21:39:26: Groupe : ASA - JOB Madagascar - 186 publication(s) déjà en cache
+2026-10-15T21:39:29:   + #1 SIERRAConsulting (?) : 👉Envoyez-nous votre candidature et donnez un nouvel élan à votre carrière ! 📩 re
+2026-10-15T21:39:29:       email : recrutement.sierraconsulting@gmail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:39:33:   + #2 SIERRAConsulting (?) : 👉 Prêt(e) à relever ce nouveau défi ? Postulez dès maintenant ! 📩 recrutement.si
+2026-10-15T21:39:33:       email : recrutement.sierraconsulting@gmail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:39:33:   + #3 PODToDigital (?) : 🇲🇬 Salama daholo
+2026-10-15T21:39:33:       images : 1/1 enregistrée(s)
+2026-10-15T21:39:33:   + #4 Elite Sourcing (?) : 💳 VOTRE EXPÉRIENCE EN COMPTABILITÉ NOUS INTÉRESSE ! Elite Sourcing recrute un(e)
+2026-10-15T21:39:33:       email : e.sourcing261@gmail.com | images : 1/1 enregistrée(s)
+2026-10-15T21:39:44:   + #5 Julien Rolain (?) : (sans texte)
+2026-10-15T21:39:44:       images : 1/1 enregistrée(s)
+2026-10-15T21:39:49:   + #6 ohappydeal.mg (?) : 📢 RECRUTEMENT LIVREUR 🛵📦 Te hiditra amin'ny sehatry ny asa ve ianao? 👉 Tongava a
+2026-10-15T21:39:49:       tél : 0385131276, 0321887156, 0345389022, 0325954898 | images : 1/1 enregistrée(s)
+2026-10-15T21:41:18:   60 publication(s) déjà connue(s) d'affilée - arrêt du groupe
+2026-10-15T21:41:18: Lecture du texte des images (OCR) : 6 publication(s)...
+2026-10-15T21:41:49: Offres d'emploi : 133 -> C:\Users\Administrator\Desktop\cv_scrappe\downloaded_files\facebook_jobs_asajobmadagascard.json
+2026-10-15T21:41:50:   -> 6 nouvelle(s), 71 déjà connue(s), 9 trop ancienne(s) (> 15 j) ignorée(s), 0 sans permalien
+2026-10-15T21:41:53: 
+2026-10-15T21:41:53: IA : modèle gpt-4o-mini, clé sk-s…mBIA
+2026-10-15T21:41:53: 
+2026-10-15T21:41:53: Analyse IA - Tolotr'asa sy stage ho An'i Tanora : 1 publication(s)
+2026-10-15T21:43:19:   + pfbid0rdkySW8Qx4KABj8G3wG95RTL… [job_offer] images jointes 0, texte OCR seul 24, écartées 4 | tokens 13244 -> entreprises : LCS, Oui-Call, Groupe Metropole by WAKA, JOBA, Société Malagasy Mutualiste d'Epargne et de Crédit (SMMEC), Assistance Plus, MADAJOB, Human Key, Viseo, JobMada, ABL Outsourcing, Ravinala Airports | offres : 40
+2026-10-15T21:43:20: 
+2026-10-15T21:43:20: Analyse IA - Société ASG : 4 publication(s)
+2026-10-15T21:43:20:   [SANS EMAIL] 4 publication(s) sans aucun email (texte ni OCR des images) : pas envoyée(s) à l'IA, 0 token (--no-email-filter pour les analyser quand même)
+2026-10-15T21:43:20: 
+2026-10-15T21:43:20: [ANCIENNES] 57 publication(s) de plus de 15 jours non analysée(s)
+2026-10-15T21:43:20: 
+2026-10-15T21:43:20: Analyse IA - Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence : 32 publication(s)
+2026-10-15T21:43:26:   + pfbid0XVxyNzWerfP4BvD6EEaTF2wg… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2597 -> entreprises : Human Talent Consulting | offres : 1
+2026-10-15T21:43:31:   + pfbid0NKtpMbSfqmtxHCVKnRYZ5Cec… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2650 -> entreprises : Elite Sourcing | offres : 1
+2026-10-15T21:43:36:   + pfbid0A6MaqdHpPGuuMoRV9vy6rPeA… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2507 -> entreprises : Epsilon | offres : 1
+2026-10-15T21:43:40:   + pfbid0iM1tLMnWGMjiFCg7LNfsThZU… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2427 -> entreprises : LCS | offres : 1
+2026-10-15T21:43:46:   + pfbid02Y6appnDwstr6RTG6GsU9zLr… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2700 -> entreprises : Elite Sourcing | offres : 1
+2026-10-15T21:43:50:   + pfbid0o8JPGw4HQ3PDgLynrfHVPCWs… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2358 -> entreprises : Human Key | offres : 1
+2026-10-15T21:43:56:   + pfbid0LiC5uht3JMuFuJEaijRiahVz… [job_offer] images jointes 0, texte OCR seul 0, écartées 0 | tokens 2650 -> entreprises : IFRA - Établissement Financier | offres : 1
+2026-10-15T21:44:01:   + pfbid0227JbiKxLWFvr7YwcmcTcATm… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2655 -> entreprises : LCS | offres : 1
+2026-10-15T21:44:06:   + pfbid0CY13mipcKNDd5RC9gjzGT18X… [job_offer] images jointes 0, texte OCR seul 1, écartées 1 | tokens 2875 -> entreprises : PPSPAS | offres : 1
+2026-10-15T21:44:11:   + pfbid022vbJU5kkVEif9y8HgPVHvJJ… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2591 -> entreprises : MADAJOB | offres : 1
+2026-10-15T21:44:19:   + pfbid06EUXXPiw4iAh7hz48EPAGN8C… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2928 -> entreprises : TFM | offres : 1
+2026-10-15T21:44:25:   + pfbid0qrSHaPuwg9bx3XNv7ALfoChK… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 3506 -> entreprises : Deutsche Welthungerhilfe e.V. (WHH) | offres : 1
+2026-10-15T21:44:31:   + pfbid02aEyVGrWM8fWxmbXF5zTNsoT… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2739 -> entreprises : SETEX | offres : 1
+2026-10-15T21:44:36:   + pfbid0TzwikETd27ujYJUtq4UsnoCG… [job_offer] images jointes 0, texte OCR seul 0, écartées 0 | tokens 2454 -> entreprises : iSCALE | offres : 1
+2026-10-15T21:44:42:   + pfbid02yq3qfg56pHkuFA5XFBPzFqe… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2351 -> entreprises : Human Key | offres : 1
+2026-10-15T21:44:42:   + pfbid02hoTDoL8NhGY5c7gUor8XssG… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2231 -> entreprises : Copilotas | offres : 1
+2026-10-15T21:44:47:   + pfbid02spERZ7oqmPAhu2oEcy9AZnG… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2538 -> entreprises : Opti-Serv | offres : 1
+2026-10-15T21:44:52:   + pfbid02eMAMAsaoubPXTNCCVNcpWNu… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2544 -> entreprises : Activ Solutions | offres : 1
+2026-10-15T21:44:52:   [SANS EMAIL] 14 publication(s) sans aucun email (texte ni OCR des images) : pas envoyée(s) à l'IA, 0 token (--no-email-filter pour les analyser quand même)
+2026-10-15T21:44:52: 
+2026-10-15T21:44:52: Analyse IA - LCS RH : 5 publication(s)
+2026-10-15T21:45:00:   + pfbid02Hf3yXkoS47dDS3U9kBVfZzK… [job_offer] images jointes 0, texte OCR seul 2, écartées 0 | tokens 3191 -> entreprises : LCS RH | offres : 2
+2026-10-15T21:45:06:   + pfbid0ExZ9SZAZ8STQDnHNajeeV1Va… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2560 -> entreprises : LCS RH | offres : 1
+2026-10-15T21:45:11:   + pfbid02yKiWNXH8YeyukniHdCFE6po… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2548 -> entreprises : LCS RH | offres : 1
+2026-10-15T21:45:17:   + pfbid0wt8Kt6wCUZUicExAXiwcnCFq… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2579 -> entreprises : LCS RH | offres : 1
+2026-10-15T21:45:17:   [SANS EMAIL] 1 publication(s) sans aucun email (texte ni OCR des images) : pas envoyée(s) à l'IA, 0 token (--no-email-filter pour les analyser quand même)
+2026-10-15T21:45:18:   Chargement du moteur OCR (RapidOCR / onnxruntime)...
+2026-10-15T21:45:18:   OCR des images : 33 image(s) dans 3 publication(s) (~0,5 à 2 s par image)...
+2026-10-15T21:45:28:     [1/3] 8 image(s) en 10s - total 8/33
+2026-10-15T21:45:44:     [2/3] 9 image(s) en 16s - total 17/33
+2026-10-15T21:46:13:     [3/3] 16 image(s) en 29s - total 33/33
+2026-10-15T21:46:13: 
+2026-10-15T21:46:13: [DOUBLON] 352 publication(s) déjà connue(s) sous un autre pfbid : jamais envoyée(s) à l'IA
+2026-10-15T21:46:13: 
+2026-10-15T21:46:13: Analyse IA - Recrutement/emploi/stage/formation/Madagascar : 44 publication(s)
+2026-10-15T21:46:16:   + 4135812346722835… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 1851 -> entreprises : ACTIV SOLUTIONS | offres : 1
+2026-10-15T21:46:21:   + 4135644463406290… [job_offer] images jointes 0, texte OCR seul 0, écartées 0 | tokens 1906 -> entreprises : Anandyservice | offres : 1
+2026-10-15T21:46:26:   + 4135562316747838… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2126 -> entreprises : Ifaty Beach Club | offres : 1
+2026-10-15T21:46:30:   + 4135047066799363… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2142 -> entreprises : EKL Export | offres : 1
+2026-10-15T21:46:37:   + 4134838143486922… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2347 -> entreprises : UACEEM | offres : 2
+2026-10-15T21:46:41:   + 4133928416911228… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2492 -> entreprises : LCS | offres : 1
+2026-10-15T21:46:41:   [HORS SUJET] 29 publication(s) de groupe sans mot-clé d'offre : pas envoyée(s) à l'IA, 0 token (--no-job-filter pour les analyser quand même)
+2026-10-15T21:46:41:   [SANS EMAIL] 9 publication(s) sans aucun email (texte ni OCR des images) : pas envoyée(s) à l'IA, 0 token (--no-email-filter pour les analyser quand même)
+2026-10-15T21:46:42: 
+2026-10-15T21:46:42: [DOUBLON] 51 publication(s) déjà connue(s) sous un autre pfbid : jamais envoyée(s) à l'IA
+2026-10-15T21:46:42: 
+2026-10-15T21:46:42: Analyse IA - Recrutement, offre d'emploi, Madagascar : 20 publication(s)
+2026-10-15T21:46:47:   + 1451369030257040… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2355 -> entreprises : SIERRA Consulting | offres : 1
+2026-10-15T21:46:53:   + 1450500437010566… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2184 -> entreprises : ABiochem | offres : 1
+2026-10-15T21:46:59:   + 1450237337036876… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2426 -> entreprises : TLT | offres : 1
+2026-10-15T21:46:59:   + 1450096087051001… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2189 -> entreprises : Secret Garden | offres : 1
+2026-10-15T21:47:04:   + 1450519373675339… [job_offer] images jointes 0, texte OCR seul 0, écartées 0 | tokens 2146 -> entreprises : VIRTUEASE | offres : 1
+2026-10-15T21:47:09:   + 1450511243676152… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2098 -> entreprises : HIT PROJECT | offres : 1
+2026-10-15T21:47:13:   + 1451046633622613… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2312 -> entreprises : Kentia-RH SA | offres : 1
+2026-10-15T21:47:21:   + 1450932813633995… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2106 -> entreprises : Votre talent | offres : 1
+2026-10-15T21:47:26:   + 1450851590308784… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2805 -> entreprises : Madagascar Télétravail | offres : 1
+2026-10-15T21:47:26:   [HORS SUJET] 3 publication(s) de groupe sans mot-clé d'offre : pas envoyée(s) à l'IA, 0 token (--no-job-filter pour les analyser quand même)
+2026-10-15T21:47:26:   [SANS EMAIL] 8 publication(s) sans aucun email (texte ni OCR des images) : pas envoyée(s) à l'IA, 0 token (--no-email-filter pour les analyser quand même)
+2026-10-15T21:47:26: 
+2026-10-15T21:47:26: [DOUBLON] 21 publication(s) déjà connue(s) sous un autre pfbid : jamais envoyée(s) à l'IA
+2026-10-15T21:47:26: 
+2026-10-15T21:47:26: Analyse IA - Recrutement, offre d'emploi, Madagascar : 20 publication(s)
+2026-10-15T21:47:31:   + 1451369030257040… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2347 -> entreprises : SIERRA Consulting | offres : 1
+2026-10-15T21:47:37:   + 1450237337036876… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2418 -> entreprises : TLT | offres : 1
+2026-10-15T21:47:42:   + 1451086636951946… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2178 -> entreprises : Charis Company | offres : 1
+2026-10-15T21:47:42:   + 1450096087051001… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2181 -> entreprises : Secret Garden | offres : 1
+2026-10-15T21:47:47:   + 1450351917025418… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2477 -> entreprises : Olo | offres : 1
+2026-10-15T21:47:53:   + 1450497353677541… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2212 -> entreprises : ABiochem | offres : 1
+2026-10-15T21:47:54:   + 1450964820297461… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 1967 -> entreprises : Agence de voyage | offres : 1
+2026-10-15T21:47:58:   + 1450932813633995… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2098 -> entreprises : NOUS | offres : 1
+2026-10-15T21:48:02:   + 1450851590308784… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2797 -> entreprises : Madagascar Télétravail | offres : 1
+2026-10-15T21:48:07:   + 1449379747122635… [job_offer] images jointes 0, texte OCR seul 0, écartées 0 | tokens 2160 -> entreprises : iSCALE | offres : 1
+2026-10-15T21:48:11:   + 1449290773798199… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2011 -> entreprises : Data Outsourcing | offres : 1
+2026-10-15T21:48:11:   [HORS SUJET] 3 publication(s) de groupe sans mot-clé d'offre : pas envoyée(s) à l'IA, 0 token (--no-job-filter pour les analyser quand même)
+2026-10-15T21:48:11:   [SANS EMAIL] 6 publication(s) sans aucun email (texte ni OCR des images) : pas envoyée(s) à l'IA, 0 token (--no-email-filter pour les analyser quand même)
+2026-10-15T21:48:11: 
+2026-10-15T21:48:11: [DOUBLON] 48 publication(s) déjà connue(s) sous un autre pfbid : jamais envoyée(s) à l'IA
+2026-10-15T21:48:11: 
+2026-10-15T21:48:11: Analyse IA - TOLOTRA ASA ANTANANARIVO : 1 publication(s)
+2026-10-15T21:48:11:   [HORS SUJET] 1 publication(s) de groupe sans mot-clé d'offre : pas envoyée(s) à l'IA, 0 token (--no-job-filter pour les analyser quand même)
+2026-10-15T21:48:12:   Chargement du moteur OCR (RapidOCR / onnxruntime)...
+2026-10-15T21:48:12:   OCR des images : 156 image(s) dans 6 publication(s) (~0,5 à 2 s par image)...
+2026-10-15T21:49:10:     [1/6] 30 image(s) en 59s - total 30/156
+2026-10-15T21:49:16:     [2/6] 6 image(s) en 6s - total 36/156
+2026-10-15T21:50:08:     [3/6] 39 image(s) en 52s - total 75/156
+2026-10-15T21:50:53:     [4/6] 35 image(s) en 45s - total 110/156
+2026-10-15T21:52:27:     [5/6] 30 image(s) en 94s - total 140/156
+2026-10-15T21:52:48:     [6/6] 16 image(s) en 21s - total 156/156
+2026-10-15T21:52:48: 
+2026-10-15T21:52:48: [ANCIENNES] 2 publication(s) de plus de 15 jours non analysée(s)
+2026-10-15T21:52:48: 
+2026-10-15T21:52:48: [DOUBLON] 147 publication(s) déjà connue(s) sous un autre pfbid : jamais envoyée(s) à l'IA
+2026-10-15T21:52:48: 
+2026-10-15T21:52:48: Analyse IA - OFFRE ET DEMANDE D'EMPLOI ETO MADAGASCAR : 67 publication(s)
+2026-10-15T21:52:53:   + 1410308977974056… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2178 -> entreprises : LCS | offres : 1
+2026-10-15T21:52:56:   + 1410032214668399… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 1852 -> entreprises : ACTIV SOLUTIONS | offres : 1
+2026-10-15T21:53:00:   + 1409939894677631… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2191 -> entreprises : OptiResto LGR Pro 1.3 | offres : 1
+2026-10-15T21:53:03:   + 1409883208016633… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 1968 -> entreprises : K-Blind | offres : 1
+2026-10-15T21:53:10:   + 1409831628021791… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2577 -> entreprises : Talentia | offres : 1
+2026-10-15T21:53:13:   + 1409302264741394… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 1958 -> entreprises : Teen'Ketrika | offres : 1
+2026-10-15T21:53:16:   + 1409302058074748… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 1846 -> entreprises : Teen'Ketrika | offres : 1
+2026-10-15T21:53:21:   + 1409247268080227… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2162 -> entreprises : ECE - Entreprise de Construction et d'Études | offres : 1
+2026-10-15T21:54:19:   + 1409177018087252… [job_offer] images jointes 0, texte OCR seul 23, écartées 7 | tokens 11718 -> entreprises : Groupe User, Noveco, Futurmap, Jobmada, Baobab, LCS, BRED Madagascar | offres : 22
+2026-10-15T21:54:26:   + 1408932408111713… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2153 -> entreprises : VITAFOAM MADAGASCAR | offres : 1
+2026-10-15T21:54:31:   + 1408925288112425… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2337 -> entreprises : SERVEX | offres : 1
+2026-10-15T21:54:31:   [HORS SUJET] 41 publication(s) de groupe sans mot-clé d'offre : pas envoyée(s) à l'IA, 0 token (--no-job-filter pour les analyser quand même)
+2026-10-15T21:54:31:   [SANS EMAIL] 15 publication(s) sans aucun email (texte ni OCR des images) : pas envoyée(s) à l'IA, 0 token (--no-email-filter pour les analyser quand même)
+2026-10-15T21:54:31: 
+2026-10-15T21:54:31: [DOUBLON] 7 publication(s) déjà connue(s) sous un autre pfbid : jamais envoyée(s) à l'IA
+2026-10-15T21:54:31: 
+2026-10-15T21:54:31: Analyse IA - ASA - JOB Madagascar : 5 publication(s)
+2026-10-15T21:54:37:   + 1421201272848268… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2343 -> entreprises : SIERRA Consulting | offres : 1
+2026-10-15T21:54:43:   + 1420947192873676… [job_offer] images jointes 0, texte OCR seul 1, écartées 0 | tokens 2238 -> entreprises : Elite Sourcing | offres : 1
+2026-10-15T21:54:43:   [HORS SUJET] 1 publication(s) de groupe sans mot-clé d'offre : pas envoyée(s) à l'IA, 0 token (--no-job-filter pour les analyser quand même)
+2026-10-15T21:54:43:   [SANS EMAIL] 2 publication(s) sans aucun email (texte ni OCR des images) : pas envoyée(s) à l'IA, 0 token (--no-email-filter pour les analyser quand même)
+2026-10-15T21:54:43: 
+2026-10-15T21:54:43: IA : 200713 tokens consommés par les nouveaux appels de ce lancement
+2026-10-15T21:54:47: 
+2026-10-15T21:54:47: Images : 404 fichier(s) supprimé(s) du disque (45.3 Mo libérés), analyse terminée (--keep-images pour les garder)
+2026-10-15T21:54:53: 
+2026-10-15T21:54:53: Consolidation Madagascar : 2212 publication(s), 2454 mention(s) d'entreprise -> 652 entreprise(s) (418 regroupée(s)), 1936 offre(s) (1183 republication(s) regroupée(s)), 140 contact(s) partagé(s) ignoré(s)
+2026-10-15T21:54:53:   -> C:\Users\Administrator\Desktop\cv_scrappe\downloaded_files\facebook_pages
+2026-10-15T21:54:53:   liste d'exclusion / IA : 216 entreprise(s) et 980 offre(s) écartée(s)
+2026-10-15T21:54:53:     liste nommée : AFG Bank Madagascar, Asa/Emploi/Job by Solofoharimanana Nantenaina Juvence, EUROP'ALU, Groupe NP AKADIN, MADAJOB, MINISTERE DE LA FANAJARIANA NY TANY SY NY RAHARAHAN-TANY, MVola, Madajob-RH, MiASA (Ministère de l'Agriculture et de la Souveraineté Alimentaire), Ministère de l'Agriculture et de la Souveraineté Alimentaire, Ministère de l'Agriculture et de la Souveraineté Alimentaire (MiASA), Ministère de la Jeunesse et des Sports, Ministère de l’Environnement et du Développement Durable, Olona Talents, PAMF
+2026-10-15T21:54:53:     portails/agences relais (IA) : 261 Job, A.L Human, AGENCE-UPWORK, ASA - JOB Madagascar, ASSIST PRO MG, Asa Ho Anao, Buroservices Madagascar, CRM, Centre d'Accompagnement et d'Encadrement Métiers, Elite Sourcing, Elitesourcing, FLORAMAD, Fandresena Recrutement, Fani'RH, Fehikanto, Fitia RH, Her'tiana Ralalaniaina, Human Key, IN-NOVA, IrayDia, JobMada, Kentia-RH SA, Kentsie Laou Tseng, LCS, Lifervl Recrutement, My Career, N/A, Naina Ramarosata, Natacha Ramananjoelina, Non spécifié, OFFRE ET DEMANDE D'EMPLOI ETO MADAGASCAR, Offre d'emploi Madagascar, OpportuniX, RECRUTEMENT DES COMMERCIAUX A TANA, Rdb Danielo Maïden, Recru Job, Recrutement BTP, Recrutement Externe, Recrutement RH, Recrutement Tanà, Recrutement, offre d'emploi, Madagascar, Recrutement/emploi/stage/formation/Madagascar, SOCIÉTÉ RECRUTEMENT, Shop Shobs, Sourcing Corporation, TOLOTRA ASA ANTANANARIVO, Talent Madagascar, TalentaRh.MG, Tanatech Group, Technoalarme, Tina Fashion, Tolotr'asa, Tolotr'asa sy stage ho An'i Tanora, Votre talent, recrutement, san.recrutement@gmail.com, speed.embauche@gmail.com
+2026-10-15T21:54:53:     ONG/organisations internationales/institutions (IA) : A2DM — Association d'Appui au Développement de Madagascar, ABCD Centre, ADES Madagascar, ADRA Madagascar, APDRA, ARTEC, ASSOCIATION MAHAVOTSE, AVSF, Action Intercoopération Madagascar, Action Intercoopération Madagascar (AIM), Agence Routière, Association FANJIRY, Association KOLOAINA, Association Manampy Mahatony, Association Écoles du Monde, Aéroports de Madagascar (ADEMA S.A.), B-lossom Center, Banque Africaine de Développement, CARE Madagascar, CBM Global, CFFAMMA, CHAMBRE DE COMMERCE ET D'INDUSTRIE DE MAHAJANGA, CROIX-ROUGE MALAGASY, CTAS, Coalition des Radios de Madagascar, Conservation International, Cétamada, Cœur de Forêt Madagascar, DURRELL MADAGASCAR, Deutsche Gesellschaft für Internationale Zusammenarbeit (GIZ) GmbH, Deutsche Welthungerhilfe e.V. (WHH), Doctors for Madagascar, Douleurs Sans Frontières Madagascar, ESIGE Mahajanga, Economic Development Board of Madagascar (EDBM), Expert’Izy, FEEDBACK MADAGASCAR, FHI 360, FMA Madagascar, FOLUR MADAGASCAR, Fondation pour les Aires Protégées et la Biodiversité de Madagascar (FAPBM), Fonds Malgache de Formation Professionnelle (FMFP), France Volontaires, GRET, GSDM, Goethe-Zentrum Antananarivo / Cercle Germano-Malagasy (CGM), Grandir à Antsirabe, H.E.L.P.Africa, HARDI Madagascar, HELVETAS Swiss Intercooperation, HENKA SURU, Health In Harmony, Hetsika Val'OR, Humanité & Inclusion, IECD Madagascar, IFPR Antananarivo, IKMalagasy, ININFRA, INSETS, Initiative International, Institut International des Sciences Sociales (IISS ONG), Institut National de Formation Administrative, Jhpiego, LLD Fampandrosoana Ifotony, Ligue de Football Nouvelle-Aquitaine, Lycée Français Sadi Carnot, MAMPITA, MATSF, MEDISLIE-HM, MEFRA, MSIS-TATAO, MTEFOP, Madagascar National Parks, Madagasikara Voakajy, Malagasy Indo Educational Link, Malagasy Youth Biodiversity Network, Maliasili, Médecins du Monde, Nitidae, ONG Capacity-building for Communities (C-for-C), ONG EDENa, ONG HARONA, ONG JEADD, ONG Lalana, ONG MIARINTSOA, ONG Ran’Eau, ONG Saint Gabriel, ONG TOKOTANY IRAISANA, ONG TSINJO MANAMPY NY ANKIZY, Organisation Médicale Interentreprises de Nosy Be (O.M.I.NO.), PICAS-1, PPI, PPSPAS, PROMES, PSI Madagascar, Passerelles Numériques, Planète Urgence, Plate Forme Société Civile pour l'Enfance, Programme Alimentaire Mondial (PAM), Programme DEFIS, Programme DEFIS Coordination Inter-Régionale de Fianarantsoa, Programme PROGRES, Projet MIONJO, Projet Sandratra, Projet TEFIALA, SAF/FJKM, SAHI Mpanasoa, SOS Villages d'Enfants Madagascar, Santé Sud Madagascar, Saramba Initiative, Save the Children, Save the Children International, TANTANA, TATIRANO, TRANOBEN'NY TANTSAHA MPAMOKATRA, Tafatafa by Michel, Tily Eto Madagasikara, UWS Madagascar, Unité de Coordination pour la Reconstruction, Unité de Gestion de TOAMASINA, Université d'Antananarivo, Université d'Antananarivo - École Supérieure des Sciences Agronomiques, Université de Fianarantsoa, Welthungerhilfe, YSS MDG, Youth Community, Youth for Global Impact, groupe.radhamante, iDE, École Supérieure de Droit et de Science Politique (ESD)
+2026-10-15T21:54:53:   15 annonce(s) écartée(s), hors types gardés (emploi,stage) : 3 appel_offres, 8 autre, 4 formation
+2026-10-15T21:54:53:   218 offre(s) écartée(s) : entreprise sans email ni téléphone (--allow-no-contact pour les garder)
+2026-10-15T21:54:53:   détail -> analysis_madagascar.json, clé excluded_offers
+2026-10-15T21:54:54: 
+2026-10-15T21:54:54: Envoi au backend http://localhost:3500
+2026-10-15T21:54:55:   entreprises : 48 envoyée(s), 604 inchangée(s), 0 en échec
+2026-10-15T21:55:04:   offres : 325 envoyée(s), 1611 inchangée(s), 0 en échec
+2026-10-15T21:55:06:   dates de publication : 60 envoyée(s), 1876 inchangée(s), 0 en échec
+2026-10-15T21:55:07:   2 annonce(s) retirée(s) du backend, écartée(s) à la consolidation (concours, formation, appel d'offres..., entreprise sans contact ou exclue) : fb-post-1415602560500354, fb-post-pfbid02ghYom4wVXzxDFfV95WFtGyTgTh1vjwaBjXvL2oK3AptnCeC2BuifJYP9GaKNsrZol-9
+2026-10-15T21:55:07:   [INFO] 40 offres gardée(s) en base, plus dans les JSON mais aucune offre équivalente envoyée (ex. offre que la dernière analyse IA n'a pas retrouvée) : fb-post-1416487040411906-2, fb-post-1418611416866135-1, fb-post-1418611416866135-2, fb-post-1420615073332436-1, fb-post-1423309129729697 … (+35)
+2026-10-15T21:55:07:   2 entreprise(s) retirée(s) du backend, liste d'exclusion : fb-69e1028cef04, fb-cd9ee9cb9781
+2026-10-15T21:55:07:   [INFO] 14 entreprises gardée(s) en base, plus dans les JSON mais pas fusionnée dans une entreprise envoyée, ou encore liée à une offre gardée : fb-0a675a989c79, fb-0c9367c32c4a, fb-3be23708b214, fb-4b4ba1554ed4, fb-4c350445fffc … (+9)
+2026-10-15T21:55:13: [2026-10-15 21:55:13] Fin : facebook pages et groupes — code 0 en 81.1 min
+2026-10-15T21:55:13: 
+2026-10-15T21:55:13: [2026-10-15 21:55:13] Prochain lancement : 2026-10-16 20:34:06
+2026-10-16T15:59:21: [2026-10-16 15:59:21] Prochain lancement : 2026-10-16 20:34:06
