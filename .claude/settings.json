@@ -10,7 +10,11 @@
       "Bash(pip install *)",
       "Bash(python -m scrapers.common.country_iso)",
       "Bash(python -c ' *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Write(facebook_script/post_groups.py)",
+      "Edit(facebook_script/post_groups.py)",
+      "Bash(node -e \"const c=require\\('./ecosystem.config.js'\\); console.log\\(c.apps.map\\(a => a.name + ' | ' + a.args + ' | cron=' + \\(a.cron_restart||'-'\\)\\).join\\('\\\\n'\\)\\)\")",
+      "Bash(python -m py_compile facebook_script/pages.py facebook_script/scraper.py facebook_script/backend_push.py facebook_script/ai_extractor.py)"
     ]
   }
 }

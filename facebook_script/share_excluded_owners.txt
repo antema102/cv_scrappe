@@ -1,0 +1,8 @@
+# Entreprises (nom du compte WipWork, champ proprietaire.name) dont les offres ne sont
+# jamais partagées par share.py : une par ligne, # = commentaire, casse et accents ignorés.
+# Les comptes de test évidents (nom contenant test / essai / demo ou un email, nom
+# "entreprise") sont déjà écartés sans être listés ici.
+
+# Offres de test vues le 16/10/2026 ("Frontend Devellopeur" : description "NKNdzlkanadlk",
+# tâches = un email) — à retirer si c'est une vraie entreprise.
+agrotech
