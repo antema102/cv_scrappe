@@ -69,7 +69,9 @@ DEFAULT_SITE_URL = "https://www.wipwork.com"
 DEFAULT_COUNTRY = "Madagascar"
 PAGE_SIZE = 50  # plafond de l'API, même si on demande plus
 REQUEST_TIMEOUT = 60
-MAX_ATTEMPTS = 3
+MAX_ATTEMPTS = 5  # par requête (attentes 2, 4, 6, 8 s)
+RETRY_ROUNDS = 3  # pages encore en échec relues après les autres (502 intermittents de l'API)
+RETRY_ROUND_WAIT = 15
 
 DEFAULT_LIMIT = 10
 MAX_MISSIONS = 4
@@ -167,23 +169,52 @@ def _get_page(session: requests.Session, api_url: str, params: dict[str, Any]) -
             error = f"HTTP {response.status_code}"
         if attempt == MAX_ATTEMPTS:
             raise ShareError(error)
-        time.sleep(2 * attempt)
+        time.sleep(min(2 * attempt, 10))
     raise AssertionError("unreachable")
 
 
 def fetch_offers(api_url: str, country: str) -> tuple[list[dict[str, Any]], int]:
-    """Toutes les pages ; renvoie (offres uniques, total annoncé par l'API)."""
+    """
+    Toutes les pages ; renvoie (offres uniques, total annoncé par l'API). L'API renvoie des 502 intermittents (vu le
+    19/10/2026 : une requête sur deux, même page) : une page en échec après MAX_ATTEMPTS est relue après les autres
+    (RETRY_ROUNDS tours) ; si certaines restent illisibles, on continue avec les offres lues (avertissement) plutôt
+    que de ne rien publier. Seule la page 1 (nombre de pages) est indispensable : ShareError sinon.
+    """
     session = requests.Session()
     offers: dict[str, dict[str, Any]] = {}
-    page, total_pages, announced = 1, 1, 0
-    while page <= total_pages:
+
+    def read(page: int) -> dict[str, Any]:
         data = _get_page(session, api_url, {"page": page, "size": PAGE_SIZE, "pays": country})
-        total_pages = int(data.get("totalPages") or 1)
-        announced = int(data.get("total") or 0)
         for item in data.get("items") or []:
             if item.get("id"):
                 offers.setdefault(item["id"], item)  # tri instable côté API : une offre peut revenir sur deux pages
-        page += 1
+        return data
+
+    for round_ in range(RETRY_ROUNDS + 1):
+        try:
+            first = read(1)
+            break
+        except ShareError:
+            if round_ == RETRY_ROUNDS:
+                raise
+            time.sleep(RETRY_ROUND_WAIT)
+    total_pages, announced = int(first.get("totalPages") or 1), int(first.get("total") or 0)
+    missing = list(range(2, total_pages + 1))
+    for round_ in range(RETRY_ROUNDS + 1):
+        if round_:
+            time.sleep(RETRY_ROUND_WAIT)
+        failed = []
+        for page in missing:
+            try:
+                read(page)
+            except ShareError:
+                failed.append(page)
+        missing = failed
+        if not missing:
+            break
+    if missing:
+        print(f"[WARN] API des offres : {len(missing)} page(s) sur {total_pages} illisibles ({missing[:10]}) - "
+              f"offres incomplètes ce lancement-ci")
     return list(offers.values()), announced
 
 
@@ -529,7 +560,7 @@ def main() -> None:
     if args.preview:
         for _, text, _ in posts:
             print(f"\n{'-' * 60}\n{text}")
-        print(f"\n[INFO] Aperçu : rien n'est marqué comme préparé (relancez sans --preview).")
+        print("\n[INFO] Aperçu : rien n'est marqué comme préparé (relancez sans --preview).")
     else:
         prepared_at = datetime.now().astimezone().isoformat(timespec="seconds")
         for offer in selected:

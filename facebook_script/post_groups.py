@@ -2,12 +2,14 @@
 facebook_script/post_groups.py
 ==============================
 Publie les offres WipWork dans des groupes Facebook : dans chaque groupe de
-facebook_script/share_groups.txt, une publication récapitulative des --per-post (40) offres
-les plus récentes jamais encore publiées dans CE groupe (textes de share.py, liens
-wipwork.com/jobs/<slug>) : ~40 nouvelles offres par jour, ce sont donc celles du jour.
-Avec la publication, une affiche par tranche de 10 offres (visuals.py : 4 images pour 40,
-numérotées comme le texte), jointes par le champ fichier de la fenêtre de rédaction
-(--no-images pour publier le texte seul).
+facebook_script/share_groups.txt, les --per-post (40) offres les plus récentes jamais encore
+publiées dans CE groupe : ~40 nouvelles offres par jour, ce sont donc celles du jour.
+
+Facebook bloque une publication de groupe qui contient beaucoup de liens : la publication
+(post_text) n'en porte qu'UN, vers https://www.wipwork.com/jobs — en-tête, 6 exemples de
+postes, villes, lien, hashtags — et les 40 offres sont sur les affiches jointes (visuals.py :
+une par tranche de 10 offres ; --no-images pour le texte seul). Pas de commentaire : sous
+une publication en attente d'approbation, Facebook n'ouvre pas les commentaires.
 
 Pas d'API possible : Meta a supprimé l'API Groups (publish_to_groups) en avril 2024. Le
 script pilote Chrome (SeleniumBase CDP, profil persistant connecté à la main) comme une
@@ -92,13 +94,23 @@ PAGE_LOAD_WAIT = 6
 COMPOSER_TIMEOUT = 25
 COMPOSER_CLICKS = 2
 FILL_WAIT = 1.5  # Lexical met le DOM à jour après l'événement paste
-LINK_PREVIEW_WAIT = 5  # aperçu du premier lien, chargé par Facebook pendant la rédaction
+LINK_PREVIEW_WAIT = 3  # publication texte seul : laisse Facebook traiter le texte collé avant « Publier »
 PUBLISH_ENABLED_TIMEOUT = 10
 PUBLISH_TIMEOUT = 45
 NOTICE_WAIT = 4  # message « en attente d'approbation » affiché juste après la fermeture
 IMAGE_UPLOAD_TIMEOUT = 60  # vignettes des affiches dans la fenêtre / « Publier » réactivé après l'envoi des photos
 PUBLISH_IMAGES_TIMEOUT = 120  # fermeture de la fenêtre après « Publier » quand des photos partent avec
 MAX_FAILURES_IN_A_ROW = 3
+
+# Un seul lien dans la publication (Facebook bloque une publication de groupe qui en contient beaucoup)
+EXAMPLE_OFFERS = 6  # postes cités dans la publication
+MAX_CITIES = 4
+MAX_CITY_CHARS = 30  # au-delà, c'est une adresse (« Immeuble Le Colisée Tsiadana Tana 101 »), pas une ville
+# Message affiché DANS la publication tant qu'un admin ne l'a pas approuvée (texte plié), pas dans une alerte
+# (vu le 19/10/2026 : « Votre publication est en attente d'approbation par un admin »)
+PENDING_POST_PATTERN = r"publication est en attente|en attente d approbation|pending approval|awaiting approval"
+# Texte que Facebook transforme en lien : les exemples de postes qui en contiennent sont écartés (un seul lien voulu)
+LINK_LIKE_RE = re.compile(r"https?://|www\.|\b[\w-]+\.(?:com|mg|fr|org|net|io|co|info|biz)\b", re.I)
 
 HEADERS = (
     "📢 OFFRES D'EMPLOI DU {date} — {country_upper}",
@@ -252,6 +264,16 @@ PREVIEWS_JS = r"""
 """
 
 
+# Nombre de messages « publication en attente d'approbation » dans la page : comparé avant / après « Publier »
+PENDING_COUNT_JS = r"""
+(() => {
+  const ARGS = __ARGS__;
+  const fold = (s) => (s || '').normalize('NFKD').replace(/[^\x00-\x7f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const found = fold(document.body.innerText).match(new RegExp(ARGS.pending, 'g'));
+  return JSON.stringify({count: found ? found.length : 0});
+})()
+"""
+
 class StopRun(Exception):
     """Blocage Facebook, page de connexion ou arrêt demandé : aucun autre groupe ce lancement-ci."""
 
@@ -259,8 +281,8 @@ class StopRun(Exception):
 @dataclass(slots=True)
 class Job:
     target: fb.GroupTarget
-    offers: list[dict[str, Any]]  # dans l'ordre du texte et des affiches
-    text: str
+    offers: list[dict[str, Any]]  # dans l'ordre des affiches
+    text: str  # publication : un seul lien (wipwork.com/jobs)
     online: int  # offres partageables en tout (« N offres en ligne » des affiches)
 
 
@@ -444,9 +466,15 @@ def attach_images(sb: SB, images: list[Path]) -> int:
     return count
 
 
+def _pending_count(sb: SB) -> int:
+    return int((fb._run_js(sb, PENDING_COUNT_JS, {"pending": PENDING_POST_PATTERN}) or {}).get("count", 0))
+
+
 def publish(sb: SB, group_url: str, auto: bool, with_images: bool = False) -> str:
     """"posted", "pending", "skipped", "not_published" ; StopRun sur blocage Facebook ou arrêt demandé."""
     _, baseline = _notices(sb)
+    # « En attente d'approbation » s'affiche dans la publication elle-même, pas dans une alerte : compté avant / après
+    pending_before = _pending_count(sb)
     if not auto:
         answer = _ask("  Relisez la publication dans Chrome. ENTRÉE = publier, s = passer ce groupe, q = arrêter : ")
         if answer == "q":
@@ -489,7 +517,9 @@ def publish(sb: SB, group_url: str, auto: bool, with_images: bool = False) -> st
             fresh = [share._fold(n) for n in notices if n not in baseline]
             if blocked := next((n for n in fresh if BLOCK_RE.search(n)), None):
                 raise StopRun(f"Facebook bloque la publication : « {blocked[:150]} »")
-            return "pending" if any(PENDING_RE.search(n) for n in fresh) else "posted"
+            if any(PENDING_RE.search(n) for n in fresh) or _pending_count(sb) > pending_before:
+                return "pending"
+            return "posted"
     print("  [WARN] La fenêtre de rédaction ne s'est pas fermée après le clic sur « Publier »")
     save_diagnostics(sb, group_url, "not_published")
     discard_composer(sb)
@@ -535,12 +565,46 @@ def order_offers(group_id: str, offers: list[dict[str, Any]], today: date) -> li
     return ordered
 
 
-def group_text(offers: list[dict[str, Any]], args: argparse.Namespace, today: date, rank: int) -> str:
-    """En-tête propre au groupe et au jour ; offres déjà dans l'ordre d'order_offers."""
+def _offer_line(offer: dict[str, Any]) -> str:
+    owner = share.owner_name(offer)
+    return f"{share._clean(offer.get('name'))}{f' — {owner}' if owner else ''}"
+
+
+def _cities(offers: list[dict[str, Any]]) -> tuple[list[str], bool]:
+    """Villes les plus fréquentes (dernière partie du lieu : « Analamahitsy, Antananarivo ») ; True s'il y en a d'autres."""
+    counts: Counter[str] = Counter()
+    names: dict[str, str] = {}
+    for offer in offers:
+        city = share._location(offer).rsplit(",", 1)[-1].strip()
+        key = share._fold(city)
+        # Chiffres = adresse (« Anjanahary 49 IIS »), pas une ville
+        if key and len(city) <= MAX_CITY_CHARS and not re.search(r"\d", city) and not LINK_LIKE_RE.search(city):
+            counts[key] += 1
+            names.setdefault(key, city)
+    return [names[key] for key, _ in counts.most_common(MAX_CITIES)], len(counts) > MAX_CITIES
+
+
+def post_text(offers: list[dict[str, Any]], args: argparse.Namespace, today: date, rank: int) -> str:
+    """
+    Publication avec UN SEUL lien (wipwork.com/jobs) : Facebook bloque une publication de groupe qui en contient
+    beaucoup ; les offres sont sur les affiches. Exemples de postes dont le texte ressemble à une adresse web
+    (« xxx.mg ») écartés : Facebook en ferait un second lien.
+    """
     header = HEADERS[(rank + today.toordinal()) % len(HEADERS)].format(
         date=f"{today:%d/%m/%Y}", country=args.country, country_upper=args.country.upper(), count=len(offers)
     )
-    return share.digest_post(offers, args.site_url, args.country, today, header)
+    examples = [line for line in map(_offer_line, offers) if not LINK_LIKE_RE.search(line)][:EXAMPLE_OFFERS]
+    lines = [header, "", "Quelques postes à pourvoir :", *(f"• {line}" for line in examples)]
+    cities, more = _cities(offers)
+    if cities:
+        lines += ["", f"📍 {', '.join(cities)}{'…' if more else ''}"]
+    lines += [
+        "",
+        f"👉 Les {len(offers)} offres et la candidature en ligne : {args.site_url.rstrip('/')}/jobs",
+        "",
+        share.hashtags(args.country, offers),
+    ]
+    return "\n".join(lines)
 
 
 def _recently_posted(group: dict[str, Any], min_hours: float, now: datetime) -> bool:
@@ -566,7 +630,7 @@ def plan(targets: list[fb.GroupTarget], offers: list[dict[str, Any]], state: dic
             print(f"[INFO] {target.group_id} : {len(batch)} offre(s) nouvelle(s) pour ce groupe (< {args.min_offers}) - ignoré")
             continue
         batch = order_offers(target.group_id, batch, today)
-        jobs.append(Job(target, batch, group_text(batch, args, today, rank), online))
+        jobs.append(Job(target, batch, post_text(batch, args, today, rank), online))
     if args.max_groups > 0:
         jobs = jobs[: args.max_groups]
     return jobs
@@ -583,16 +647,17 @@ def posters_for(job: Job, args: argparse.Namespace, today: date) -> list[Path]:
         return []
 
 
-def record(state: dict[str, dict[str, Any]], target: fb.GroupTarget, batch: list[dict[str, Any]], status: str,
-           site_url: str, images: int = 0) -> None:
+def record(state: dict[str, dict[str, Any]], job: Job, status: str, site_url: str, images: int = 0) -> None:
+    """Historique du groupe ; "posted"/"pending" marquent les offres publiées (jamais republiées dans ce groupe)."""
+    target = job.target
     group = state.setdefault(target.group_id, {"url": target.group_url, "posted": {}, "history": []})
     at = datetime.now().astimezone().isoformat(timespec="seconds")
     group.setdefault("history", []).append(
-        {"at": at, "status": status, "offers": [o["id"] for o in batch], "images": images}
+        {"at": at, "status": status, "offers": [o["id"] for o in job.offers], "images": images}
     )
     if status in ("posted", "pending"):
         group["last_post_at"] = at
-        for offer in batch:
+        for offer in job.offers:
             group.setdefault("posted", {})[offer["id"]] = {
                 "key": share.offer_key(offer),
                 "title": share._clean(offer.get("name")),
@@ -615,10 +680,10 @@ def run(sb: SB, jobs: list[Job], state: dict[str, dict[str, Any]], state_path: P
         try:
             status = post_to_group(sb, target.group_url, job.text, args.auto, images)
         except StopRun:
-            record(state, target, batch, "stopped", args.site_url, len(images))
+            record(state, job, "stopped", args.site_url, len(images))
             share._write_json_atomic(state_path, state)
             raise
-        record(state, target, batch, status, args.site_url, len(images))
+        record(state, job, status, args.site_url, len(images))
         share._write_json_atomic(state_path, state)
         totals[status] += 1
         print(f"  -> {status}")
