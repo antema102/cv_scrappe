@@ -1,0 +1,44 @@
+2026-10-19T08:36:04: Traceback (most recent call last):
+2026-10-19T08:36:04:   File "C:\Users\Administrator\Desktop\cv_scrappe\facebook_script\post_groups.py", line 732, in <module>
+2026-10-19T08:36:04:     main()
+2026-10-19T08:36:04:   File "C:\Users\Administrator\Desktop\cv_scrappe\facebook_script\post_groups.py", line 722, in main
+2026-10-19T08:36:04:     run(sb, jobs, state, state_path, args, today, totals)
+2026-10-19T08:36:04:   File "C:\Users\Administrator\Desktop\cv_scrappe\facebook_script\post_groups.py", line 616, in run
+2026-10-19T08:36:04:     status = post_to_group(sb, target.group_url, job.text, args.auto, images)
+2026-10-19T08:36:04:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-19T08:36:04:   File "C:\Users\Administrator\Desktop\cv_scrappe\facebook_script\post_groups.py", line 500, in post_to_group
+2026-10-19T08:36:04:     status = open_composer(sb, group_url)
+2026-10-19T08:36:04:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-19T08:36:04:   File "C:\Users\Administrator\Desktop\cv_scrappe\facebook_script\post_groups.py", line 329, in open_composer
+2026-10-19T08:36:04:     sb.goto(group_url)
+2026-10-19T08:36:04:   File "C:\USERS\ADMINISTRATOR\APPDATA\LOCAL\PROGRAMS\PYTHON\PYTHON311\Lib\site-packages\seleniumbase\fixtures\base_case.py", line 9683, in goto
+2026-10-19T08:36:04:     self.open(url, **kwargs)
+2026-10-19T08:36:04:   File "C:\USERS\ADMINISTRATOR\APPDATA\LOCAL\PROGRAMS\PYTHON\PYTHON311\Lib\site-packages\seleniumbase\fixtures\base_case.py", line 233, in open
+2026-10-19T08:36:04:     self.cdp.open(url, **kwargs)
+2026-10-19T08:36:04:   File "C:\USERS\ADMINISTRATOR\APPDATA\LOCAL\PROGRAMS\PYTHON\PYTHON311\Lib\site-packages\seleniumbase\core\sb_cdp.py", line 181, in open
+2026-10-19T08:36:04:     self.get(url, **kwargs)
+2026-10-19T08:36:04:   File "C:\USERS\ADMINISTRATOR\APPDATA\LOCAL\PROGRAMS\PYTHON\PYTHON311\Lib\site-packages\seleniumbase\core\sb_cdp.py", line 140, in get
+2026-10-19T08:36:04:     self.loop.run_until_complete(
+2026-10-19T08:36:04:   File "C:\USERS\ADMINISTRATOR\APPDATA\LOCAL\PROGRAMS\PYTHON\PYTHON311\Lib\asyncio\base_events.py", line 654, in run_until_complete
+2026-10-19T08:36:04:     return future.result()
+2026-10-19T08:36:04:     ^^^^^^^^^^^^^^^
+2026-10-19T08:36:04:   File "C:\USERS\ADMINISTRATOR\APPDATA\LOCAL\PROGRAMS\PYTHON\PYTHON311\Lib\asyncio\tasks.py", line 489, in wait_for
+2026-10-19T08:36:04:     return fut.result()
+2026-10-19T08:36:04:            ^^^^^^^^^^^^
+2026-10-19T08:36:04:   File "C:\USERS\ADMINISTRATOR\APPDATA\LOCAL\PROGRAMS\PYTHON\PYTHON311\Lib\site-packages\seleniumbase\undetected\cdp_driver\tab.py", line 365, in get
+2026-10-19T08:36:04:     frame_id, loader_id, *_ = await self.send(
+2026-10-19T08:36:04:                               ^^^^^^^^^^^^^^^^
+2026-10-19T08:36:04:   File "C:\USERS\ADMINISTRATOR\APPDATA\LOCAL\PROGRAMS\PYTHON\PYTHON311\Lib\site-packages\seleniumbase\undetected\cdp_driver\connection.py", line 430, in send
+2026-10-19T08:36:04:     await self.aopen()
+2026-10-19T08:36:04:   File "C:\USERS\ADMINISTRATOR\APPDATA\LOCAL\PROGRAMS\PYTHON\PYTHON311\Lib\site-packages\seleniumbase\undetected\cdp_driver\connection.py", line 245, in aopen
+2026-10-19T08:36:04:     self.websocket = await websockets.connect(
+2026-10-19T08:36:04:                      ^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-10-19T08:36:04:   File "C:\USERS\ADMINISTRATOR\APPDATA\LOCAL\PROGRAMS\PYTHON\PYTHON311\Lib\site-packages\websockets\asyncio\client.py", line 557, in __await_impl__
+2026-10-19T08:36:04:     await self.connection.handshake(
+2026-10-19T08:36:04:   File "C:\USERS\ADMINISTRATOR\APPDATA\LOCAL\PROGRAMS\PYTHON\PYTHON311\Lib\site-packages\websockets\asyncio\client.py", line 115, in handshake
+2026-10-19T08:36:04:     raise self.protocol.handshake_exc
+2026-10-19T08:36:04:   File "C:\USERS\ADMINISTRATOR\APPDATA\LOCAL\PROGRAMS\PYTHON\PYTHON311\Lib\site-packages\websockets\client.py", line 327, in parse
+2026-10-19T08:36:04:     self.process_response(response)
+2026-10-19T08:36:04:   File "C:\USERS\ADMINISTRATOR\APPDATA\LOCAL\PROGRAMS\PYTHON\PYTHON311\Lib\site-packages\websockets\client.py", line 144, in process_response
+2026-10-19T08:36:04:     raise InvalidStatus(response)
+2026-10-19T08:36:04: websockets.exceptions.InvalidStatus: server rejected WebSocket connection: HTTP 500
