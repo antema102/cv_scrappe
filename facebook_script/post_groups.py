@@ -5,11 +5,12 @@ Publie les offres WipWork dans des groupes Facebook : dans chaque groupe de
 facebook_script/share_groups.txt, les --per-post (40) offres les plus récentes jamais encore
 publiées dans CE groupe : ~40 nouvelles offres par jour, ce sont donc celles du jour.
 
-Facebook bloque une publication de groupe qui contient beaucoup de liens : la publication
-(post_text) n'en porte qu'UN, vers https://www.wipwork.com/jobs — en-tête, 6 exemples de
-postes, villes, lien, hashtags — et les 40 offres sont sur les affiches jointes (visuals.py :
-une par tranche de 10 offres ; --no-images pour le texte seul). Pas de commentaire : sous
-une publication en attente d'approbation, Facebook n'ouvre pas les commentaires.
+La publication (post_text) liste les offres numérotées, chacune avec son lien
+wipwork.com/jobs/<slug>, + les affiches jointes (visuals.py : une par tranche de 10 offres,
+même numérotation ; --no-images pour le texte seul). --single-link : un seul lien
+(wipwork.com/jobs) + 6 exemples de postes, repli si Facebook bloque les publications à liens
+multiples (constaté le 19/10/2026). Pas de commentaire : sous une publication en attente
+d'approbation, Facebook n'ouvre pas les commentaires.
 
 Pas d'API possible : Meta a supprimé l'API Groups (publish_to_groups) en avril 2024. Le
 script pilote Chrome (SeleniumBase CDP, profil persistant connecté à la main) comme une
@@ -586,13 +587,16 @@ def _cities(offers: list[dict[str, Any]]) -> tuple[list[str], bool]:
 
 def post_text(offers: list[dict[str, Any]], args: argparse.Namespace, today: date, rank: int) -> str:
     """
-    Publication avec UN SEUL lien (wipwork.com/jobs) : Facebook bloque une publication de groupe qui en contient
-    beaucoup ; les offres sont sur les affiches. Exemples de postes dont le texte ressemble à une adresse web
-    (« xxx.mg ») écartés : Facebook en ferait un second lien.
+    Par défaut (demande de l'utilisateur, 20/10/2026) : les offres numérotées comme les affiches, chacune avec son
+    lien wipwork.com/jobs/<slug> (share.digest_post). --single-link : UN SEUL lien (wipwork.com/jobs) + 6 exemples
+    de postes, repli si Facebook bloque les publications à liens multiples (constaté le 19/10/2026) ; les exemples
+    dont le texte ressemble à une adresse web (« xxx.mg ») y sont écartés : Facebook en ferait un second lien.
     """
     header = HEADERS[(rank + today.toordinal()) % len(HEADERS)].format(
         date=f"{today:%d/%m/%Y}", country=args.country, country_upper=args.country.upper(), count=len(offers)
     )
+    if not args.single_link:
+        return share.digest_post(offers, args.site_url, args.country, today, header)
     examples = [line for line in map(_offer_line, offers) if not LINK_LIKE_RE.search(line)][:EXAMPLE_OFFERS]
     lines = [header, "", "Quelques postes à pourvoir :", *(f"• {line}" for line in examples)]
     cities, more = _cities(offers)
@@ -715,6 +719,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--preview", action="store_true",
                         help="texte et affiches prévus pour chaque groupe, sans navigateur Facebook ni publication")
     parser.add_argument("--no-images", action="store_true", help="publication texte seul, sans les affiches (visuals.py)")
+    parser.add_argument("--single-link", action="store_true",
+                        help="un seul lien (wipwork.com/jobs) au lieu d'un lien par offre, si Facebook bloque les publications")
     parser.add_argument("--login", action="store_true", help="forcer l'étape de connexion manuelle (fenêtre visible)")
     parser.add_argument("--profile", default=str(PROFILE_DIR), help=f"profil Chrome (défaut {PROFILE_DIR.name})")
     parser.add_argument("--country", default=share.DEFAULT_COUNTRY)
