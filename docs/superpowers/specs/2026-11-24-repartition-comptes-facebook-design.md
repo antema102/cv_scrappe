@@ -1,6 +1,7 @@
 # Répartition des comptes Facebook entre les pays (`post_groups.py`)
 
-Date : 24/11/2026 — statut : **à valider** (aucun code modifié).
+Date : 24/11/2026 — statut : **validée (révision 4), implémentée** (branche `feature/pool-comptes-facebook`) ;
+détection des adhésions à vérifier sur le vrai Facebook avant d'activer le pool (plan, Task 11).
 
 - Révision 2 : adhésions vérifiées sans publier (option A) ; plus de plafond ⌈groupes / comptes⌉.
 - Révision 3 : un compte peut publier dans plusieurs pays pendant le même cycle ; répartition globale des
