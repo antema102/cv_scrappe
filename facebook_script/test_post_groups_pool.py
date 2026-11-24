@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -445,6 +446,296 @@ class CliTest(PoolTestCase):
         code, out = self.main("--membership-summary")
         self.assertEqual(code, 0)
         self.assertIn("aucun compte", out)
+
+
+DATA = Path(__file__).resolve().parent / "test_data" / "pool_legacy"
+POOL_COUNTRIES = ("madagascar", "cameroun", "ghana")
+EN_HEADERS = ("JOB OFFERS", "job openings", "Looking for a job", "Now hiring")
+
+
+class FixedDate(pg.date):
+    @classmethod
+    def today(cls) -> FixedDate:
+        return cls.fromordinal(pg.datetime.now().date().toordinal())  # « aujourd'hui » réel : quotas du jour cohérents
+
+
+class PoolRunTest(PoolTestCase):
+    """Mode pool de bout en bout : vraies fonctions plan / run / record, faux navigateur et faux post_to_group."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.accounts_file = self.tmp / "share_accounts.json"
+        self.membership_file = self.out / "share_membership.json"
+        self.calls: list[dict[str, Any]] = []
+        self.script: dict[tuple[str, str], Any] = {}  # (profil, groupe) -> statut ou exception
+        self.limit_at: dict[str, int] = {}  # profil -> n° de son appel qui lève AccountLimited
+        self.on_call: Any = None
+        self.failing_countries: set[str] = set()
+        files = {code: DATA / f"groups_{code}.txt" for code in POOL_COUNTRIES}
+        for patch in (
+            mock.patch.object(share, "fetch_offers", self.fake_fetch),
+            mock.patch.object(pg, "post_to_group", self.fake_post),
+            mock.patch.object(pg, "list_file", lambda country, kind: files.get(country.code, self.tmp / f"absent_{country.code}")),
+            mock.patch.object(pg, "active_countries", lambda *kinds: [COUNTRIES[c] for c in POOL_COUNTRIES]),
+            mock.patch.object(pg, "MEMBERSHIP_FILE", self.membership_file),
+            mock.patch.object(pg, "MEMBERSHIP_LOCK", self.out / ".share_membership.lock"),
+            mock.patch.object(pg, "date", FixedDate),
+            mock.patch.object(fb, "is_logged_in", lambda sb: True),
+            # profils par défaut des pays : mêmes noms, mais dans le dossier temporaire (jamais à la racine du projet)
+            mock.patch.object(pg, "default_profile", lambda country: self.tmp / (
+                pg.PROFILE_DIR.name if country.code == "madagascar" else f"{pg.PROFILE_DIR.name}_{country.code}")),
+        ):
+            patch.start()
+            self.addCleanup(patch.stop)
+
+    # -- faux services -----------------------------------------------------------------------------------------------
+    def fake_fetch(self, api_url: str, country: str) -> tuple[list[dict[str, Any]], int]:
+        if country in self.failing_countries:
+            raise share.ShareError("502 Bad Gateway")
+        offers = [o for o in json.loads((DATA / "offers.json").read_text(encoding="utf-8")) if o["companyCountry"] == country]
+        return offers, len(offers)
+
+    def fake_post(self, sb: Any, group_url: str, text: str, auto: bool, images: Any = None, anonymous: bool = True,
+                  on_group_id: Any = None, on_publishing: Any = None) -> str:
+        profile = fb.PROFILE_DIR.name
+        group = group_url.rstrip("/").rsplit("/", 1)[-1]
+        mine = sum(1 for c in self.calls if c["profile"] == profile) + 1
+        self.calls.append({"profile": profile, "group": group, "text": text})
+        if self.on_call:
+            self.on_call(profile, group)
+        if self.limit_at.get(profile) == mine:
+            raise pg.AccountLimited("Nous limitons le nombre de fois que vous pouvez publier")
+        outcome = self.script.get((profile, group), "posted")
+        if isinstance(outcome, BaseException):
+            if isinstance(outcome, RuntimeError) and on_publishing:
+                on_publishing()  # plantage APRÈS le clic sur « Publier »
+            raise outcome
+        if outcome in ("posted", "pending") and on_publishing:
+            on_publishing()
+        return outcome
+
+    # -- données ---------------------------------------------------------------------------------------------------
+    def accounts(self, *names: str, quotas: dict[str, int] | None = None, inactive: tuple[str, ...] = ()) -> None:
+        entries = []
+        for name in names:
+            self.profile(name).mkdir(exist_ok=True)
+            entry: dict[str, Any] = {"profile": str(self.profile(name)), "active": name not in inactive}
+            if quotas and name in quotas:
+                entry["max_groups_per_day"] = quotas[name]
+            entries.append(entry)
+        self.accounts_file.write_text(json.dumps({"accounts": entries}), encoding="utf-8")
+
+    def members(self, names: tuple[str, ...], codes: tuple[str, ...] = POOL_COUNTRIES, extra: dict | None = None) -> None:
+        checked = (pg.datetime.now().astimezone() - pg.timedelta(days=1)).isoformat(timespec="seconds")
+        data = {name: {f"{code}/test{code}{n}": {"status": "member", "checked_at": checked, "detail": "composer"}
+                       for code in codes for n in range(1, 5)} for name in names}
+        for name, entries in (extra or {}).items():
+            data.setdefault(name, {}).update(entries)
+        self.membership_file.write_text(json.dumps(data), encoding="utf-8")
+
+    def main(self, *extra: str, countries: str | None = ",".join(POOL_COUNTRIES)) -> tuple[int, str]:
+        argv = ["--settings-file", str(DATA / "settings.json"),
+                "--excluded-owners-file", str(DATA / "excluded_owners.txt"), "--no-images",
+                "--accounts-file", str(self.accounts_file), "--delay-min", "0", "--delay-max", "0", *extra]
+        if countries:
+            argv = ["--countries", countries, *argv]
+        out, code = StringIO(), 0
+        with mock.patch.object(sys, "argv", ["post_groups.py", *argv]), redirect_stdout(out):
+            try:
+                pg.main()
+            except SystemExit as exc:
+                code = exc.code or 0
+        return code, out.getvalue()
+
+    def state(self, code: str) -> dict[str, Any]:
+        path = self.out / f"group_posts_{code}.json"
+        return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+    def groups_of(self, profile: str) -> list[str]:
+        return [c["group"] for c in self.calls if c["profile"] == profile]
+
+    @staticmethod
+    def preview_groups(out: str) -> dict[str, list[str]]:
+        """Aperçu du pool : {profil: groupes prévus}, d'après les en-têtes « Compte … (profil X) » et les adresses."""
+        found: dict[str, list[str]] = {}
+        profile = None
+        for line in out.splitlines():
+            header = re.search(r"^  Compte .*\(profil (\w+)\)", line)
+            if header:
+                profile = header.group(1)
+                found[profile] = []
+            group = re.match(r"^https://www\.facebook\.com/groups/(\w+)/ \(", line)
+            if group and profile:
+                found[profile].append(group.group(1))
+        return found
+
+    # -- tests -----------------------------------------------------------------------------------------------------
+    def test_limited_account_groups_not_transferred(self) -> None:
+        self.accounts("A", "B", "C")
+        self.members(("A", "B", "C"))
+        self.limit_at["A"] = 3  # 3e groupe de A : au Cameroun, après 2 groupes de Madagascar
+        code, out = self.main()
+        self.assertEqual(self.groups_of("A"), ["testmadagascar1", "testmadagascar4", "testcameroun3"])
+        self.assertEqual(sorted(self.groups_of("B")), sorted(["testmadagascar2", "testcameroun1", "testcameroun4", "testghana3"]))
+        self.assertEqual(sorted(self.groups_of("C")), sorted(["testmadagascar3", "testcameroun2", "testghana1", "testghana4"]))
+        self.assertNotIn("testghana2", [c["group"] for c in self.calls])  # groupe restant de A : jamais transféré
+        self.assertNotIn("testghana2", self.state("ghana"))
+        self.assertIn("A", json.loads(pg.ACCOUNT_BLOCK_FILE.read_text(encoding="utf-8")))
+        self.assertIn("2 groupe(s) laissé(s) pour le cycle suivant", out)
+        # cycle suivant : A en pause, ses groupes non publiés passent en tête et vont à B ou C
+        self.calls.clear()
+        code, out = self.main("--preview")
+        self.assertIn("A (pause jusqu'au", out)
+        planned = self.preview_groups(out)
+        self.assertNotIn("A", planned)
+        self.assertEqual(sorted(g for groups in planned.values() for g in groups), ["testcameroun3", "testghana2"])
+
+    def test_one_chrome_per_account_multi_country(self) -> None:
+        self.accounts("A", "B", "C")
+        self.members(("A", "B", "C"))
+        self.main()
+        opened = [e for e in EVENTS if e.startswith("sb_enter")]
+        self.assertEqual(sorted(opened), ["sb_enter:A", "sb_enter:B", "sb_enter:C"])
+        for code in POOL_COUNTRIES:
+            for group in self.state(code).values():
+                self.assertIn(group["history"][-1]["profile"], ("A", "B", "C"))
+        a_countries = {c["group"].removeprefix("test").rstrip("1234") for c in self.calls if c["profile"] == "A"}
+        self.assertEqual(a_countries, set(POOL_COUNTRIES))
+        ghana_text = next(c["text"] for c in self.calls if c["group"].startswith("testghana"))
+        self.assertTrue(any(h in ghana_text.splitlines()[0] for h in EN_HEADERS))
+
+    def test_lock_held_between_run_calls(self) -> None:
+        self.accounts("A", "B", "C")
+        self.members(("A", "B", "C"))
+        seen: list[tuple[str, bool]] = []
+        self.on_call = lambda profile, group: seen.append((group, self.lock_free(self.profile(profile))))
+        self.main()
+        self.assertTrue(seen)
+        self.assertFalse(any(free for _, free in seen))
+        self.assertTrue(all(self.lock_free(self.profile(p)) for p in "ABC"))
+
+    def test_busy_profile_skipped_not_redistributed(self) -> None:
+        self.accounts("A", "B", "C")
+        self.members(("A", "B", "C"))
+        with fb.run_lock(pg.profile_lock_path(self.profile("B"))):
+            code, out = self.main()
+        self.assertEqual(self.groups_of("B"), [])
+        self.assertEqual(len(self.calls), 8)  # 4 pour A, 4 pour C : les 4 de B ne sont pas redistribués
+        self.assertIn("occupé", out)
+
+    def test_not_member_no_retry_same_cycle(self) -> None:
+        self.accounts("A", "B")
+        self.members(("A", "B"))
+        self.script[("A", "testmadagascar1")] = "not_member"
+        self.main()
+        self.assertEqual([c["profile"] for c in self.calls if c["group"] == "testmadagascar1"], ["A"])
+        code, out = self.main("--preview")
+        self.assertEqual(self.preview_groups(out), {"B": ["testmadagascar1"]})  # cycle suivant : B, plus jamais A
+
+    def test_suspended_blocks_group_for_all(self) -> None:
+        self.accounts("A", "B")
+        self.members(("A", "B"))
+        until = pg.datetime.now().astimezone() + pg.timedelta(days=2)
+        self.script[("A", "testmadagascar1")] = pg.GroupRestricted("suspended", until, "Votre profil a été suspendu")
+        self.main()
+        self.assertEqual(self.state("madagascar")["testmadagascar1"]["blocked"]["reason"], "suspended")
+        self.calls.clear()
+        code, out = self.main("--preview")
+        self.assertNotIn("groups/testmadagascar1/", out)
+
+    def test_crash_then_restart(self) -> None:
+        self.accounts("A")
+        self.members(("A",))
+        self.script[("A", "testmadagascar1")] = RuntimeError("plantage de Chrome")
+        with self.assertRaises(RuntimeError):
+            self.main()
+        self.assertIn("publishing", self.state("madagascar")["testmadagascar1"])
+        self.calls.clear()
+        self.script.clear()
+        self.main()
+        self.assertNotIn("testmadagascar1", [c["group"] for c in self.calls])
+        self.assertEqual(self.state("madagascar")["testmadagascar1"]["history"][-1]["status"], "unknown")
+
+    def test_quota_counts_all_countries(self) -> None:
+        self.accounts("A", quotas={"A": 3})
+        self.members(("A",))
+        today = pg.datetime.now().astimezone().isoformat(timespec="seconds")
+        (self.out / "group_posts_ghana.json").write_text(json.dumps({"autre": {"url": "u", "posted": {}, "history": [
+            {"at": today, "status": "posted", "profile": "A"}, {"at": today, "status": "pending", "profile": "A"}]}}),
+            encoding="utf-8")
+        self.main()
+        self.assertEqual(len(self.calls), 1)
+
+    def test_offers_api_failure_one_country(self) -> None:  # Review Focus 5
+        self.accounts("A", "B")
+        self.members(("A", "B"))
+        self.failing_countries.add("Cameroun")
+        code, out = self.main()
+        self.assertEqual(code, 1)
+        countries = {c["group"].removeprefix("test").rstrip("1234") for c in self.calls}
+        self.assertEqual(countries, {"madagascar", "ghana"})
+        self.assertIn("API du pays illisible", out)
+
+    def test_pool_stops_on_invalid_membership_file(self) -> None:  # Review Focus 3
+        self.accounts("A")
+        self.membership_file.write_text('{"A": ', encoding="utf-8")
+        code, out = self.main()
+        self.assertEqual(code, 1)
+        self.assertEqual(self.membership_file.read_text(encoding="utf-8"), '{"A": ')
+        self.assertEqual(EVENTS, [])
+        self.assertEqual(self.calls, [])
+
+    def test_preview_writes_nothing(self) -> None:
+        self.accounts("A", "B")
+        self.members(("A", "B"))
+        before = {p.name: p.read_bytes() for p in self.out.iterdir() if p.is_file()}
+        code, out = self.main("--preview")
+        after = {p.name: p.read_bytes() for p in self.out.iterdir() if p.is_file()}
+        self.assertEqual(before, after)
+        self.assertEqual((self.calls, EVENTS), ([], []))
+        self.assertIn("Total", out)
+
+    def test_max_groups_by_priority(self) -> None:
+        self.accounts("A", "B")
+        self.members(("A", "B"))
+        self.main("--max-groups", "1")
+        self.assertEqual(sorted(c["group"] for c in self.calls), ["testcameroun1", "testghana1", "testmadagascar1"])
+
+    def test_check_restriction_respected(self) -> None:
+        self.accounts("A", "B")
+        until = (pg.datetime.now().astimezone() + pg.timedelta(days=2)).isoformat(timespec="seconds")
+        self.members(("A", "B"), extra={"B": {"madagascar/testmadagascar1": {
+            "status": "member", "checked_at": pg.datetime.now().astimezone().isoformat(timespec="seconds"),
+            "detail": "restriction", "restriction": {"reason": "pending_limit", "until": until}}}})
+        self.main()
+        self.assertNotIn("testmadagascar1", [c["group"] for c in self.calls])
+        self.calls.clear()
+        for code in POOL_COUNTRIES:
+            (self.out / f"group_posts_{code}.json").unlink(missing_ok=True)
+        self.main("--retry-blocked")
+        self.assertIn("testmadagascar1", [c["group"] for c in self.calls])
+
+    def test_unknown_members_get_nothing(self) -> None:
+        self.accounts("A", "B")
+        self.members(("A",), codes=("madagascar",))
+        code, out = self.main()
+        self.assertEqual({c["profile"] for c in self.calls}, {"A"})
+        self.assertEqual(len(self.calls), 4)
+        self.assertIn("aucun compte membre confirmé", out)
+
+    def test_profile_option_forces_legacy(self) -> None:
+        self.accounts("A")
+        self.members(("A",))
+        with mock.patch.object(pg, "run_countries", return_value=0) as legacy, \
+                mock.patch.object(pg, "run_pool", side_effect=AssertionError("pas de pool avec --profile")):
+            self.main("--country", "madagascar", "--profile", str(self.profile("legacy")), countries=None)
+        legacy.assert_called_once()
+
+    def test_warns_historic_profile_missing(self) -> None:
+        self.accounts("A")
+        self.members(("A",))
+        code, out = self.main("--preview")
+        self.assertIn("[WARN] Profil historique my_custom_profile_facebook_share", out)
 
 
 if __name__ == "__main__":

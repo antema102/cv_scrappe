@@ -103,6 +103,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import dataclasses
 import json
 import os
 import random
@@ -1797,6 +1798,24 @@ def publish_country(settings: CountrySettings, jobs: list[Job], state: dict[str,
     return totals
 
 
+def country_offers(settings: CountrySettings, args: argparse.Namespace, group_count: int) -> list[dict[str, Any]] | None:
+    """Offres WipWork du pays (filtrées sur le pays) ; None si l'API est restée illisible."""
+    country = settings.country
+    try:
+        offers, announced = share.fetch_offers(args.api_url, settings.api_name)
+    except share.ShareError as exc:
+        print(f"[ERREUR] API des offres ({args.api_url}, pays={settings.api_name}) : {exc}")
+        return None
+    offers, foreign = share.offers_for_country(offers, [settings.api_name, country.name, country.label])
+    print(f"[INFO] {len(offers)} offres uniques ({announced} annoncées par l'API), {group_count} groupe(s)")
+    if foreign:
+        print(f"[WARN] {foreign} offre(s) d'un autre pays renvoyée(s) par l'API pour pays={settings.api_name} : écartée(s)")
+    if not offers and not announced:
+        print(f"[INFO] Aucune offre WipWork pour pays={settings.api_name} (nom attendu par l'API ? « api_name » "
+              f"dans {Path(args.settings_file).name})")
+    return offers
+
+
 def run_countries(selected: list[CountrySettings], all_settings: dict[str, CountrySettings], args: argparse.Namespace) -> int:
     """Pays l'un après l'autre ; code de sortie (1 si l'API des offres d'un pays est restée illisible)."""
     today = date.today()
@@ -1819,20 +1838,11 @@ def run_countries(selected: list[CountrySettings], all_settings: dict[str, Count
             print(f"[STOP] Profil {settings.profile.name} arrêté plus tôt ({stopped[settings.profile.name]}) : {country.name} ignoré")
             results[country.code] = "profil arrêté"
             continue
-        try:
-            offers, announced = share.fetch_offers(args.api_url, settings.api_name)
-        except share.ShareError as exc:
-            print(f"[ERREUR] API des offres ({args.api_url}, pays={settings.api_name}) : {exc}")
+        offers = country_offers(settings, args, len(targets))
+        if offers is None:
             results[country.code] = "API illisible"
             exit_code = 1
             continue
-        offers, foreign = share.offers_for_country(offers, [settings.api_name, country.name, country.label])
-        print(f"[INFO] {len(offers)} offres uniques ({announced} annoncées par l'API), {len(targets)} groupe(s)")
-        if foreign:
-            print(f"[WARN] {foreign} offre(s) d'un autre pays renvoyée(s) par l'API pour pays={settings.api_name} : écartée(s)")
-        if not offers and not announced:
-            print(f"[INFO] Aucune offre WipWork pour pays={settings.api_name} (nom attendu par l'API ? « api_name » "
-                  f"dans {Path(args.settings_file).name})")
 
         state = load_state(settings.state_path)
         if recover_interrupted(state) and not args.preview:
@@ -1890,6 +1900,245 @@ def run_countries(selected: list[CountrySettings], all_settings: dict[str, Count
     return exit_code
 
 
+# ---------------------------------------------------------------------------
+# Pool de comptes (spec docs/superpowers/specs/2026-11-24-repartition-comptes-facebook-design.md, §5)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class PoolJob:
+    job: Job
+    key: str  # account_pool.group_key
+    settings: CountrySettings  # réglages du pays (profil remplacé par celui du compte à l'exécution)
+
+
+def active_accounts(accounts: list[account_pool.Account], all_settings: dict[str, CountrySettings],
+                    args: argparse.Namespace, today: date) -> tuple[list[account_pool.Account], dict[str, int | None], dict[str, str]]:
+    """§5.1 : (comptes actifs dans l'ordre du fichier, quota restant par profil — None = illimité —, raisons des inactifs)."""
+    active: list[account_pool.Account] = []
+    caps: dict[str, int | None] = {}
+    inactive: dict[str, str] = {}
+    for acc in accounts:
+        paused = _account_block_until(acc.profile)
+        if not acc.active:
+            inactive[acc.profile] = "désactivé"
+        elif args.account and acc.profile not in args.account:
+            inactive[acc.profile] = "non choisi (--account)"
+        elif not acc.path.exists():
+            inactive[acc.profile] = f"jamais connecté (--login --account {acc.profile})"
+        elif paused and not args.retry_blocked:
+            inactive[acc.profile] = f"pause jusqu'au {paused:%d/%m/%Y %H:%M}"
+        else:
+            cap = account_pool.remaining_cap(acc.quota, posts_today(all_settings, acc.path, today))
+            if cap == 0:
+                inactive[acc.profile] = "quota atteint"
+                continue
+            active.append(acc)
+            caps[acc.profile] = cap
+    return active, caps, inactive
+
+
+def _pause(sb: SB, args: argparse.Namespace) -> None:
+    pause = random.uniform(args.delay_min, args.delay_max)
+    print(f"\n[INFO] Pause de {int(pause // 60)} min {int(pause % 60):02d} s avant le groupe suivant (Ctrl+C pour arrêter)")
+    sb.sleep(pause)
+
+
+def publish_account(account: account_pool.Account,
+                    batches: list[tuple[CountrySettings, list[Job], dict[str, dict[str, Any]]]],
+                    args: argparse.Namespace, today: date, claims: dict[str, Owner], totals: Counter[str],
+                    country_totals: dict[str, Counter[str]], pause_before: bool = False) -> None:
+    """
+    Un compte, un seul Chrome pour tous ses pays (§5.7) : verrou du profil tenu de l'ouverture à la fermeture de Chrome,
+    run() pays après pays dans la même session. StopRun / AccountLimited remontent : aucun autre groupe de ce compte.
+    """
+    count = sum(len(jobs) for _, jobs, _ in batches)
+    mode = ("automatique" if args.auto else "assisté") + (", sans fenêtre" if args.headless else ", fenêtre visible")
+    print(f"\n{'=' * 60}\n  Compte {account.label} (profil {account.profile}) - {count} groupe(s), "
+          f"{len(batches)} pays, mode {mode}\n{'=' * 60}")
+    with profile_session(account.path, args.headless) as sb:
+        logged_in = fb.is_logged_in(sb)
+        if (args.headless or not sys.stdin.isatty()) and not logged_in:
+            raise StopRun(f"profil Facebook {account.profile} non connecté : reconnectez-le dans un terminal avec "
+                          f"python facebook_script/post_groups.py --login --account {account.profile}")
+        if not logged_in and not fb.login_and_wait(sb):
+            raise StopRun("connexion abandonnée")
+        check_account_identity(account.profile, sb)
+        for index, (settings, jobs, state) in enumerate(batches):
+            if index or pause_before:
+                _pause(sb, args)
+            print(f"\n[INFO] {settings.country.name} : {len(jobs)} groupe(s)")
+            batch_totals: Counter[str] = Counter()
+            try:
+                run(sb, jobs, state, dataclasses.replace(settings, profile=account.path), args, today, batch_totals, claims)
+            finally:
+                totals.update(batch_totals)
+                country_totals.setdefault(settings.country.code, Counter()).update(batch_totals)
+
+
+def _print_pool_preview(order: list[account_pool.Account], plans: dict[str, list[PoolJob]], args: argparse.Namespace,
+                        today: date) -> None:
+    for acc in order:
+        jobs = plans.get(acc.profile) or []
+        if not jobs:
+            continue
+        print(f"\n{'=' * 60}\n  Compte {acc.label} (profil {acc.profile}) - {len(jobs)} groupe(s)\n{'=' * 60}")
+        for pool_job in jobs:
+            job = pool_job.job
+            print(f"\n{'-' * 60}\n{job.target.group_url} ({len(job.offers)} offres)\n{'-' * 60}\n{job.text}")
+            for path in posters_for(job, args, today):
+                print(f"[AFFICHE] {path}")
+
+
+def run_pool(accounts: list[account_pool.Account], selected: list[CountrySettings],
+             all_settings: dict[str, CountrySettings], args: argparse.Namespace) -> int:
+    """
+    Mode pool (§5.3 à §5.7) : groupes à publier de tous les pays choisis, attribués aux comptes membres confirmés
+    (quota global par compte, charge équilibrée), puis publiés compte par compte. Un compte arrêté (limite anti-spam,
+    déconnexion, profil occupé) garde ses groupes restants pour le cycle suivant : jamais transférés.
+    """
+    today = date.today()
+    now = datetime.now().astimezone()
+    exit_code = 0
+    pool_profiles = {acc.profile for acc in accounts}
+    config = load_settings_file(Path(args.settings_file))
+    for settings in selected:
+        if settings.profile.name not in pool_profiles:
+            print(f"[WARN] Profil historique {settings.profile.name} ({settings.country.name}) absent de "
+                  f"{Path(args.accounts_file).name} : il ne publie plus dans ce pays")
+        ignored = [key for key in ("profile", "max_groups_per_day")
+                   if key in ((config.get("countries") or {}).get(settings.country.code) or {})]
+        if ignored:
+            print(f"[WARN] {settings.country.name} : {', '.join(ignored)} de {Path(args.settings_file).name} ignoré(s) "
+                  f"en mode pool (profil et quota viennent du compte)")
+
+    active, caps, inactive = active_accounts(accounts, all_settings, args, today)
+    try:
+        membership = account_pool.load_membership(MEMBERSHIP_FILE)
+    except account_pool.MembershipFileError as exc:
+        print(f"[ERREUR] {exc}")
+        return 1
+    targets_by_country, claims = load_targets(selected, all_settings, args)
+    states: dict[str, dict[str, Any]] = {}
+    for settings in selected:
+        state = load_state(settings.state_path)
+        if recover_interrupted(state) and not args.preview:
+            share._write_json_atomic(settings.state_path, state)
+        states[settings.country.code] = state
+    memberships = account_pool.Memberships(states, {s.country.code: s.profile.name for s in selected}, membership)
+    restrictions = {} if args.retry_blocked else account_pool.group_restrictions(states, membership, now)
+
+    plan_args = argparse.Namespace(**{**vars(args), "max_groups": 0})  # --max-groups : par priorité, plus bas
+    pool_jobs: dict[str, PoolJob] = {}
+    candidates: list[account_pool.Candidate] = []
+    unserved: dict[str, str] = {}
+    for settings in selected:
+        country = settings.country
+        print(f"\n[INFO] {country.name} ({country.code})")
+        targets = targets_by_country.get(country.code, [])
+        if not targets:
+            print(f"[ERREUR] Aucun groupe : ajoutez des liens dans {settings.groups_file}")
+            continue
+        offers = country_offers(settings, args, len(targets))
+        if offers is None:
+            exit_code = 1
+            unserved.update({account_pool.group_key(country.code, t.group_id): "API du pays illisible" for t in targets})
+            continue
+        rank = {target.group_id: index for index, target in enumerate(targets)}
+        country_last = account_pool.country_last_post(states[country.code])
+        found = []
+        for job in plan(targets, offers, states[country.code], settings, plan_args, today, claims):
+            key = account_pool.group_key(country.code, job.target.group_id)
+            pool_jobs[key] = PoolJob(job, key, settings)
+            found.append(account_pool.Candidate(key, country.code, rank[job.target.group_id],
+                                                account_pool._parse_dt(job.last_post_at), country_last))
+        found.sort(key=account_pool.priority_key)
+        candidates += found[: args.max_groups] if args.max_groups > 0 else found
+    candidates.sort(key=account_pool.priority_key)
+
+    groups: list[str] = []
+    members: dict[str, list[str]] = {}
+    for candidate in candidates:
+        if candidate.key in restrictions:
+            restriction = restrictions[candidate.key]
+            unserved[candidate.key] = f"restriction de groupe jusqu'au {restriction.until:%d/%m/%Y %H:%M}"
+            continue
+        found_members = [acc.profile for acc in active if memberships.status(acc.profile, candidate.key) == account_pool.MEMBER]
+        if not found_members:
+            unserved[candidate.key] = "aucun compte membre confirmé"
+            continue
+        groups.append(candidate.key)
+        members[candidate.key] = found_members
+    order = [acc.profile for acc in active]
+    allocation = account_pool.allocate(groups, members, caps, order)
+    unserved.update({key: "membres au quota" for key in allocation.unserved})
+
+    names = {s.country.code: s.country.name for s in selected}
+    country_last = {code: account_pool.country_last_post(state) for code, state in states.items()}
+    print(f"\n{'=' * 60}\nRépartition du pool : {len(allocation.owner)} groupe(s) pour {len(active)} compte(s) actif(s)\n{'=' * 60}")
+    if active:
+        print(account_pool.allocation_table(allocation, active, caps, {k: k.split('/', 1)[0] for k in [*groups]}, names))
+    print(account_pool.signals_text(unserved, inactive, {}, allocation.loads, country_last, names))
+
+    plans: dict[str, list[PoolJob]] = {}
+    for key in groups:  # ordre de priorité
+        if key in allocation.owner:
+            plans.setdefault(allocation.owner[key], []).append(pool_jobs[key])
+    if args.preview:
+        _print_pool_preview(active, plans, args, today)
+        print(f"\n[INFO] Aperçu : {len(allocation.owner)} publication(s) prévue(s), rien n'est publié.")
+        return exit_code
+
+    stopped: dict[str, tuple[str, int]] = {}
+    account_totals: dict[str, Counter[str]] = {}
+    country_totals: dict[str, Counter[str]] = {}
+    started = False
+    for acc in active:
+        jobs = plans.get(acc.profile) or []
+        if not jobs:
+            continue
+        batches: list[tuple[CountrySettings, list[Job], dict[str, Any]]] = []
+        for pool_job in jobs:  # pays dans l'ordre de leur premier groupe, groupes par priorité
+            code = pool_job.settings.country.code
+            batch = next((b for b in batches if b[0].country.code == code), None)
+            if batch is None:
+                batch = (pool_job.settings, [], states[code])
+                batches.append(batch)
+            batch[1].append(pool_job.job)
+        totals = account_totals.setdefault(acc.profile, Counter())
+        try:
+            publish_account(acc, batches, args, today, claims, totals, country_totals, pause_before=started)
+        except AccountLimited as exc:
+            until = _save_account_block(acc.profile, exc.message)
+            print(f"\n[STOP] {exc}\n[STOP] Aucun autre groupe pour le compte {acc.profile} (pause jusqu'au "
+                  f"{until:%d/%m/%Y %H:%M}) ; ses groupes restants attendent le cycle suivant.")
+            stopped[acc.profile] = (f"limite anti-spam, pause jusqu'au {until:%d/%m/%Y %H:%M}", len(jobs) - sum(totals.values()))
+        except StopRun as exc:
+            print(f"\n[STOP] {exc} - ses groupes restants attendent le cycle suivant.")
+            stopped[acc.profile] = (str(exc), len(jobs) - sum(totals.values()))
+            if exc.scope == "all":
+                break
+        except KeyboardInterrupt:
+            print("\n[INFO] Interruption (Ctrl+C) - les publications déjà faites sont enregistrées.")
+            stopped[acc.profile] = ("interrompu", len(jobs) - sum(totals.values()))
+            break
+        started = True
+
+    print(f"\n{'=' * 60}\nRécapitulatif par compte :")
+    for acc in active:
+        if acc.profile in account_totals:
+            summary = ", ".join(f"{n} {status}" for status, n in account_totals[acc.profile].most_common()) or "aucune"
+            print(f"  {acc.profile:<36} {summary}")
+    print("Récapitulatif par pays :")
+    for settings in selected:
+        code = settings.country.code
+        summary = ", ".join(f"{n} {status}" for status, n in (country_totals.get(code) or Counter()).most_common()) or "aucune"
+        print(f"  {settings.country.name:<24} {summary}")
+    report = account_pool.signals_text({}, {}, stopped, allocation.loads, country_last, names).splitlines()
+    print(next((line for line in report if line.startswith("Arrêtés")), "Aucun compte arrêté en cours de cycle."))
+    return exit_code
+
+
 def main() -> None:
     for stream in (sys.stdout, sys.stderr):
         with suppress(Exception):
@@ -1932,7 +2181,10 @@ def main() -> None:
         return
     try:
         with nullcontext() if args.preview else fb.run_lock(LOCK_FILE):
-            exit_code = run_countries(selected, all_settings, args)
+            if account_pool.pool_enabled(accounts) and not args.profile:
+                exit_code = run_pool(accounts, selected, all_settings, args)
+            else:
+                exit_code = run_countries(selected, all_settings, args)
     except fb.RunAlreadyActive:
         print("[ERREUR] post_groups.py tourne déjà (autre terminal ou PM2) : attendez sa fin - deux lancements "
               "publieraient deux fois dans les mêmes groupes.")

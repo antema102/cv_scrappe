@@ -178,6 +178,27 @@ class LegacyCompatTest(unittest.TestCase):
     def test_run_madagascar_identical(self) -> None:  # publication avec faux navigateur
         _check(self, "expected_run_madagascar.json", golden_value(RUN_MDG, True))
 
+    def test_inactive_accounts_keep_legacy_output(self) -> None:
+        """Pool désactivé (comptes listés, aucun actif) : sorties identiques à la référence."""
+        if UPDATE:
+            self.skipTest("référence produite par les trois tests précédents")
+        with tempfile.TemporaryDirectory() as tmp:
+            accounts = Path(tmp) / "share_accounts.json"
+            accounts.write_text(json.dumps({"accounts": [{"profile": "compte_inactif_1", "active": False},
+                                                         {"profile": "compte_inactif_2"}]}), encoding="utf-8")
+            for argv, name, real_run in GOLDEN_CASES:
+                with self.subTest(reference=name):
+                    _check(self, name, golden_value(argv, real_run, accounts))
+
+    def test_empty_shipped_accounts_file_keeps_legacy_output(self) -> None:
+        """Fichier de comptes livré (« accounts »: []) : sorties identiques à la référence."""
+        if UPDATE:
+            self.skipTest("référence produite par les trois tests précédents")
+        shipped = Path(__file__).resolve().parent / "share_accounts.json"
+        for argv, name, real_run in GOLDEN_CASES:
+            with self.subTest(reference=name):
+                _check(self, name, golden_value(argv, real_run, shipped))
+
 
 if __name__ == "__main__":
     unittest.main()
