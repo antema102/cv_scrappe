@@ -647,14 +647,36 @@ class PoolRunTest(PoolTestCase):
         self.accounts("A")
         self.members(("A",))
         self.script[("A", "testmadagascar1")] = RuntimeError("plantage de Chrome")
-        with self.assertRaises(RuntimeError):
-            self.main()
+        code, out = self.main()
+        self.assertEqual(code, 1)
+        self.assertIn("erreur inattendue", out)
         self.assertIn("publishing", self.state("madagascar")["testmadagascar1"])
         self.calls.clear()
         self.script.clear()
         self.main()
         self.assertNotIn("testmadagascar1", [c["group"] for c in self.calls])
         self.assertEqual(self.state("madagascar")["testmadagascar1"]["history"][-1]["status"], "unknown")
+
+    def test_unexpected_error_stops_only_that_account(self) -> None:
+        self.accounts("A", "B", "C")
+        self.members(("A", "B", "C"))
+        self.script[("A", "testmadagascar1")] = TimeoutError("CDP sans réponse")  # comme fb.CdpTimeout
+        code, out = self.main()
+        self.assertEqual(code, 1)
+        self.assertEqual(self.groups_of("A"), ["testmadagascar1"])  # A arrêté, ses autres groupes non transférés
+        self.assertEqual(len(self.groups_of("B")), 4)
+        self.assertEqual(len(self.groups_of("C")), 4)
+        self.assertTrue(self.lock_free(self.profile("A")))
+        self.assertIn("A (erreur inattendue", out)
+
+    def test_account_option_without_pool_refused(self) -> None:
+        self.accounts("A", inactive=("A",))
+        for extra in ((), ("--preview",)):
+            with self.subTest(extra=extra):
+                code, out = self.main("--account", "A", *extra)
+                self.assertEqual(code, 1)
+                self.assertIn("pool désactivé", out)
+        self.assertEqual((self.calls, EVENTS), ([], []))
 
     def test_quota_counts_all_countries(self) -> None:
         self.accounts("A", quotas={"A": 3})

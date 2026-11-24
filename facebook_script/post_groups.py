@@ -2122,6 +2122,13 @@ def run_pool(accounts: list[account_pool.Account], selected: list[CountrySetting
             print("\n[INFO] Interruption (Ctrl+C) - les publications déjà faites sont enregistrées.")
             stopped[acc.profile] = ("interrompu", len(jobs) - sum(totals.values()))
             break
+        except Exception as exc:  # Chrome ou CDP en échec (CdpTimeout, SessionNotCreatedException...) : ce compte seulement
+            # Suivis écrits après chaque groupe, marqueur « publishing » gardé en mémoire et sur disque : rien n'est
+            # perdu ni republié ; les groupes restants de ce compte attendent le cycle suivant (jamais transférés).
+            print(f"\n[ERREUR] Compte {acc.profile} : erreur inattendue ({exc!r}) - ses groupes restants attendent le "
+                  f"cycle suivant ; les autres comptes continuent.")
+            stopped[acc.profile] = (f"erreur inattendue : {type(exc).__name__}", len(jobs) - sum(totals.values()))
+            exit_code = 1
         started = True
 
     print(f"\n{'=' * 60}\nRécapitulatif par compte :")
@@ -2179,6 +2186,11 @@ def main() -> None:
         else:
             login_only(selected)
         return
+    if args.account and not account_pool.pool_enabled(accounts):
+        # Sinon --account serait ignoré et la publication partirait avec le profil historique du pays
+        print(f"[ERREUR] --account : aucun compte actif dans {Path(args.accounts_file).name} (pool désactivé) - "
+              f"passez le compte à \"active\": true pour publier avec lui")
+        sys.exit(1)
     try:
         with nullcontext() if args.preview else fb.run_lock(LOCK_FILE):
             if account_pool.pool_enabled(accounts) and not args.profile:
