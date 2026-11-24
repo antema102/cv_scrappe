@@ -254,5 +254,188 @@ class MembershipFileTest(unittest.TestCase):
         self.assertIsNone(ap.account_id_conflict({"A": ""}, "B", ""))
 
 
+def groups_of(spec: list[tuple[str, int]]) -> list[str]:
+    """[("madagascar", 30), ("senegal", 20)] -> ["madagascar/0", ..., "senegal/19"] dans cet ordre (= priorité)."""
+    return [f"{code}/{n}" for code, count in spec for n in range(count)]
+
+
+def per_country(allocation: ap.Allocation) -> dict[str, dict[str, int]]:
+    found: dict[str, dict[str, int]] = {}
+    for key, profile in allocation.owner.items():
+        country = key.split("/")[0]
+        found.setdefault(profile, {}).setdefault(country, 0)
+        found[profile][country] += 1
+    return found
+
+
+class AllocationTest(unittest.TestCase):
+    def test_three_accounts_three_countries(self) -> None:
+        groups = groups_of([("madagascar", 30), ("senegal", 20), ("cameroun", 10)])
+        al = ap.allocate(groups, {g: ["A", "B", "C"] for g in groups}, {"A": None, "B": None, "C": None}, ["A", "B", "C"])
+        self.assertEqual(al.loads, {"A": 20, "B": 20, "C": 20})
+        self.assertEqual(per_country(al), {"A": {"madagascar": 10, "senegal": 7, "cameroun": 3},
+                                           "B": {"madagascar": 10, "senegal": 7, "cameroun": 3},
+                                           "C": {"madagascar": 10, "senegal": 6, "cameroun": 4}})
+        self.assertEqual(sorted(al.owner), sorted(groups))  # chaque groupe attribué une fois
+        self.assertEqual(al.unserved, [])
+
+    def test_different_memberships_per_country(self) -> None:
+        groups = groups_of([("madagascar", 30), ("senegal", 20), ("cameroun", 10)])
+        members = {g: ["A", "C"] if g.startswith("madagascar") else ["B", "C"] for g in groups}
+        al = ap.allocate(groups, members, {"A": None, "B": None, "C": None}, ["A", "B", "C"])
+        self.assertEqual(per_country(al), {"A": {"madagascar": 20}, "B": {"senegal": 18, "cameroun": 2},
+                                           "C": {"madagascar": 10, "senegal": 2, "cameroun": 8}})
+        for key, profile in al.owner.items():
+            self.assertIn(profile, members[key])
+
+    def test_ten_accounts_twenty_countries(self) -> None:
+        accounts = [f"a{i}" for i in range(10)]
+        groups = groups_of([(f"pays{c:02d}", 5) for c in range(20)])
+        members = {g: accounts for g in groups}
+        al = ap.allocate(groups, members, {a: None for a in accounts}, accounts)
+        self.assertEqual(len(al.owner), 100)
+        self.assertEqual(set(al.loads.values()), {10})
+        self.assertEqual({k.split("/")[0] for k in al.owner}, {f"pays{c:02d}" for c in range(20)})
+        al = ap.allocate(groups, members, {a: 5 for a in accounts}, accounts)
+        self.assertEqual(sorted(al.owner), sorted(groups[:50]))  # les 10 premiers pays
+        self.assertEqual(al.unserved, groups[50:])
+        self.assertEqual(set(al.loads.values()), {5})
+
+    def test_one_account_ten_countries(self) -> None:
+        groups = groups_of([(f"pays{c}", 3) for c in range(10)])
+        members = {g: ["A"] for g in groups}
+        self.assertEqual(len(ap.allocate(groups, members, {"A": None}, ["A"]).owner), 30)
+        al = ap.allocate(groups, members, {"A": 15}, ["A"])
+        self.assertEqual(sorted(al.owner), sorted(groups[:15]))
+        self.assertEqual(al.unserved, groups[15:])
+
+    def test_global_quota_across_countries(self) -> None:
+        groups = groups_of([("madagascar", 10), ("senegal", 10), ("cameroun", 10)])
+        members = {g: ["A"] for g in groups}
+        self.assertEqual(ap.allocate(groups, members, {"A": 5}, ["A"]).loads, {"A": 5})
+        self.assertEqual(ap.allocate(groups, members, {"A": 2}, ["A"]).loads, {"A": 2})
+
+    def test_freeing_path(self) -> None:
+        al = ap.allocate(["g2", "g1"], {"g2": ["A", "B"], "g1": ["A"]}, {"A": 1, "B": 1}, ["A", "B"])
+        self.assertEqual(al.owner, {"g2": "B", "g1": "A"})
+        self.assertEqual(al.unserved, [])
+
+    def test_no_ceiling_historic_alone(self) -> None:
+        groups = groups_of([("madagascar", 67)])
+        others = [f"n{i}" for i in range(8)]
+        al = ap.allocate(groups, {g: ["H"] for g in groups}, {p: None for p in ["H", *others]}, ["H", *others])
+        self.assertEqual(al.loads["H"], 67)
+        self.assertTrue(all(al.loads[p] == 0 for p in others))
+
+    def test_partial_members(self) -> None:
+        groups = groups_of([("madagascar", 67)])
+        members = {g: ["H", "B", "C"] if i < 3 else ["H", "B"] if i < 10 else ["H"] for i, g in enumerate(groups)}
+        al = ap.allocate(groups, members, {"H": None, "B": None, "C": None}, ["H", "B", "C"])
+        self.assertEqual(al.loads, {"H": 57, "B": 7, "C": 3})
+
+    def test_all_members_balanced(self) -> None:
+        groups = groups_of([("madagascar", 67)])
+        accounts = [f"a{i}" for i in range(9)]
+        al = ap.allocate(groups, {g: accounts for g in groups}, {a: None for a in accounts}, accounts)
+        self.assertTrue(set(al.loads.values()) <= {7, 8})
+        self.assertEqual(sum(al.loads.values()), 67)
+
+    def test_unknown_never_assigned_even_at_quota(self) -> None:
+        al = ap.allocate(["g1", "g2", "g3"], {"g1": ["A"], "g2": ["A"], "g3": ["A"]}, {"A": 1, "B": None}, ["A", "B"])
+        self.assertEqual(al.owner, {"g1": "A"})
+        self.assertEqual(al.unserved, ["g2", "g3"])
+        self.assertEqual(al.loads, {"A": 1, "B": 0})
+
+    def test_deterministic(self) -> None:
+        groups = groups_of([("madagascar", 30), ("senegal", 20), ("cameroun", 10)])
+        members = {g: ["A", "B", "C"] if i % 3 else ["B", "C"] for i, g in enumerate(groups)}
+        caps = {"A": 12, "B": None, "C": 25}
+        first = ap.allocate(groups, members, caps, ["A", "B", "C"]).owner
+        for _ in range(20):
+            self.assertEqual(ap.allocate(groups, members, caps, ["A", "B", "C"]).owner, first)
+
+    def test_priority_key_order(self) -> None:
+        def cand(key: str, country: str, rank: int, last: str | None, country_last: str | None) -> ap.Candidate:
+            parse = lambda v: datetime.fromisoformat(v) if v else None  # noqa: E731
+            return ap.Candidate(key, country, rank, parse(last), parse(country_last))
+        items = [
+            cand("posted_recent", "madagascar", 0, at(30), at(30)),
+            cand("posted_old", "senegal", 0, at(20), at(30)),
+            cand("never_mdg_served", "madagascar", 1, None, at(30)),
+            cand("never_cmr_old", "cameroun", 0, None, at(25)),
+            cand("never_tgo_never", "togo", 1, None, None),
+            cand("never_sen_never", "senegal", 2, None, None),
+            cand("never_sen_never_rank0", "senegal", 0, None, None),
+            cand("never_mdg_never", "madagascar", 5, None, None),
+            cand("naive", "ghana", 0, "2026-11-25T10:00:00", None),
+        ]
+        ordered = [c.key for c in sorted(items, key=ap.priority_key)]
+        self.assertEqual(ordered, ["never_mdg_never", "never_sen_never_rank0", "never_sen_never", "never_tgo_never",
+                                   "never_cmr_old", "never_mdg_served", "posted_old", "naive", "posted_recent"])
+
+    def test_country_last_post(self) -> None:
+        state = {"g1": {"last_post_at": at(20)}, "g2": {"last_post_at": at(25)}, "g3": {}}
+        self.assertEqual(ap.country_last_post(state), datetime.fromisoformat(at(25)))
+        self.assertIsNone(ap.country_last_post({"g1": {}}))
+
+
+class RotationTest(unittest.TestCase):
+    """Scénario §8 de la spec : 4 pays, quotas insuffisants (5 places pour 9 groupes), trois cycles."""
+
+    EXPECTED = [  # (ordre de priorité, A, B, non servis)
+        ("S1 S2 S3 M3 M4 M1 M2 C1 C2", ["S1", "M3", "M4"], ["S2", "S3"], ["M1", "M2", "C1", "C2"]),
+        ("M1 M2 C1 C2 S1 M3 M4 S2 S3", ["M1", "M2", "S1"], ["C1", "C2"], ["M3", "M4", "S2", "S3"]),
+        ("M3 M4 S2 S3 M1 M2 S1 C1 C2", ["M3", "M4", "M1"], ["S2", "S3"], ["M2", "S1", "C1", "C2"]),
+    ]
+
+    def test_three_cycles(self) -> None:
+        d0 = datetime(2026, 12, 1, 8, 0, tzinfo=TZ)
+        names = {"M": "madagascar", "S": "senegal", "C": "cameroun", "T": "togo"}
+        last: dict[str, datetime | None] = {
+            "M1": d0 - timedelta(days=2) + timedelta(hours=1), "M2": d0 - timedelta(days=2, minutes=-65),
+            "M3": None, "M4": None, "S1": None, "S2": None, "S3": None,
+            "C1": d0 - timedelta(days=1) + timedelta(hours=2), "C2": d0 - timedelta(days=1) + timedelta(hours=2, minutes=5),
+            "T1": None,
+        }
+        member_of = {"A": {"madagascar", "senegal", "cameroun"}, "B": {"senegal", "cameroun"}}
+        caps = {"A": 3, "B": 2}
+        served_twice: set[str] = set()
+        for cycle, (order, exp_a, exp_b, exp_unserved) in enumerate(self.EXPECTED):
+            now = d0 + timedelta(days=cycle)
+
+            def candidate(group: str) -> ap.Candidate:
+                country = names[group[0]]
+                dates = [v for k, v in last.items() if names[k[0]] == country and v]
+                return ap.Candidate(group, country, int(group[1:]), last[group], max(dates) if dates else None)
+
+            due = [g for g, v in last.items() if v is None or now - v >= timedelta(hours=20)]
+            no_member = [g for g in due if not any(names[g[0]] in m for m in member_of.values())]
+            self.assertEqual(no_member, ["T1"])
+            servable = sorted((g for g in due if g not in no_member), key=lambda g: ap.priority_key(candidate(g)))
+            self.assertEqual(" ".join(servable), order)
+            members = {g: [a for a in ("A", "B") if names[g[0]] in member_of[a]] for g in servable}
+            al = ap.allocate(servable, members, caps, ["A", "B"])
+            mine = {a: [g for g in servable if al.owner.get(g) == a] for a in ("A", "B")}
+            self.assertEqual((mine["A"], mine["B"], al.unserved), (exp_a, exp_b, exp_unserved))
+            self.assertFalse(any(g.startswith("M") for g in mine["B"]))
+            self.assertLessEqual(al.loads["A"], 3)
+            self.assertLessEqual(al.loads["B"], 2)
+            # exécution (§5.7) : ordre fixé avant de publier ; comptes dans l'ordre, pays par priorité de leur 1er groupe
+            orders = {}
+            for a in ("A", "B"):
+                countries: list[str] = []
+                for g in mine[a]:
+                    countries.append(g[0]) if g[0] not in countries else None
+                orders[a] = [g for c in countries for g in mine[a] if g[0] == c]
+            when = now
+            for a in ("A", "B"):
+                for g in orders[a]:
+                    last[g] = when
+                    when += timedelta(minutes=5)
+            if cycle < 2:
+                served_twice |= set(al.owner)
+        self.assertEqual(served_twice, {"M1", "M2", "M3", "M4", "S1", "S2", "S3", "C1", "C2"})  # tous servis en 2 cycles
+
+
 if __name__ == "__main__":
     unittest.main()

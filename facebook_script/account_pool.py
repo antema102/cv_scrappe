@@ -12,6 +12,8 @@ Aucun import de scraper.py (SeleniumBase) : module testable seul (test_account_p
 from __future__ import annotations
 
 import json
+from collections import deque
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -266,6 +268,168 @@ def group_restrictions(states: dict[str, dict[str, dict[str, Any]]], membership:
             if restriction.get("reason") in GROUP_RESTRICTIONS and until and until > now:
                 keep(Restriction(key, restriction["reason"], until, profile, "check"))
     return found
+
+
+# ---------------------------------------------------------------------------
+# Priorité des groupes (§5.3), attribution (§5.4), équilibrage (§5.5)
+# ---------------------------------------------------------------------------
+
+FIRST_COUNTRY = "madagascar"  # = countries.LEGACY_COUNTRY : à égalité, Madagascar d'abord (comme --all-countries)
+
+
+@dataclass(frozen=True, slots=True)
+class Candidate:
+    key: str  # group_key
+    country: str  # code pays
+    rank: int  # rang dans share_groups.txt
+    last_post_at: datetime | None  # dernière publication dans ce groupe (None = jamais)
+    country_last: datetime | None  # dernière publication dans le pays (None = pays jamais servi)
+
+
+def country_last_post(state: dict[str, dict[str, Any]]) -> datetime | None:
+    """Dernière publication dans un pays : plus grand last_post_at de son suivi group_posts_<code>.json."""
+    dates = [d for d in (_parse_dt(group.get("last_post_at")) for group in state.values() if group.get("last_post_at")) if d]
+    return max(dates) if dates else None
+
+
+def priority_key(candidate: Candidate) -> tuple[Any, ...]:
+    """
+    Ordre total (§5.3) : jamais publié d'abord, puis last_post_at le plus ancien, puis le pays qui attend depuis le plus
+    longtemps (jamais servi d'abord), Madagascar, code du pays, rang. Comparaison sur timestamp() : jamais
+    datetime.min, une date avec fuseau et une date sans fuseau ne se comparent pas.
+    """
+    def ts(value: datetime | None) -> float:
+        return value.timestamp() if value else 0.0
+
+    return (candidate.last_post_at is not None, ts(candidate.last_post_at),
+            candidate.country_last is not None, ts(candidate.country_last),
+            candidate.country != FIRST_COUNTRY, candidate.country, candidate.rank)
+
+
+@dataclass(slots=True)
+class Allocation:
+    owner: dict[str, str]  # groupe servi -> profil
+    unserved: list[str]  # groupes servables non servis (membres au quota), ordre de priorité
+    loads: dict[str, int]  # profil -> groupes attribués, pour chaque profil de `order`
+
+
+class _Pool:
+    """État d'une attribution : charges, groupes tenus par chaque compte, membres dans l'ordre du fichier."""
+
+    def __init__(self, groups: Sequence[str], members: Mapping[str, Sequence[str]], caps: Mapping[str, int | None],
+                 order: Sequence[str], owner: dict[str, str | None] | None = None) -> None:
+        self.rank = {profile: i for i, profile in enumerate(order)}
+        self.pos = {group: i for i, group in enumerate(groups)}
+        self.order = list(order)
+        self.members = {g: sorted((a for a in members.get(g, ()) if a in self.rank), key=self.rank.__getitem__)
+                        for g in groups}
+        self.caps = {a: (float("inf") if caps.get(a) is None else caps[a]) for a in order}
+        self.owner: dict[str, str | None] = dict(owner) if owner else {g: None for g in groups}
+        self.load = {a: 0 for a in order}
+        self.held: dict[str, set[str]] = {a: set() for a in order}
+        for group, profile in self.owner.items():
+            if profile is not None:
+                self.load[profile] += 1
+                self.held[profile].add(group)
+
+    def held_least_priority_first(self, profile: str) -> list[str]:
+        return sorted(self.held[profile], key=self.pos.__getitem__, reverse=True)
+
+    def search(self, starts: list[str], accept: Any) -> tuple[str, dict[str, tuple[str, str] | None]] | None:
+        """
+        Recherche en largeur : compte -> groupe qu'il tient (le moins prioritaire d'abord) -> autre membre de ce groupe…
+        jusqu'à un compte que `accept` retient. (compte trouvé, parents) ou None.
+        """
+        parent: dict[str, tuple[str, str] | None] = {a: None for a in starts}
+        queue = deque(starts)
+        while queue:
+            current = queue.popleft()
+            for group in self.held_least_priority_first(current):
+                for other in self.members[group]:
+                    if other in parent:
+                        continue
+                    parent[other] = (current, group)
+                    if accept(other):
+                        return other, parent
+                    queue.append(other)
+        return None
+
+    def shift(self, end: str, parent: dict[str, tuple[str, str] | None]) -> str:
+        """Déplace les groupes le long du chemin trouvé (chacun vers le compte suivant) ; renvoie le compte de départ."""
+        current = end
+        while parent[current] is not None:
+            previous, group = parent[current]
+            self.owner[group] = current
+            self.held[previous].discard(group)
+            self.held[current].add(group)
+            current = previous
+        return current
+
+    def give(self, group: str, profile: str) -> None:
+        self.owner[group] = profile
+        self.held[profile].add(group)
+        self.load[profile] += 1
+
+
+def serve(groups: Sequence[str], members: Mapping[str, Sequence[str]], caps: Mapping[str, int | None],
+          order: Sequence[str], *, use_paths: bool = True) -> dict[str, str | None]:
+    """
+    §5.4 : groupes pris par ordre de priorité ; membre libre le moins chargé (égalité : ordre du fichier), sinon
+    chemin libérant (un membre au quota cède un groupe à un autre de ses membres qui a du quota, en cascade).
+    `use_paths=False` : variante sans chemin (tests seulement, pour prouver que les tests détectent l'erreur).
+    """
+    pool = _Pool(groups, members, caps, order)
+    for group in groups:
+        candidates = pool.members[group]
+        free = [a for a in candidates if pool.load[a] < pool.caps[a]]
+        if free:
+            pool.give(group, min(free, key=lambda a: (pool.load[a], pool.rank[a])))
+            continue
+        if not use_paths or not candidates:
+            continue
+        found = pool.search(candidates, lambda a: pool.load[a] < pool.caps[a])
+        if found is None:
+            continue
+        end, parent = found
+        start = pool.shift(end, parent)
+        pool.owner[group] = start
+        pool.held[start].add(group)
+        pool.load[end] += 1  # les comptes intermédiaires cèdent un groupe et en reçoivent un
+    return pool.owner
+
+
+def balance(groups: Sequence[str], owner: dict[str, str | None], members: Mapping[str, Sequence[str]],
+            caps: Mapping[str, int | None], order: Sequence[str]) -> dict[str, str | None]:
+    """
+    §5.5 : tant qu'un compte peut céder un groupe, directement ou en cascade, à un compte d'au moins 2 groupes de
+    moins qui a du quota, on déplace. L'ensemble servi ne change pas.
+    """
+    pool = _Pool(groups, members, caps, order, owner)
+    while True:
+        for top in sorted(pool.order, key=lambda a: (-pool.load[a], pool.rank[a])):
+            limit = pool.load[top] - 2
+            found = pool.search([top], lambda a: pool.load[a] <= limit and pool.load[a] < pool.caps[a])
+            if found is None:
+                continue
+            end, parent = found
+            pool.shift(end, parent)
+            pool.load[top] -= 1
+            pool.load[end] += 1
+            break
+        else:
+            return pool.owner
+
+
+def allocate(groups: Sequence[str], members: Mapping[str, Sequence[str]], caps: Mapping[str, int | None],
+             order: Sequence[str]) -> Allocation:
+    """Attribution globale (serve) puis équilibrage (balance). `groups` : déjà triés par priorité."""
+    owner = balance(groups, serve(groups, members, caps, order), members, caps, order)
+    loads = {profile: 0 for profile in order}
+    for profile in owner.values():
+        if profile is not None:
+            loads[profile] += 1
+    return Allocation({g: p for g, p in owner.items() if p is not None},
+                      [g for g in groups if owner[g] is None], loads)
 
 
 def account_id_conflict(ids: dict[str, str], profile: str, user_id: str) -> str | None:
