@@ -38,7 +38,7 @@ from typing import Any
 
 import requests
 
-PROMPT_VERSION = "fb-pages-v7"  # v2 : OCR en texte seul ; v3 : OCR par lots ; v4 : groupes ; v5 : offer_type (concours, formation...) ; v6 : company_type (portails/ONG/institutions) + offres suspectes ; v7 : secteur de l'offre, suspicious_reason retiré
+PROMPT_VERSION = "fb-pages-v8"  # v2 : OCR en texte seul ; v3 : OCR par lots ; v4 : groupes ; v5 : offer_type (concours, formation...) ; v6 : company_type (portails/ONG/institutions) + offres suspectes ; v7 : secteur de l'offre, suspicious_reason retiré ; v8 : traduction en français (source_language, title_original) + description complétée (description_generated)
 DEFAULT_MODEL = "gpt-4o-mini"
 DEFAULT_BASE_URL = "https://api.openai.com/v1"
 MAX_IMAGES_PER_CALL = 8
@@ -92,10 +92,13 @@ RESULT_SCHEMA = _object({
         "type": "array",
         "items": _object({
             "title": _STR,
+            "title_original": _STR,
+            "source_language": _STR,
             "offer_type": {"type": "string", "enum": OFFER_TYPES},
             "company_name": _STR,
             "sector": _STR,
             "description": _STR,
+            "description_generated": {"type": "boolean"},
             "tasks": _STR_LIST,
             "qualifications": _STR_LIST,
             "skills": _STR_LIST,
@@ -121,10 +124,14 @@ Règles :
 - companies : chaque entreprise/organisation réellement identifiable (nom, contact ou site). Plusieurs images montrant le même nom/email/téléphone = UNE seule entreprise, informations regroupées.
 - is_page_owner = true uniquement si l'entreprise est la page elle-même qui publie. Une page qui relaie des offres ou annonces d'autres entreprises n'est pas ces entreprises. Dans un groupe Facebook, is_page_owner = false : le groupe n'emploie personne et l'auteur de la publication relaie le plus souvent l'offre d'une autre entreprise.
 - company_type : "entreprise" par défaut (véritable employeur, joignable directement pour candidater). "portail_offres" si l'entité n'est qu'un site/une page qui republie des offres d'autres employeurs sans être elle-même l'employeur (portail d'annonces généraliste type MADAJOB, Asako, agence de placement qui relaie pour le compte de tiers) — même si is_page_owner=true pour elle. "ong_ou_institution" si organisation non gouvernementale, organisation internationale ou agence de coopération (ex. Banque Mondiale, agences des Nations Unies, USAID, Union Européenne) ou institution publique (ministère, agence d'État, ambassade) : elles recrutent via leur propre procédure formelle (portail dédié, appel à candidatures officiel) et n'acceptent pas de candidatures spontanées par ce canal.
-- description : 1 à 3 phrases factuelles sur l'activité de l'entreprise. sector : secteur d'activité court en français (ex. "Hôtellerie", "Commerce", "BTP").
+- description (companies) : 1 à 3 phrases factuelles sur l'activité de l'entreprise, en français. sector : secteur d'activité court en français (ex. "Hôtellerie", "Commerce", "BTP").
 - address : adresse physique telle qu'écrite ; city : ville seule ; country : pays si indiqué ou évident ({country} par défaut pour une entreprise locale).
 - products_services : produits ou services proposés. categories : types de métiers/tâches/services concernés, en français, courts.
-- job_offers : une entrée par poste proposé, pour TOUTES les images de ce lot sans exception (stages, alternances et plusieurs postes sur une même affiche compris) ; ne t'arrête pas aux premières. tasks = missions ; qualifications = profil/diplômes/expérience demandés ; skills = compétences ; how_to_apply = modalités de candidature ; deadline = date limite telle qu'écrite.
+- job_offers : une entrée par poste proposé, pour TOUTES les images de ce lot sans exception (stages, alternances et plusieurs postes sur une même affiche compris) ; ne t'arrête pas aux premières. Uniquement des postes réellement écrits dans la publication ou sur une image : jamais une offre déduite du nom ou de l'activité de la page. tasks = missions ; qualifications = profil/diplômes/expérience demandés ; skills = compétences ; how_to_apply = modalités de candidature ; deadline = date limite telle qu'écrite.
+- Langue des offres : title, description, tasks, qualifications, skills, how_to_apply, contract_type et sector sont écrits en français. Une annonce rédigée dans une autre langue que le français ou l'anglais (arabe, malgache, portugais, amharique, swahili...) est TRADUITE fidèlement en français, sans rien ajouter ni retirer ; une annonce en anglais reste en anglais. Ne traduis jamais les noms d'entreprises, de personnes et de lieux, les emails, téléphones, sites et références. Aucun caractère arabe ou d'une autre écriture non latine dans ces champs.
+- source_language : code ISO 639-1 de la langue dans laquelle l'annonce est écrite (fr, en, ar, mg, pt...). title_original : intitulé du poste EXACTEMENT tel qu'il est écrit dans la publication ou sur l'image, dans sa langue d'origine, sans traduction ni correction (sert à vérifier que l'offre existe bien).
+- description (job_offers) : 2 à 4 phrases, dans la langue de title, qui présentent le poste d'après la publication (intitulé, missions, profil, lieu, contrat) ; description_generated = false. Si la publication ne décrit pas le poste (seulement un intitulé et un contact), écris 1 à 2 phrases qui disent ce que fait ce métier en général, à partir de l'intitulé et du secteur, SANS parler du candidat ni des conditions (jamais d'expérience, diplôme, profil, compétences, salaire, contrat, horaires, avantages, date, lieu, contacts) ; description_generated = true.
+- title : intitulé d'un poste précis. Une publication qui n'annonce aucun poste précis (« Offre d'emploi » ou « Recrutement » sans métier, simple annonce d'une adresse où envoyer les candidatures) ne donne AUCUNE entrée dans job_offers ; l'entreprise et ses contacts restent dans companies.
 - sector (job_offers) : secteur d'activité DU POSTE lui-même, court en français (ex. "Informatique", "Comptabilité", "BTP", "Commercial") — déduit de l'intitulé/des missions, PAS recopié tel quel du secteur de l'entreprise : une entreprise "Banque" peut publier un poste secteur "Informatique" ou "Sécurité".
 - offer_type : "emploi" = poste rémunéré dans une entreprise ou une organisation (CDI, CDD, intérim, temps partiel, alternance, consultant individuel recruté, formateur/enseignant recruté) ; "stage" = stage ou stagiaire ; "concours" = recrutement ou entrée par voie de concours (fonction publique, école, institut) ; "formation" = formation, cours, certification, séminaire, atelier ou programme proposé à des participants, même gratuit ou « avec possibilité d'emploi » ; "bourse" = bourse, fellowship, prix, programme de subvention ; "appel_offres" = appel d'offres, consultation, marché ou manifestation d'intérêt adressés à des sociétés, fournisseurs ou prestataires ; "autre" = événement, salon, bénévolat, annonce qui n'est pas un poste. Liste quand même ces annonces dans job_offers avec leur offer_type.
 - suspicious = true si l'offre présente des signes d'arnaque au recrutement : paiement ou frais demandés au candidat (frais de dossier, "formation" payante obligatoire présentée comme un préalable à l'embauche, achat de matériel/stock avant de commencer) ; vente pyramidale / marketing de réseau (MLM, recrutement de filleuls plutôt qu'un poste réel) ; promesses de gains élevés et rapides sans compétence ni expérience requise ; demande de pièces d'identité ou de paiement pour "valider le dossier" avant tout entretien ; aucune tâche ni mission réelle décrite malgré une offre soi-disant très rémunératrice. Un simple manque de détails (offre courte mais légitime) n'est PAS suspicious.

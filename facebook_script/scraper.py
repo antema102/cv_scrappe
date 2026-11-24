@@ -15,7 +15,7 @@ Détection de session : cookie "c_user" présent (posé par Facebook uniquement
 pour un compte connecté) ET aucune page de connexion/vérification affichée.
 
 Etape 2 - Scraping :
-Pour chaque groupe (facebook_script/groups.txt ou --url), le script ouvre le
+Pour chaque groupe (facebook_script/pays/madagascar/groups.txt ou --url), le script ouvre le
 fil du groupe (tri "nouvelles publications" par défaut) et scrolle à l'infini.
 A chaque passage, les publications pas encore traitées sont :
   1. marquées (attribut data-scrape-key) pour ne jamais être relues,
@@ -47,7 +47,7 @@ Arrêt d'un groupe : fin du fil (rien de nouveau après --max-idle scrolls),
 --max-posts atteint, ou --stop-after-known publications déjà connues d'affilée.
 
 Usage :
-    python facebook_script/scraper.py                          # groupes de groups.txt
+    python facebook_script/scraper.py                          # groupes de pays/madagascar/groups.txt
     python facebook_script/scraper.py --url https://www.facebook.com/groups/506924959474464/
     python facebook_script/scraper.py --max-posts 10            # test rapide
     python facebook_script/scraper.py --stop-after-known 20     # relance incrémentale
@@ -75,7 +75,7 @@ import re
 import sys
 import time
 import unicodedata
-from contextlib import suppress
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -85,7 +85,7 @@ from urllib.parse import parse_qs, parse_qsl, unquote, urlencode, urljoin, urlpa
 import requests
 from bs4 import BeautifulSoup, Tag
 from bs4.element import Script, Stylesheet
-from fb_dates import dates_agree, is_too_old
+from fb_dates import dates_agree, is_too_old, parse_facebook_date
 from mycdp import dom as cdp_dom  # mycdp est installé avec seleniumbase (pilote du mode CDP)
 from mycdp import input_ as cdp_input
 from mycdp import runtime as cdp_runtime
@@ -100,7 +100,7 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 
 PROFILE_DIR = PROJECT_ROOT / "my_custom_profile_facebook"
 OUTPUT_DIR = PROJECT_ROOT / "downloaded_files"
-GROUPS_FILE = SCRIPT_DIR / "groups.txt"
+GROUPS_FILE = SCRIPT_DIR / "pays" / "madagascar" / "groups.txt"  # autre pays : --groups-file pays/<code>/groups.txt
 
 FACEBOOK_URL = "https://www.facebook.com/"
 
@@ -408,6 +408,37 @@ def load_targets(urls: list[str], groups_file: Path) -> list[GroupTarget]:
     return targets
 
 
+class RunAlreadyActive(Exception):
+    """Un autre lancement tient déjà le verrou."""
+
+
+@contextmanager
+def run_lock(path: Path):
+    """Verrou exclusif sur un fichier, libéré par le système même si le processus plante."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle = open(path, "a+")
+    try:
+        if os.name == "nt":
+            import msvcrt
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        handle.close()
+        raise RunAlreadyActive() from None
+    try:
+        yield
+    finally:
+        with suppress(OSError):
+            if os.name == "nt":
+                import msvcrt
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        handle.close()
+
+
 # ---------------------------------------------------------------------------
 # Helpers texte
 # ---------------------------------------------------------------------------
@@ -561,11 +592,20 @@ def _find_time_anchor(root: Tag) -> Tag | None:
     span aria-labelledby ; avant survol son href est factice ("?__cft__...#?bek").
     """
     profile = root.select_one("[data-ad-rendering-role='profile_name']")
+    now = datetime.now().astimezone()
+
+    def looks_like_time(anchor: Tag) -> bool:
+        # Texte visible vide (heure en SVG ou dans un shadow root) ou lisible comme une date : jamais « Voir la
+        # traduction » (vu le 24/11/2026 : pris pour l'heure d'une publication camerounaise)
+        text = _normalize_text(anchor.get_text(" "))
+        return not text or (len(text) <= 40 and parse_facebook_date(text, now) is not None)
+
     anchors = [
         anchor for anchor in root.select("a[href]")
         if not any(parent is profile for parent in anchor.parents)
         and "/user/" not in anchor.get("href", "")
         and "profile.php" not in anchor.get("href", "")
+        and looks_like_time(anchor)
     ]
     for anchor in anchors:
         if anchor.find("template") is not None or anchor.select_one("[aria-labelledby]") is not None:
@@ -573,6 +613,13 @@ def _find_time_anchor(root: Tag) -> Tag | None:
     for anchor in anchors:
         href = anchor.get("href", "")
         if href.startswith(("?", "#")) or "#?" in href:
+            return anchor
+    # Depuis novembre 2026 (vu le 24/11/2026 sur des groupes camerounais) : lien ordinaire vers le permalien, heure en
+    # texte visible (« 1 h », « 58 min », « 8 octobre à 16:11 »), ni <template> ni aria-labelledby. Le premier dans
+    # l'ordre du document est celui de la publication ; ceux des commentaires (comment_id=) sont exclus.
+    for anchor in anchors:
+        href = urljoin(FACEBOOK_URL, anchor.get("href", ""))
+        if "comment_id=" not in href and _normalize_text(anchor.get_text(" ")) and any(p.search(href) for p in POST_ID_RES):
             return anchor
     return None
 
@@ -877,7 +924,7 @@ def _merge_unique(existing: list[str], extra: list[str]) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# Offres d'emploi : détection par mots-clés (français, anglais, malgache) et
+# Offres d'emploi : détection par mots-clés (français, anglais, malgache, portugais) et
 # découpage best-effort des rubriques "missions" et "profil", sur le texte de la
 # publication + le texte de ses images
 # ---------------------------------------------------------------------------
@@ -889,7 +936,16 @@ JOB_OFFER_RE = re.compile(
     r"|\bdossier\s+de\s+candidature\b|\bcv\s+et\s+(?:lm|lettre)\b"
     r"|\b(?:envoye[rz]|deposer|transmettre)\s+(?:votre|vos|un|le|les)\s+(?:cv|candidatures?|dossiers?)\b"
     r"|\bwe\s*(?:'re|\s+are)\s+hiring\b|\bjob\s+(?:offer|opening|vacancy)\b|\bvacanc(?:y|ies)\b"
+    r"|\b(?:now|is|are)\s+hiring\b|\bjob\s+(?:alert|opportunit(?:y|ies))\b|\bsend\s+(?:your|a)\s+(?:cv|resume)\b"
     r"|\btolotr'?\s*asa\b|\b(?:mitady|mila)\s+mpiasa\b|\bmisy\s+asa\b"
+    # Cameroun / Afrique de l'Ouest (vu le 24/11/2026) : « besoin urgent des serveuses », « besoin du personnel »,
+    # « nous sollicitons des vendeuses » — mais pas le demandeur d'emploi : « besoin d'un travail / boulot / emploi »
+    r"|\bbesoin\s+(?:urgent\w*\s+)?(?:de|des|du|d')\s*"
+    r"(?!(?:une?\s+|mon\s+|ma\s+|petit\s+)*(?:travail|emploi|boulot|job|stage|aide|argent|pret)\b)\w"
+    r"|\b(?:nous|on)\s+sol+icit(?:ons|e)\b"  # « NOUS SOLICITONS » (un seul L) dans une vraie annonce
+    # portugais (Angola, Mozambique, Cap-Vert, Guinée-Bissau, Sao Tomé)
+    r"|\b(?:ofertas?|vagas?)\s+de\s+emprego\b|\brecrutamento\b|\bestamos\s+(?:a\s+recrutar|recrutando)\b"
+    r"|\benvie\s+(?:o\s+)?(?:seu\s+)?(?:cv|curriculo)\b"
 )
 TASKS_HEADING_RE = re.compile(
     r"\b(?:missions?|taches?|responsabilites?|activites?|attributions?|fonctions?|roles?|descriptions?\s+du\s+poste"
@@ -1530,7 +1586,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--groups-file", default=str(GROUPS_FILE), metavar="FICHIER",
-        help="Fichier texte, un lien de groupe par ligne (défaut : facebook_script/groups.txt)",
+        help="Fichier texte, un lien de groupe par ligne (défaut : facebook_script/pays/madagascar/groups.txt)",
     )
     parser.add_argument(
         "--sort", choices=list(SORT_PARAMS), default="chrono",

@@ -1,0 +1,25 @@
+{
+  "_aide": [
+    "Réglages de post_groups.py par pays (codes : python facebook_script/countries.py).",
+    "Un pays publie dès que facebook_script/pays/<code>/share_groups.txt contient des groupes.",
+    "profile : profil Chrome du pays (au plus UN compte par pays ; plusieurs pays peuvent partager le même).",
+    "  Défaut : my_custom_profile_facebook pour Madagascar, my_custom_profile_facebook_share_<code> ailleurs.",
+    "  Connexion : python facebook_script/post_groups.py --login --country <code>",
+    "api_name : paramètre pays de l'API WipWork si différent du nom français (défaut : « Cameroun », « Sénégal »...).",
+    "per_post : offres par publication (défaut 40) ; min_offers : offres nouvelles minimum pour publier (défaut 40).",
+    "max_groups_per_day : publications au plus par jour et par profil, tous pays du profil confondus (0 = aucun quota) ;",
+    "  les groupes jamais publiés passent d'abord, puis ceux publiés le moins récemment.",
+    "La ligne de commande (--per-post, --min-offers, --max-groups-per-day, --profile) l'emporte sur ce fichier."
+  ],
+  "defaults": {},
+  "countries": {
+    "madagascar": {
+      "profile": "my_custom_profile_facebook"
+    },
+    "cameroun": {
+      "profile": "my_custom_profile_facebook_share_cameroun",
+      "min_offers": 5,
+      "max_groups_per_day": 15
+    }
+  }
+}

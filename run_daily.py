@@ -3,11 +3,16 @@ run_daily.py
 ============
 Planificateur quotidien du scraper (tourne en continu sous PM2, voir ecosystem.config.js).
 
-Chaque cycle :
-    python facebook_script/pages.py --push --headless -> pages et groupes Facebook, analyse IA, envoi au backend
+Chaque cycle, pour chaque pays qui a des liens (facebook_script/pays/<code>/pages.txt ou groups.txt),
+Madagascar d'abord puis les autres, L'UN APRÈS L'AUTRE (même profil
+Chrome, jamais deux à la fois) :
+    python facebook_script/pages.py --push --headless --country <code> -> pages et groupes Facebook, analyse IA,
+                                                                        envoi au backend
+La liste des pays est relue à chaque cycle : créer le fichier d'un nouveau pays suffit, sans redémarrer PM2.
+Un pays en échec n'empêche pas les suivants.
 
 index.py (sites emploi.xx) et scrapers.emails_website ne font plus partie du cycle : à lancer à la main.
-Pour en ajouter une étape, l'ajouter à STEPS ; une étape en échec (code de sortie non nul) n'empêche
+Pour en ajouter une étape, l'ajouter à steps() ; une étape en échec (code de sortie non nul) n'empêche
 pas les suivantes.
 
 Chien de garde : une étape qui n'écrit plus rien pendant --stall-minutes (défaut 30) est considérée
@@ -56,6 +61,10 @@ from typing import BinaryIO
 import psutil
 
 PROJECT_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(PROJECT_ROOT / "facebook_script"))
+from countries import active_countries  # noqa: E402
+
+FACEBOOK_PROFILE = PROJECT_ROOT / "my_custom_profile_facebook"
 SCHEDULE_FILE = PROJECT_ROOT / "downloaded_files" / "daily_schedule.json"
 INTERVAL = timedelta(hours=24)
 # Phase silencieuse la plus longue d'un lancement sain : un appel IA (180 s x 4 essais + attentes)
@@ -63,14 +72,17 @@ DEFAULT_STALL_MINUTES = 30
 STALL_RETRIES = 2
 KILL_GRACE = 10
 
-# (libellé, commande, profil Chrome de l'étape : ses Chrome sont arrêtés avec elle si elle se bloque)
-STEPS: list[tuple[str, list[str], Path | None]] = [
-    (
-        "facebook pages et groupes",
-        [sys.executable, "facebook_script/pages.py", "--push", "--headless"],
-        PROJECT_ROOT / "my_custom_profile_facebook",
-    ),
-]
+
+def steps() -> list[tuple[str, list[str], Path | None]]:
+    """(libellé, commande, profil Chrome de l'étape : ses Chrome sont arrêtés avec elle si elle se bloque)."""
+    return [
+        (
+            f"facebook pages et groupes - {country.name}",
+            [sys.executable, "facebook_script/pages.py", "--push", "--headless", "--country", country.code],
+            FACEBOOK_PROFILE,
+        )
+        for country in active_countries("pages", "groups")
+    ]
 
 _output_lock = threading.Lock()
 
@@ -198,7 +210,10 @@ def run_step(label: str, cmd: list[str], profile_dir: Path | None, stall_seconds
 
 
 def run_cycle(stall_seconds: float) -> None:
-    for label, cmd, profile_dir in STEPS:
+    cycle = steps()
+    if not cycle:
+        log("Aucun pays : ajoutez des liens dans facebook_script/pays/<code>/pages.txt ou groups.txt")
+    for label, cmd, profile_dir in cycle:
         run_step(label, cmd, profile_dir, stall_seconds)
 
 

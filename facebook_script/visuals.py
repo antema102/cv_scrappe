@@ -49,7 +49,14 @@ CHROME_CANDIDATES = (
     "/usr/bin/chromium-browser",
 )
 
-POSTER_TEMPLATE = """<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>
+# Textes des affiches selon la langue du pays (countries.CountryProfile.lang)
+POSTER_TEXTS = {
+    "fr": {"title": "OFFRES D'EMPLOI", "online": "{online} offres en ligne", "cta": "Postulez sur"},
+    "en": {"title": "JOB OFFERS", "online": "{online} jobs online", "cta": "Apply on"},
+    "pt": {"title": "OFERTAS DE EMPREGO", "online": "{online} ofertas online", "cta": "Candidate-se em"},
+}
+
+POSTER_TEMPLATE = """<!doctype html><html lang="{lang}"><head><meta charset="utf-8"><style>
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   body {{ width: {width}px; height: {height}px; font-family: "Segoe UI", Arial, sans-serif; background: #f3f6fb;
          color: #0b1b4d; overflow: hidden; position: relative; }}
@@ -80,11 +87,11 @@ POSTER_TEMPLATE = """<!doctype html><html lang="fr"><head><meta charset="utf-8">
 </style></head><body>
 <header>
   <div class="logo">{logo}</div>
-  <h1>OFFRES D'EMPLOI</h1>
-  <p class="sub">{country} · {date} · <b>{online} offres en ligne</b></p>
+  <h1>{title}</h1>
+  <p class="sub">{country} · {date} · <b>{online}</b></p>
 </header>
 <ol>{rows}</ol>
-<footer><p class="cta">Postulez sur <span>{site}</span></p><p class="page">{page}/{pages}</p></footer>
+<footer><p class="cta">{cta} <span>{site}</span></p><p class="page">{page}/{pages}</p></footer>
 </body></html>"""
 
 
@@ -100,7 +107,8 @@ def find_chrome() -> str:
 
 
 def poster_html(offers: list[dict[str, Any]], first_number: int, page: int, pages: int,
-                country: str, today: date, online: int, site_url: str) -> str:
+                country: str, today: date, online: int, site_url: str, lang: str = "fr") -> str:
+    texts = POSTER_TEXTS.get(lang, POSTER_TEXTS["fr"])
     rows = []
     for number, offer in enumerate(offers, first_number):
         meta = " · ".join(part for part in (share.owner_name(offer), share._location(offer)) if part)
@@ -112,7 +120,9 @@ def poster_html(offers: list[dict[str, Any]], first_number: int, page: int, page
     site = site_url.split("://", 1)[-1].removeprefix("www.").rstrip("/")
     return POSTER_TEMPLATE.format(
         width=WIDTH, height=HEIGHT, logo=logo, country=html.escape(country), date=f"{today:%d/%m/%Y}",
-        online=online, rows="".join(rows), site=html.escape(site), page=page, pages=pages,
+        online=html.escape(texts["online"].format(online=online), quote=False), rows="".join(rows), site=html.escape(site),
+        page=page, pages=pages, lang=lang if lang in POSTER_TEXTS else "fr", title=html.escape(texts["title"], quote=False),
+        cta=html.escape(texts["cta"], quote=False),
     )
 
 
@@ -143,7 +153,7 @@ def _remove_old_posters(today: date) -> None:
 
 
 def render_posters(offers: list[dict[str, Any]], name: str, country: str, today: date,
-                   online: int, site_url: str) -> list[Path]:
+                   online: int, site_url: str, lang: str = "fr") -> list[Path]:
     """Affiches des offres dans l'ordre donné (celui du texte), POSTER_OFFERS par image ; VisualError si échec."""
     chrome = find_chrome()
     _remove_old_posters(today)
@@ -155,7 +165,7 @@ def render_posters(offers: list[dict[str, Any]], name: str, country: str, today:
         stem = f"{name}_{page}"
         html_path = folder / f"{stem}.html"
         html_path.write_text(
-            poster_html(chunk, (page - 1) * POSTER_OFFERS + 1, page, len(chunks), country, today, online, site_url),
+            poster_html(chunk, (page - 1) * POSTER_OFFERS + 1, page, len(chunks), country, today, online, site_url, lang),
             encoding="utf-8",
         )
         png_path = folder / f"{stem}.png"

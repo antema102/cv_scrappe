@@ -1,0 +1,4 @@
+# Guinée équatoriale — groupes Facebook à SCRAPER (pages.py) : un lien par ligne.
+# Les lignes vides et celles qui commencent par # sont ignorées.
+# Distinct de share_groups.txt (groupes où l'on PUBLIE). Un groupe ne doit être listé que pour un seul pays.
+

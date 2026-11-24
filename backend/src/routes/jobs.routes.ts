@@ -1,21 +1,22 @@
 import { Router, Request, Response } from "express";
 import Job from "../models/job.model";
 import JobPublication from "../models/job_publication.model";
+import { validateJob } from "../validation/payloads";
 
 const router = Router();
 
-// POST /api/jobs — upsert par job_id
+// POST /api/jobs — upsert par job_id ; 400 + liste des problèmes si le document est invalide (validateJob)
 router.post("/", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { job_id, ...rest } = req.body as {
-      job_id?: string;
-      [key: string]: unknown;
-    };
-
-    if (!job_id) {
-      res.status(400).json({ error: "job_id est requis" });
+    const errors = validateJob(req.body);
+    if (errors.length) {
+      res.status(400).json({ error: errors.join(" ; "), errors });
       return;
     }
+    const { job_id, ...rest } = req.body as {
+      job_id: string;
+      [key: string]: unknown;
+    };
 
     const job = await Job.findOneAndUpdate(
       { job_id },
@@ -41,7 +42,10 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
 
     const filter: Record<string, unknown> = {};
     if (req.query.company_id) filter.company_id = req.query.company_id;
-    if (req.query.country) filter['company_profile.country'] = req.query.country;
+    // Pays : champ country des offres récentes, company_profile.country pour les plus anciennes
+    if (req.query.country) {
+      filter.$or = [{ country: req.query.country }, { "company_profile.country": req.query.country }];
+    }
 
     const [jobs, total] = await Promise.all([
       Job.find(filter, { __v: 0 }).skip(skip).limit(limit).sort({ createdAt: -1 }),

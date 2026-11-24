@@ -1,0 +1,5 @@
+# Zambie — groupes Facebook où post_groups.py PUBLIE les offres WipWork : un lien par ligne.
+# Les lignes vides et celles qui commencent par # sont ignorées.
+# Le compte du profil de ce pays (facebook_script/share_countries.json) doit être membre de chaque groupe.
+# Distinct de groups.txt (groupes SCRAPÉS). Un groupe ne doit être listé que pour un seul pays.
+

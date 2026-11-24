@@ -1,21 +1,22 @@
 import { Router, Request, Response } from "express";
 import Company from "../models/company.model";
 import Job from "../models/job.model";
+import { validateCompany } from "../validation/payloads";
 
 const router = Router();
 
-// POST /api/companies — upsert par company_id
+// POST /api/companies — upsert par company_id ; 400 + liste des problèmes si le document est invalide
 router.post("/", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { company_id, ...rest } = req.body as {
-      company_id?: string;
-      [key: string]: unknown;
-    };
-
-    if (!company_id) {
-      res.status(400).json({ error: "company_id est requis" });
+    const errors = validateCompany(req.body);
+    if (errors.length) {
+      res.status(400).json({ error: errors.join(" ; "), errors });
       return;
     }
+    const { company_id, ...rest } = req.body as {
+      company_id: string;
+      [key: string]: unknown;
+    };
 
     const company = await Company.findOneAndUpdate(
       { company_id },

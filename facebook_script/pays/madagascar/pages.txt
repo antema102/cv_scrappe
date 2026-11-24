@@ -1,5 +1,7 @@
-# Pages Facebook à scraper (Madagascar) : un lien par ligne.
+# Madagascar — pages Facebook à scraper (pages.py) : un lien par ligne.
 # Les lignes vides et celles qui commencent par # sont ignorées.
+# Le pays de ces pages est celui de ce dossier : une page ne doit être listée que pour un seul pays.
+
 https://www.facebook.com/profile.php?id=61559428572369
 https://www.facebook.com/konatoni.mg
 https://www.facebook.com/profile.php?id=61585153072915

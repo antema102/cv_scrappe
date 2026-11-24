@@ -73,6 +73,25 @@ MAX_ATTEMPTS = 5  # par requête (attentes 2, 4, 6, 8 s)
 RETRY_ROUNDS = 3  # pages encore en échec relues après les autres (502 intermittents de l'API)
 RETRY_ROUND_WAIT = 15
 
+# Textes des publications selon la langue du pays (countries.CountryProfile.lang)
+TEXTS: dict[str, dict[str, Any]] = {
+    "fr": {
+        "digest_header": "📢 OFFRES D'EMPLOI DU {date} — {country_upper}",
+        "all_offers": "Toutes les offres",
+        "hashtags": ("#emploi", "#recrutement"),
+    },
+    "en": {
+        "digest_header": "📢 JOB OFFERS — {date} — {country_upper}",
+        "all_offers": "All job offers",
+        "hashtags": ("#jobs", "#hiring"),
+    },
+    "pt": {
+        "digest_header": "📢 OFERTAS DE EMPREGO DE {date} — {country_upper}",
+        "all_offers": "Todas as ofertas",
+        "hashtags": ("#emprego", "#recrutamento"),
+    },
+}
+
 DEFAULT_LIMIT = 10
 MAX_MISSIONS = 4
 MAX_LINE_CHARS = 160
@@ -223,6 +242,24 @@ def fetch_offers(api_url: str, country: str) -> tuple[list[dict[str, Any]], int]
 # ---------------------------------------------------------------------------
 
 
+def offers_for_country(offers: list[dict[str, Any]], names: list[str]) -> tuple[list[dict[str, Any]], int]:
+    """
+    Offres visant ce pays (targetCountries, sinon companyCountry) ; (gardées, écartées). Filet de sécurité si l'API
+    ignore un jour le paramètre pays : une offre d'un autre pays n'est jamais publiée dans les groupes de celui-ci.
+    Une offre sans aucun champ pays est gardée (l'API l'a renvoyée pour ce pays).
+    """
+    wanted = {_fold(name) for name in names if name}
+    kept = []
+    for offer in offers:
+        targets = offer.get("targetCountries")
+        values = [str(v) for v in targets] if isinstance(targets, list) and targets else []
+        if not values and offer.get("companyCountry"):
+            values = [str(offer["companyCountry"])]
+        if not values or wanted & {_fold(v) for v in values}:
+            kept.append(offer)
+    return kept, len(offers) - len(kept)
+
+
 def owner_name(offer: dict[str, Any]) -> str:
     return _clean((offer.get("proprietaire") or {}).get("name"))
 
@@ -354,8 +391,8 @@ def lead(offer: dict[str, Any]) -> str:
     return _shorten(first, MAX_LEAD_CHARS)
 
 
-def hashtags(country: str, offers: list[dict[str, Any]]) -> str:
-    tags = ["#emploi", "#recrutement", _hashtag(country)]
+def hashtags(country: str, offers: list[dict[str, Any]], lang: str = "fr") -> str:
+    tags = [*TEXTS.get(lang, TEXTS["fr"])["hashtags"], _hashtag(country)]
     for offer in offers:
         sector = _clean(offer.get("type"))
         if sector and _fold(sector) != "autre" and _hashtag(sector) not in tags and len(tags) < MAX_HASHTAGS:
@@ -388,14 +425,16 @@ def offer_post(offer: dict[str, Any], site_url: str, country: str) -> str:
     return "\n".join(lines)
 
 
-def digest_post(offers: list[dict[str, Any]], site_url: str, country: str, today: date, header: str | None = None) -> str:
-    lines = [header or f"📢 OFFRES D'EMPLOI DU {today:%d/%m/%Y} — {country.upper()}", ""]
+def digest_post(offers: list[dict[str, Any]], site_url: str, country: str, today: date, header: str | None = None,
+                lang: str = "fr") -> str:
+    texts = TEXTS.get(lang, TEXTS["fr"])
+    lines = [header or texts["digest_header"].format(date=f"{today:%d/%m/%Y}", country_upper=country.upper()), ""]
     for number, offer in enumerate(offers, 1):
         owner = owner_name(offer)
         location = _location(offer)
         lines.append(f"{number}. {_clean(offer.get('name'))}{f' — {owner}' if owner else ''}{f' ({location})' if location else ''}")
         lines += [f"👉 {offer_url(offer, site_url)}", ""]
-    lines += [f"Toutes les offres : {site_url.rstrip('/')}/jobs", "", hashtags(country, offers)]
+    lines += [f"{texts['all_offers']} : {site_url.rstrip('/')}/jobs", "", hashtags(country, offers, lang)]
     return "\n".join(lines)
 
 

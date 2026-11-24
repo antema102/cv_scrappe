@@ -1,9 +1,14 @@
 """
 facebook_script/pages.py
 ========================
-Scraping de pages Facebook (Madagascar pour l'instant, extensible via
+Scraping de pages et groupes Facebook, pays par pays (les 54 pays d'Afrique de
 countries.py) + analyse IA OpenAI de chaque publication + JSON au format exact
 du backend, SANS envoi au backend (fichiers à vérifier d'abord).
+
+Liens d'un pays : facebook_script/pays/<code>/pages.txt et groups.txt (un dossier par pays :
+le pays d'une page ou d'un groupe est celui du dossier où son lien est écrit).
+Une page ou un groupe listé pour deux pays est ignoré dans les deux (sinon analysé et publié
+deux fois) : message [ERREUR] à chaque lancement tant que les listes ne sont pas corrigées.
 
 Pipeline, chaque étape relançable et ne refaisant que ce qui manque :
   1. Scraping (navigateur, profil my_custom_profile_facebook partagé avec scraper.py) :
@@ -27,7 +32,7 @@ Sorties (downloaded_files/facebook_pages/) :
   pages_<pays>.json, posts_<page>.json, images/, ai_cache/ -> données brutes et cache
 
 Usage :
-    python facebook_script/pages.py                                  # pages.txt : scraping + IA + JSON
+    python facebook_script/pages.py                                  # pays/madagascar/pages.txt : scraping + IA + JSON
     python facebook_script/pages.py --url https://www.facebook.com/profile.php?id=61559428572369
     python facebook_script/pages.py --max-posts 5                     # test rapide
     python facebook_script/pages.py --max-age-days 30                 # publications des 30 derniers jours (défaut 15)
@@ -38,10 +43,19 @@ Usage :
     python facebook_script/pages.py --push-only                       # envoie au backend les JSON déjà validés
     python facebook_script/pages.py --skip-scrape --push              # IA + JSON puis envoi au backend
     python facebook_script/pages.py --push-only --no-clean            # envoi sans supprimer les doublons déjà envoyés
-    python facebook_script/pages.py --no-groups                       # pages seulement (défaut : pages.txt + groups.txt)
-    python facebook_script/pages.py --no-pages                        # groupes seulement (groups.txt)
+    python facebook_script/pages.py --no-groups                       # pages seulement (défaut : pages.txt + groups.txt du pays)
+    python facebook_script/pages.py --no-pages                        # groupes seulement (groups.txt du pays)
     python facebook_script/pages.py --keep-images                     # garde les images (défaut : supprimées après analyse)
     python facebook_script/pages.py --group-url https://www.facebook.com/groups/2367943963509691 --push
+    python facebook_script/pages.py --country cameroun                # pays/cameroun/pages.txt + groups.txt
+    python facebook_script/pages.py --countries madagascar,cameroun --push
+    python facebook_script/pages.py --all-countries --push --headless # tous les pays qui ont un fichier de liens
+    python facebook_script/pages.py --skip-scrape --retranslate       # ré-analyse les publications dont une offre est restée en arabe
+    python facebook_script/pages.py --keep-unverified                 # publie aussi les offres introuvables dans la publication
+
+Réponses de l'IA vérifiées à chaque consolidation (ai_checks.py, sans appel IA) : emails, téléphones, sites,
+salaires et dates limites absents de la publication retirés ; offre dont l'intitulé n'est pas dans la publication
+ou resté en arabe jamais publiée. Prompt v8 : offres traduites en français (sauf anglais), description complétée.
 
 OPENAI_API_KEY / OPENAI_MODEL : environnement ou .env (racine, backend/.env).
 Envoi au backend (backend_push.py) uniquement avec --push / --push-only : SCRAPER_API_URL (défaut
@@ -58,13 +72,16 @@ import os
 import re
 import sys
 import time
-from contextlib import contextmanager, suppress
+import traceback
+from contextlib import redirect_stdout, suppress
+from io import StringIO
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
+import ai_checks
 import scraper as fb
 from ai_extractor import (
     COMPANY_TYPES, DEFAULT_BASE_URL, DEFAULT_MODEL, OFFER_TYPES, PROMPT_VERSION, AiError, AiExtractor, load_dotenv, mask_secret,
@@ -73,11 +90,10 @@ from backend_push import DEFAULT_API_URL, REMOVE, ReplacementFinder, push_countr
 from company_registry import (
     CompanyRegistry, build_candidate, company_document, fold, names_similar, normalize_name, review_entry, website_domain,
 )
-from countries import COUNTRIES, CountryProfile
+from countries import COUNTRIES, CountryProfile, active_countries, find_country, list_file, parse_countries
 from fb_dates import published_at
 from seleniumbase import SB
 
-PAGES_FILE = fb.SCRIPT_DIR / "pages.txt"
 DEFAULT_MAX_PHOTOS = 60
 # Groupes (tri chronologique) : après N publications déjà en cache d'affilée, le reste a été lu par un lancement
 # précédent. Sans cet arrêt, un groupe très actif (~80 publications/jour) faisait relire ~1 000 publications connues
@@ -685,28 +701,49 @@ def register_group(target: fb.GroupTarget, country: CountryProfile) -> str:
     return page_id
 
 
+def _needs_retranslation(post: dict[str, Any]) -> bool:
+    """Analyse d'avant la version actuelle du prompt dont une offre est restée en écriture non latine (arabe...)."""
+    analysis = post.get("analysis", {})
+    if analysis.get("meta", {}).get("prompt_version") == PROMPT_VERSION:
+        return False  # déjà demandée en français : une 2e analyse identique ne changerait rien
+    return any(
+        ai_checks.has_foreign_script(" ".join([offer.get("title", ""), offer.get("description", ""), *offer.get("tasks", [])]))
+        for offer in analysis.get("result", {}).get("job_offers", [])
+    )
+
+
 def _needs_analysis(
-    post: dict[str, Any], extractor: AiExtractor, reanalyze: bool, active_filters: set[str] = frozenset()
+    post: dict[str, Any], extractor: AiExtractor, reanalyze: bool, active_filters: set[str] = frozenset(),
+    retranslate: bool = False,
 ) -> bool:
     """
-    Jamais analysée ; ou, avec --reanalyze, analysée avec un autre modèle / une ancienne version du prompt.
+    Jamais analysée ; ou, avec --reanalyze, analysée avec un autre modèle / une ancienne version du prompt ; ou,
+    avec --retranslate, analysée avant le prompt v8 et une offre est restée en arabe (ou autre écriture non latine).
     Publication écartée par un filtre (`analysis_skipped_by`) : reprise dès que ce filtre est désactivé.
     """
     meta = post.get("analysis", {}).get("meta")
     if meta is None:
-        if post.get("analysis_skipped_by", "email_filter") in active_filters and post.get("analysis_skipped"):
+        skipped_by = post.get("analysis_skipped_by", "email_filter")
+        if skipped_by == "job_filter" and skipped_by in active_filters and post.get("analysis_skipped"):
+            # mots-clés d'offre enrichis depuis (scraper.JOB_OFFER_RE) : réexaminée, toujours sans appel IA si rien ne change
+            return fb.analyze_job(post)["is_offer"]
+        if skipped_by in active_filters and post.get("analysis_skipped"):
             return False
         return not post.get("analysis_error_permanent") or reanalyze  # erreur définitive : pas retentée à chaque run
+    if retranslate and _needs_retranslation(post):
+        return True
     return reanalyze and (meta.get("prompt_version") != PROMPT_VERSION or meta.get("model") != extractor.model)
 
 
 def analyze_posts(
     country: CountryProfile, extractor: AiExtractor, reanalyze: bool, ocr: bool = True, send_all_images: bool = False,
     max_tokens: int = 0, max_age_days: int = 0, email_filter: bool = False, job_filter: bool = False,
+    retranslate: bool = False,
 ) -> None:
     """
     N'appelle l'IA que pour ce qui manque : publications jamais analysées (doublons de pfbid exclus), ou
-    analysées avec un autre modèle / prompt si --reanalyze ; le cache IA reste utilisé dans tous les cas.
+    analysées avec un autre modèle / prompt si --reanalyze, ou dont une offre est restée en arabe si --retranslate ;
+    le cache IA reste utilisé dans tous les cas.
     max_tokens : arrêt quand les nouveaux appels de ce lancement ont consommé ce budget (0 = sans limite).
     email_filter : images sans email lu par l'OCR écartées ; publication sans aucun email (texte ni images)
     jamais envoyée, marquée analysis_skipped (voir select_images_for_ai).
@@ -725,7 +762,7 @@ def analyze_posts(
         active_filters = set() if send_all_images else (
             ({"email_filter"} if email_filter else set()) | ({"job_filter"} if job_filter and is_group else set())
         )
-        candidates = [p for p in unique if _needs_analysis(p, extractor, reanalyze, active_filters)]
+        candidates = [p for p in unique if _needs_analysis(p, extractor, reanalyze, active_filters, retranslate)]
         todo = [p for p in candidates if not fb.post_too_old(p, max_age_days)]
         if len(todo) < len(candidates):
             print(f"\n[ANCIENNES] {len(candidates) - len(todo)} publication(s) de plus de {max_age_days} jours non analysée(s)")
@@ -926,7 +963,9 @@ def _merged_offer(campaign: list[dict[str, Any]]) -> dict[str, Any]:
         return len(offer.get("description", "")) + 50 * lists + 20 * fields
 
     offers = [occurrence["offer"] for occurrence in campaign]
-    merged = dict(max(offers, key=completeness))
+    # Version la plus complète parmi celles retrouvées dans leur publication (ai_checks) quand il y en a
+    verified = [offer for offer in offers if offer.get("_check", "ok") == "ok"] or offers
+    merged = dict(max(verified, key=completeness))
     for field in ("emails", "phone_numbers"):
         merged[field] = list(dict.fromkeys(item for offer in offers for item in offer.get(field, [])))
     # Une seule republication jugée suspecte suffit (la version "la plus complète" n'est pas forcément celle-là)
@@ -937,10 +976,18 @@ def _merged_offer(campaign: list[dict[str, Any]]) -> dict[str, Any]:
 
 def job_document(
     job_id: str, offer: dict[str, Any], post: dict[str, Any], page: dict[str, Any], company: dict[str, Any],
-    company_id: str, published: str | None,
+    company_id: str, published: str | None, country: CountryProfile | None = None, single_offer: bool = False,
 ) -> dict[str, Any]:
-    """Uniquement les champs du modèle Job (backend/src/models/job.model.ts)."""
+    """
+    Uniquement les champs du modèle Job (backend/src/models/job.model.ts). Description : celle de l'IA, sinon le
+    texte de la publication si elle ne contient que cette offre, sinon une description assemblée à partir des champs
+    extraits (ai_checks.offer_description) — jamais le texte d'une publication de plusieurs offres ni un texte arabe.
+    quality : vérification (ai_checks), traduction, origine de la description.
+    """
     job_url = post.get("post_url") or page.get("page_url", "")
+    company_name = company.get("name") or offer.get("company_name", "")
+    description, origin = ai_checks.offer_description(offer, post.get("text", ""), single_offer, company_name)
+    source_language = (offer.get("source_language") or "").strip().lower()[:8]
     criteria = {
         "Lieu": offer.get("location", ""),
         "Secteur": offer.get("sector", ""),
@@ -958,13 +1005,23 @@ def job_document(
         "job_id": job_id,
         "title": offer.get("title", ""),
         "job_url": job_url,
-        "company_name": company.get("name") or offer.get("company_name", ""),
+        "company_name": company_name,
         "company_url": company.get("company_url", ""),
         "company_id": company_id,
+        "country": country.name if country else company.get("country", ""),
+        "language": "en" if source_language == "en" else "fr" if source_language else "",
+        "source_language": source_language,
+        "quality": {
+            "verified": offer.get("_check", "ok") == "ok",
+            "translated": bool(offer.get("_translated")),
+            "description_generated": origin == "ia_generee",
+            "description_source": origin,
+            "checks": list(offer.get("_notes", []))[:20],
+        },
         "detail": {
             "job_url": job_url,
             "headline": "",
-            "description": offer.get("description") or post.get("text", ""),
+            "description": description,
             "qualifications": offer.get("qualifications", []),
             "criteria": {key: value for key, value in criteria.items() if value},
             "skills": offer.get("skills", []),
@@ -1124,8 +1181,13 @@ def offer_type(offer: dict[str, Any]) -> str:
 def consolidate(
     country: CountryProfile, offer_types: tuple[str, ...] | list[str] = DEFAULT_OFFER_TYPES, require_contact: bool = False,
     excluded_companies: list[str] | None = None, exclude_relay_companies: bool = True, exclude_suspicious: bool = True,
+    keep_unverified: bool = False,
 ) -> None:
     """
+    Réponses de l'IA vérifiées d'abord (ai_checks.check_result, sur une copie : le cache n'est pas modifié) :
+    contacts / site / salaire / date limite absents de la publication retirés ; offre introuvable dans la
+    publication ("non_verifiee", sauf keep_unverified = --keep-unverified) ou restée en arabe ("non_traduite")
+    jamais publiée.
     require_contact : une offre dont l'entreprise n'a ni email ni téléphone (company_profile sans contact, ou pas
     d'entreprise du tout) n'est pas publiée — aucun moyen de contacter le recruteur (défaut CLI, --allow-no-contact).
     excluded_companies : liste d'exclusion nommée (load_excluded_companies) — ni la fiche entreprise ni ses offres
@@ -1154,9 +1216,15 @@ def consolidate(
         print("\nConsolidation : aucune publication analysée pour l'instant.")
         return
 
+    checked: dict[str, dict[str, Any]] = {}
+    check_reports: dict[str, ai_checks.CheckReport] = {}
+    for post, page in posts:
+        checked[post["post_id"]], check_reports[post["post_id"]] = ai_checks.check_result(
+            post["analysis"]["result"], ai_checks.post_source(post, page))
+
     candidates = []
     for post, page in posts:
-        for index, company in enumerate(post["analysis"]["result"]["companies"]):
+        for index, company in enumerate(checked[post["post_id"]]["companies"]):
             if company.get("name") or company.get("emails") or company.get("phone_numbers") or company.get("website"):
                 candidates.append(build_candidate(post, index, company, page, country))
     registry = CompanyRegistry(out / f"identity_registry_{country.code}.json")
@@ -1182,13 +1250,14 @@ def consolidate(
 
     occurrences: list[dict[str, Any]] = []
     for post, page in posts:
-        result = post["analysis"]["result"]
+        result = checked[post["post_id"]]
         refs = [
             (company, company_by_ref[f"{post['post_id']}#{index}"])
             for index, company in enumerate(result["companies"]) if f"{post['post_id']}#{index}" in company_by_ref
         ]
         published, precision = published_at(post.get("date_tooltip", ""), post.get("time_text", ""), post["scraped_at"])
         offers = result["job_offers"]
+        titled = sum(1 for offer in offers if offer.get("title", "").strip())
         local_ids = []
         for number, offer in enumerate(offers, 1):
             if not offer.get("title", "").strip():
@@ -1196,7 +1265,7 @@ def consolidate(
             local_id = f"fb-post-{post['post_id']}" + (f"-{number}" if len(offers) > 1 else "")
             occurrences.append({
                 "local_id": local_id, "post": post, "page": page, "offer": offer,
-                "company_id": _offer_company_id(offer, refs), "published": published,
+                "company_id": _offer_company_id(offer, refs), "published": published, "single_offer": titled == 1,
             })
             local_ids.append(local_id)
         review_posts[post["post_id"]] = {
@@ -1216,7 +1285,8 @@ def consolidate(
             ],
             "company_ids": [company_id for _, company_id in refs],
             "job_ids": local_ids,  # remplacés par les job_id dédoublonnés ci-dessous
-            "ai_result": result,
+            "ai_result": post["analysis"]["result"],  # réponse brute de l'IA ; ai_checks = ce qui en a été retiré
+            "ai_checks": check_reports[post["post_id"]].notes,
             "ai_meta": post["analysis"]["meta"],
             "notes": result.get("notes", ""),
         }
@@ -1235,9 +1305,16 @@ def consolidate(
         kind = offer_type(offer)
         company = companies.get(company_id, {})
         offer_names = [occ["offer"].get("company_name", "") for occ in campaign]
+        # Vérification (ai_checks) : une seule republication retrouvée dans sa publication suffit
+        statuses = {occ["offer"].get("_check", "ok") for occ in campaign}
+        check = "" if "ok" in statuses else next(
+            (status for status in ("non_traduite", "intitule_generique") if status in statuses), "non_verifiee")
+        if check == "non_verifiee" and keep_unverified:
+            check = ""
         reason = (
             "entreprise_exclue" if company_id in excluded_company_ids or excluded_company_match(blocklist, offer_names)
             else "type" if kind not in offer_types
+            else check if check
             else "offre_suspecte" if exclude_suspicious and offer.get("suspicious")
             else "sans_contact" if require_contact and not (company.get("emails") or company.get("phone_numbers"))
             else ""
@@ -1247,10 +1324,12 @@ def consolidate(
             # elle revient d'elle-même si son entreprise gagne un contact ou si le filtre change
             excluded_offers[job_id] = {
                 "title": offer.get("title", ""), "company_name": offer.get("company_name", ""), "offer_type": kind,
-                "reason": reason, "occurrences": occurrences_review,
+                "reason": reason, "occurrences": occurrences_review, "checks": offer.get("_notes", []),
             }
             continue
-        jobs[job_id] = job_document(job_id, offer, first["post"], first["page"], company, company_id, first["published"])
+        source = next((occ for occ in campaign if occ["offer"].get("_check", "ok") == "ok"), first)
+        jobs[job_id] = job_document(job_id, offer, source["post"], source["page"], company, company_id, first["published"],
+                                    country, source.get("single_offer", False))
         publications[job_id] = {"job_id": job_id, "published_at": first["published"]}
         review_jobs[job_id] = {"title": offer.get("title", ""), "offer_type": kind, "occurrences": occurrences_review}
     for review in review_posts.values():
@@ -1280,6 +1359,17 @@ def consolidate(
     without_contact = sum(1 for entry in excluded_offers.values() if entry["reason"] == "sans_contact")
     suspicious_offers = sum(1 for entry in excluded_offers.values() if entry["reason"] == "offre_suspecte")
     blocked_offers = sum(1 for entry in excluded_offers.values() if entry["reason"] == "entreprise_exclue")
+    unverified_offers = sum(1 for entry in excluded_offers.values() if entry["reason"] == "non_verifiee")
+    untranslated_offers = sum(1 for entry in excluded_offers.values() if entry["reason"] == "non_traduite")
+    generic_offers = sum(1 for entry in excluded_offers.values() if entry["reason"] == "intitule_generique")
+    removed: dict[str, int] = {}
+    for report in check_reports.values():
+        for kind_removed, count in report.removed.items():
+            removed[kind_removed] = removed.get(kind_removed, 0) + count
+    origins: dict[str, int] = {}
+    for job in jobs.values():
+        origins[job["quality"]["description_source"]] = origins.get(job["quality"]["description_source"], 0) + 1
+    translated_jobs = sum(1 for job in jobs.values() if job["quality"]["translated"])
     print(
         f"\nConsolidation {country.name} : {len(posts)} publication(s), {len(candidates)} mention(s) d'entreprise "
         f"-> {len(companies)} entreprise(s) ({merged} regroupée(s)), {len(jobs)} offre(s) "
@@ -1303,6 +1393,21 @@ def consolidate(
         print(f"  {without_contact} offre(s) écartée(s) : entreprise sans email ni téléphone (--allow-no-contact pour les garder)")
     if suspicious_offers:
         print(f"  {suspicious_offers} offre(s) écartée(s) : signes d'arnaque détectés par l'IA (--no-suspicious-filter pour les garder)")
+    labels = {"emails": "email(s)", "phones": "téléphone(s)", "websites": "site(s)", "salaries": "salaire(s)",
+              "deadlines": "date(s) limite", "untranslated": "texte(s) non traduit(s)",
+              "invented": "phrase(s) inventée(s) dans une description générée"}
+    if removed:
+        details = ", ".join(f"{count} {labels.get(kind_removed, kind_removed)}" for kind_removed, count in sorted(removed.items()))
+        print(f"  Vérification IA : retirés -> {details} (détail : analysis_{country.code}.json, ai_checks)")
+    if unverified_offers:
+        print(f"  {unverified_offers} offre(s) écartée(s) : intitulé introuvable dans la publication (--keep-unverified pour les garder)")
+    if generic_offers:
+        print(f"  {generic_offers} offre(s) écartée(s) : intitulé sans poste précis (« Offre d'emploi », « Recrutement »...)")
+    if untranslated_offers:
+        print(f"  {untranslated_offers} offre(s) écartée(s) : restée(s) en arabe / écriture non latine (--retranslate pour les refaire)")
+    if jobs:
+        print(f"  Descriptions : {', '.join(f'{n} {origin}' for origin, n in sorted(origins.items()))} ; "
+              f"{translated_jobs} offre(s) traduite(s) en français")
     if excluded_offers:
         print(f"  détail -> analysis_{country.code}.json, clé excluded_offers")
 
@@ -1399,12 +1504,19 @@ def _offer_types_arg(value: str) -> list[str]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Pages Facebook -> analyse IA -> JSON au format backend")
     parser.add_argument("--url", action="append", default=[], metavar="URL", help="Page Facebook (répétable). Défaut : --pages-file")
-    parser.add_argument("--pages-file", default=str(PAGES_FILE), metavar="FICHIER", help="Un lien de page par ligne (défaut : facebook_script/pages.txt)")
+    parser.add_argument("--pages-file", default=None, metavar="FICHIER",
+                        help="Un lien de page par ligne (défaut : facebook_script/pays/<pays>/pages.txt)")
     parser.add_argument("--group-url", action="append", default=[], metavar="URL", help="Groupe Facebook (répétable). Défaut : --groups-file")
-    parser.add_argument("--groups-file", default=str(fb.GROUPS_FILE), metavar="FICHIER", help="Un lien de groupe par ligne (défaut : facebook_script/groups.txt)")
+    parser.add_argument("--groups-file", default=None, metavar="FICHIER",
+                        help="Un lien de groupe par ligne (défaut : facebook_script/pays/<pays>/groups.txt)")
     parser.add_argument("--no-groups", action="store_true", help="Ignore les groupes (pages seulement)")
     parser.add_argument("--no-pages", action="store_true", help="Ignore les pages (groupes seulement)")
-    parser.add_argument("--country", choices=sorted(COUNTRIES), default="madagascar", help="Pays des pages (défaut : madagascar)")
+    parser.add_argument("--country", type=_country_arg, default=None,
+                        help="Pays : code, nom ou ISO3 (cameroun, « Côte d'Ivoire », CMR...) ; défaut : madagascar")
+    parser.add_argument("--countries", type=_countries_arg, default=None, metavar="PAYS,PAYS",
+                        help="Plusieurs pays à la suite (ex. madagascar,cameroun)")
+    parser.add_argument("--all-countries", action="store_true",
+                        help="Tous les pays qui ont un fichier de pages ou de groupes, à la suite (Madagascar en premier)")
     parser.add_argument("--max-posts", type=int, default=0, metavar="N", help="Nouvelles publications max par page (0 = illimité)")
     parser.add_argument(
         "--stop-after-known", type=int, default=None, metavar="N",
@@ -1462,6 +1574,14 @@ def parse_args() -> argparse.Namespace:
              f"(défaut : {','.join(DEFAULT_OFFER_TYPES)} ; ex. --offer-types emploi pour écarter aussi les stages)",
     )
     parser.add_argument(
+        "--keep-unverified", action="store_true",
+        help="Publie aussi les offres dont l'intitulé est introuvable dans la publication (par défaut écartées : l'IA a pu les inventer)",
+    )
+    parser.add_argument(
+        "--retranslate", action="store_true",
+        help="Ré-analyse (prompt actuel) les publications dont une offre est restée en arabe ou autre écriture non latine",
+    )
+    parser.add_argument(
         "--keep-images", action="store_true",
         help="Garde les images sur le disque (par défaut supprimées une fois la publication analysée, écartée ou trop ancienne)",
     )
@@ -1484,7 +1604,58 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dump-html", action="store_true", help="HTML brut de chaque publication dans downloaded_files/facebook_html/")
     parser.add_argument("--login", action="store_true", help="Propose la connexion manuelle même si une session est détectée")
     parser.add_argument("--headless", action="store_true", help="Sans fenêtre (profil déjà connecté)")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if sum(bool(x) for x in (args.country, args.countries, args.all_countries)) > 1:
+        parser.error("--country, --countries et --all-countries s'excluent")
+    if args.all_countries:
+        args.country_list = active_countries("pages", "groups")
+        if not args.country_list:
+            parser.error("aucun pays : ajoutez des liens dans facebook_script/pays/<code>/pages.txt ou groups.txt")
+    else:
+        args.country_list = args.countries or [args.country or COUNTRIES["madagascar"]]
+    if len(args.country_list) > 1 and (args.url or args.group_url or args.pages_file or args.groups_file):
+        parser.error("--url / --group-url / --pages-file / --groups-file : un seul pays à la fois")
+    return args
+
+
+def _country_arg(value: str) -> CountryProfile:
+    try:
+        return find_country(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from None
+
+
+def _countries_arg(value: str) -> list[CountryProfile]:
+    try:
+        return parse_countries(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from None
+
+
+def _listed_elsewhere(country: CountryProfile) -> tuple[set[str], set[str]]:
+    """Pages et groupes (ids en minuscules) listés dans les fichiers des AUTRES pays."""
+    pages: set[str] = set()
+    groups: set[str] = set()
+    with redirect_stdout(StringIO()):  # liens invalides des autres pays : signalés à leur propre lancement
+        for other in COUNTRIES.values():
+            if other.code != country.code:
+                pages |= {t.page_id.lower() for t in load_page_targets([], list_file(other, "pages"))}
+                groups |= {t.group_id.lower() for t in fb.load_targets([], list_file(other, "groups"))}
+    return pages, groups
+
+
+def _drop_listed_elsewhere(country: CountryProfile, pages: list[PageTarget],
+                           groups: list[fb.GroupTarget]) -> tuple[list[PageTarget], list[fb.GroupTarget]]:
+    """Une page / un groupe de deux pays serait analysé et publié deux fois : ignoré dans les deux."""
+    other_pages, other_groups = _listed_elsewhere(country)
+    for target in pages:
+        if target.page_id.lower() in other_pages:
+            print(f"[ERREUR] Page {target.page_id} listée aussi pour un autre pays : ignorée ({country.code})")
+    for target in groups:
+        if target.group_id.lower() in other_groups:
+            print(f"[ERREUR] Groupe {target.group_id} listé aussi pour un autre pays : ignoré ({country.code})")
+    return ([t for t in pages if t.page_id.lower() not in other_pages],
+            [t for t in groups if t.group_id.lower() not in other_groups])
 
 
 def _print_stats(stats: fb.GroupStats, max_age_days: int) -> None:
@@ -1544,35 +1715,8 @@ def fetch_group_images(sb: SB, group: fb.GroupTarget, page_id: str, args: argpar
     fetch_post_images(sb, store, source_target(page_id, entry), args)
 
 
-class RunAlreadyActive(Exception):
-    pass
-
-
-@contextmanager
-def run_lock(path: Path):
-    """Verrou exclusif sur un fichier, libéré par le système même si le processus plante."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    handle = open(path, "a+")
-    try:
-        if os.name == "nt":
-            import msvcrt
-            handle.seek(0)
-            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
-        else:
-            import fcntl
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
-        handle.close()
-        raise RunAlreadyActive() from None
-    try:
-        yield
-    finally:
-        with suppress(OSError):
-            if os.name == "nt":
-                import msvcrt
-                handle.seek(0)
-                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
-        handle.close()
+RunAlreadyActive = fb.RunAlreadyActive  # verrou partagé avec post_groups.py
+run_lock = fb.run_lock
 
 
 def _push(args: argparse.Namespace, country: CountryProfile, api_url: str) -> None:
@@ -1589,13 +1733,15 @@ def _run(args: argparse.Namespace, country: CountryProfile, api_url: str) -> Non
         return
 
     if args.skip_scrape and not args.no_groups:  # groupes déjà collectés par scraper.py : les faire connaître au pipeline
-        for group in fb.load_targets(args.group_url, Path(args.groups_file)):
+        _, groups = _drop_listed_elsewhere(country, [], fb.load_targets(args.group_url, Path(args.groups_file)))
+        for group in groups:
             if group.output_file.exists():
                 register_group(group, country)
 
     if not args.skip_scrape:
         targets = [] if args.no_pages else load_page_targets(args.url, Path(args.pages_file))
         groups = [] if args.no_groups else fb.load_targets(args.group_url, Path(args.groups_file))
+        targets, groups = _drop_listed_elsewhere(country, targets, groups)
         if not targets and not groups:
             print(f"[ERREUR] Rien à scraper : passez --url / --group-url ou ajoutez des liens dans "
                   f"{args.pages_file} ou {args.groups_file}")
@@ -1613,13 +1759,14 @@ def _run(args: argparse.Namespace, country: CountryProfile, api_url: str) -> Non
             analyze_posts(
                 country, extractor, reanalyze=args.reanalyze, ocr=not args.no_ocr,
                 send_all_images=args.send_all_images, max_tokens=args.max_ai_tokens, max_age_days=args.max_age_days,
-                email_filter=not args.no_email_filter, job_filter=not args.no_job_filter,
+                email_filter=not args.no_email_filter, job_filter=not args.no_job_filter, retranslate=args.retranslate,
             )
     if not args.keep_images:
         release_images(country, args.max_age_days)
     consolidate(country, args.offer_types, require_contact=not args.allow_no_contact,
                 excluded_companies=load_excluded_companies(Path(args.excluded_companies_file)),
-                exclude_relay_companies=not args.allow_relay_companies, exclude_suspicious=not args.no_suspicious_filter)
+                exclude_relay_companies=not args.allow_relay_companies, exclude_suspicious=not args.no_suspicious_filter,
+                keep_unverified=args.keep_unverified)
     if args.push:
         _push(args, country, api_url)
 
@@ -1630,16 +1777,34 @@ def main() -> None:
             stream.reconfigure(errors="replace")
     load_dotenv(fb.PROJECT_ROOT / ".env", fb.PROJECT_ROOT / "backend" / ".env")
     args = parse_args()
-    country = COUNTRIES[args.country]
     api_url = os.getenv("SCRAPER_API_URL", DEFAULT_API_URL)
-    try:
-        with run_lock(pages_dir() / f".run_{country.code}.lock"):
-            _run(args, country, api_url)
-    except RunAlreadyActive:
-        print(f"[ERREUR] Un autre lancement de pages.py ({country.code}) est déjà en cours : attendez sa fin "
-              f"(deux lancements simultanés écraseraient les mêmes fichiers).")
-    except KeyboardInterrupt:
-        print("\n[INFO] Interruption (Ctrl+C) - tout ce qui a été lu/analysé est sauvegardé ; relancez pour continuer.")
+    many = len(args.country_list) > 1
+    failed: list[str] = []
+    for index, country in enumerate(args.country_list, 1):
+        if many:
+            print(f"\n{'=' * 60}\n  [{index}/{len(args.country_list)}] {country.name} ({country.code})\n{'=' * 60}")
+        country_args = argparse.Namespace(**vars(args))
+        country_args.pages_file = args.pages_file or str(list_file(country, "pages"))
+        country_args.groups_file = args.groups_file or str(list_file(country, "groups"))
+        try:
+            with run_lock(pages_dir() / f".run_{country.code}.lock"):
+                _run(country_args, country, api_url)
+        except RunAlreadyActive:
+            print(f"[ERREUR] Un autre lancement de pages.py ({country.code}) est déjà en cours : attendez sa fin "
+                  f"(deux lancements simultanés écraseraient les mêmes fichiers).")
+            failed.append(country.code)
+        except KeyboardInterrupt:
+            print("\n[INFO] Interruption (Ctrl+C) - tout ce qui a été lu/analysé est sauvegardé ; relancez pour continuer.")
+            return
+        except Exception:  # plusieurs pays : un pays en échec n'empêche pas les suivants
+            if not many:
+                raise
+            traceback.print_exc()
+            print(f"[ERREUR] {country.code} : lancement en échec, pays suivant")
+            failed.append(country.code)
+    if many and failed:
+        print(f"\n[ERREUR] Pays en échec : {', '.join(failed)}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

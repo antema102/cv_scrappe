@@ -1,7 +1,7 @@
-# Groupes Facebook où post_groups.py publie les offres WipWork : un lien par ligne.
+# Madagascar — groupes Facebook où post_groups.py PUBLIE les offres WipWork : un lien par ligne.
 # Les lignes vides et celles qui commencent par # sont ignorées.
-# Le compte du profil my_custom_profile_facebook_share doit être membre de chaque groupe.
-# Distinct de groups.txt (groupes SCRAPÉS par scraper.py / pages.py).
+# Le compte du profil de ce pays (facebook_script/share_countries.json) doit être membre de chaque groupe.
+# Distinct de groups.txt (groupes SCRAPÉS). Un groupe ne doit être listé que pour un seul pays.
 
 https://www.facebook.com/groups/2367943963509691
 https://www.facebook.com/groups/recrutement.emploi.madagascar/
