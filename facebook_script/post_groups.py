@@ -14,8 +14,11 @@ d'approbation, Facebook n'ouvre pas les commentaires.
 
 Pas d'API possible : Meta a supprimé l'API Groups (publish_to_groups) en avril 2024. Le
 script pilote Chrome (SeleniumBase CDP, profil persistant connecté à la main) comme une
-personne : ouvre le groupe, clique sur « Exprimez-vous… », colle le texte (événement
-paste lu par l'éditeur Lexical de Facebook ; repli : frappe ligne par ligne via CDP),
+Brainwise - Sleep & Performance BELGIQUE nombre de salariés TOTAL en BELGIQUE - sois précis stppersonne : ouvre le groupe, clique sur « Exprimez-vous… », active « Publier de manière
+anonyme » puis « OK » sur l'explication qui s'affiche (--no-anonymous : sous le nom du
+compte ; interrupteur absent = groupe sans
+publication anonyme, publiée sous le nom du compte), colle le texte (événement paste lu par
+l'éditeur Lexical de Facebook ; repli : frappe ligne par ligne via CDP), joint les affiches,
 puis clique sur « Publier » et attend la fermeture de la fenêtre de rédaction.
 
 RISQUE (accepté par l'utilisateur le 16/10/2026) : publier automatiquement des messages
@@ -28,9 +31,14 @@ contraire aux conditions de Meta. Garde-fous :
   - par défaut automatique et sans fenêtre (headless) ; --assisted : fenêtre visible, le
     script remplit la publication, vous la relisez dans Chrome, ENTRÉE dans le terminal
     pour publier ; --visible : fenêtre visible, publication toujours automatique ;
-  - pause aléatoire de --delay-min à --delay-max secondes (60 à 75 s) entre deux groupes ;
+  - pause aléatoire de --delay-min à --delay-max secondes (55 à 65 s, ~1 min) entre deux groupes ;
   - au plus une publication par groupe toutes les --min-hours heures (20) ;
   - en-tête et ordre des offres différents d'un groupe à l'autre ;
+  - groupe où le compte est suspendu (« Votre profil a été suspendu dans ce groupe … jusqu'au … ») ou a atteint la
+    limite de publications en attente d'approbation : sauté jusqu'à la fin de la suspension, ou 3 jours
+    (--retry-blocked pour réessayer quand même) au lieu d'être retenté chaque jour ;
+  - limite anti-spam du compte (« Nous limitons le nombre de fois que vous pouvez publier… », écrite dans la
+    fenêtre de rédaction) : arrêt, puis aucune publication pendant 24 h (account_block.json) ;
   - arrêt de tout le lancement sur un message de blocage / limite / spam de Facebook,
     sur une page de connexion, ou après MAX_FAILURES_IN_A_ROW échecs d'affilée.
 
@@ -43,6 +51,7 @@ Usage :
     python facebook_script/post_groups.py --max-groups 5
     python facebook_script/post_groups.py --visible          # automatique, fenêtre Chrome visible
     python facebook_script/post_groups.py --assisted         # fenêtre visible, ENTRÉE pour publier chaque groupe
+    python facebook_script/post_groups.py --no-anonymous     # publier sous le nom du compte, pas en anonyme
     python facebook_script/post_groups.py --group-url https://www.facebook.com/groups/... --per-post 5
     python facebook_script/post_groups.py --login            # (re)connecter le profil (fenêtre visible)
 
@@ -73,6 +82,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import fb_dates
 import scraper as fb
 import share
 import visuals
@@ -89,8 +99,8 @@ DEBUG_DIR = share.OUTPUT_DIR / "debug"  # capture + boutons visibles d'un groupe
 DEFAULT_PER_POST = 40  # ~40 nouvelles offres par jour sur WipWork Madagascar : celles du jour
 DEFAULT_MIN_OFFERS = 3  # moins d'offres nouvelles pour un groupe : pas de publication
 DEFAULT_MIN_HOURS = 20
-DEFAULT_DELAY_MIN = 60
-DEFAULT_DELAY_MAX = 75  # un peu de hasard : un rythme parfaitement régulier se repère
+DEFAULT_DELAY_MIN = 55  # ~1 min entre deux groupes (demande de l'utilisateur, 05/11/2026)
+DEFAULT_DELAY_MAX = 65  # un peu de hasard : un rythme parfaitement régulier se repère
 PAGE_LOAD_WAIT = 6
 COMPOSER_TIMEOUT = 25
 COMPOSER_CLICKS = 2
@@ -101,7 +111,12 @@ PUBLISH_TIMEOUT = 45
 NOTICE_WAIT = 4  # message « en attente d'approbation » affiché juste après la fermeture
 IMAGE_UPLOAD_TIMEOUT = 60  # vignettes des affiches dans la fenêtre / « Publier » réactivé après l'envoi des photos
 PUBLISH_IMAGES_TIMEOUT = 120  # fermeture de la fenêtre après « Publier » quand des photos partent avec
-MAX_FAILURES_IN_A_ROW = 3
+ANONYMOUS_TIMEOUT = 5  # interrupteur « Publier de manière anonyme » toujours absent : groupe sans publication anonyme
+ANONYMOUS_CONFIRM_TIMEOUT = 12  # après le clic : explication « Publication anonyme », « OK », interrupteur activé
+ANONYMOUS_CLICKS = 2
+ANONYMOUS_WAIT = 1.5  # retour de la fenêtre de rédaction après le « OK » de l'explication
+PANEL_CLICK_TRIES = 10  # bouton de l'explication relu toutes les 0,3 s jusqu'à ce qu'il ne bouge plus (fin du glissement)
+MAX_FAILURES_IN_A_ROW = 100
 
 # Un seul lien dans la publication (Facebook bloque une publication de groupe qui en contient beaucoup)
 EXAMPLE_OFFERS = 6  # postes cités dans la publication
@@ -124,7 +139,11 @@ COMPOSER_LABELS = (
     r"exprimez-vous|[ée]crivez quelque chose|write something|cr[ée]er une publication|create a public post|"
     r"vous voulez dire quelque chose|quoi de neuf|what'?s on your mind"
 )
-PUBLISH_LABELS = r"^(?:publier|post|publish)$"
+# « Envoyer » / « Submit » : libellé possible du bouton pour une publication anonyme (toujours soumise aux admins)
+PUBLISH_LABELS = r"^(?:publier|post|publish|envoyer|soumettre|submit)$"
+ANONYMOUS_LABELS = r"anonym"  # « Publier de manière anonyme », « Post anonymously », « Publication anonyme »
+ANONYMOUS_OK_LABELS = r"^ok$"
+ANONYMOUS_BACK_LABELS = r"^(?:retour|back)$"
 PHOTO_LABELS = r"^(?:photo/vid[ée]o|photo/video|photos?/vid[ée]os?|photos?)$"
 JOIN_LABELS = r"^(?:rejoindre le groupe|join group|rejoindre|join)$"
 # Sur le texte plié (share._fold) des boîtes de dialogue / alertes apparues après le clic sur « Publier »
@@ -133,6 +152,30 @@ BLOCK_RE = re.compile(
     r"community standards|reessayez plus tard|try again later|nous avons supprime|we removed"
 )
 PENDING_RE = re.compile(r"en attente|pending|approbation|approval|examin|review")
+# Limite anti-spam du COMPTE (texte plié), écrite en rouge sous « Publier » dans la fenêtre de rédaction (04/11/2026) :
+# « Nous limitons le nombre de fois que vous pouvez publier, commenter ou faire autre chose dans un laps de temps donné
+# afin de protéger la communauté contre le spam. Vous pouvez réessayer plus tard. » Avant : jamais vue (NOTICES_JS
+# ignorait la fenêtre de rédaction), « not_published » dans chaque groupe (32 le 03/11) - insister prolonge la limite.
+ACCOUNT_LIMIT_RE = re.compile(
+    r"nous limitons le nombre de fois|contre le spam|we limit how often|(?:from|against) spam"
+)
+ACCOUNT_BLOCK_HOURS = 24  # aucun lancement pendant 24 h : celui du lendemain 8 h est sauté (repris le surlendemain)
+ACCOUNT_BLOCK_FILE = share.OUTPUT_DIR / "account_block.json"  # {profil: {until, since, message}}
+# Bandeaux qui remplacent « Exprimez-vous… » (texte plié), vus sur les captures du 04/11/2026 : 6 groupes sur 8 en
+# « no_composer » chaque jour depuis le 24/10 avaient 5 publications jamais approuvées, les 2 autres une suspension.
+# Retenter chaque jour n'y change rien : le groupe est sauté jusqu'à la fin de la suspension, ou RESTRICTION_RETRY_DAYS.
+RESTRICTIONS = (
+    # « Votre profil a été suspendu dans ce groupe … jusqu'au 5 nov 2026, 06:47 »
+    ("suspended", re.compile(r"profil a ete suspendu|avez ete suspendu|suspendu dans ce groupe|been suspended|suspended (?:from|in) this group")),
+    # « Vous avez atteint la limite de contenus en attente dans ce groupe » (5 publications en attente d'approbation)
+    ("pending_limit", re.compile(r"limite de (?:contenus?|publications?) en attente|limit (?:of|on|for) pending")),
+)
+RESTRICTION_LABELS = {
+    "suspended": "compte suspendu dans ce groupe par ses admins",
+    "pending_limit": "limite de publications en attente d'approbation atteinte (les admins n'approuvent pas)",
+}
+RESTRICTION_RETRY_DAYS = 3  # limite d'attente, ou suspension sans date lisible : groupe regardé de nouveau 3 jours plus tard
+MONTH_RE = "|".join(sorted(fb_dates.MONTHS, key=len, reverse=True))
 
 # Bouton « Exprimez-vous… » du groupe (point à cliquer), fenêtre déjà ouverte, bouton « Rejoindre » visible.
 # Un « Rejoindre » ne prouve PAS que le compte n'est pas membre (groupes suggérés, discussions de groupe...) :
@@ -195,6 +238,70 @@ TEXTBOX_JS = r"""
 })()
 """
 
+# Volet caché (aria-hidden) de la fenêtre modale : la fenêtre de rédaction et l'explication « Publication anonyme »
+# glissent l'une à la place de l'autre dans le même conteneur, celle qui n'est pas affichée porte aria-hidden="true"
+HIDDEN_IN_MODAL_JS = r"""
+const hiddenInModal = (el) => {
+  for (let n = el; n && n.getAttribute; n = n.parentElement) {
+    if (n.getAttribute('aria-hidden') === 'true') return true;
+    if (n.getAttribute('aria-modal') === 'true') return false;
+  }
+  return false;
+};
+"""
+
+# Interrupteur « Publier de manière anonyme » de la fenêtre de rédaction (input role="switch", libellé via
+# aria-labelledby) : point à cliquer, état actuel ; {} = pas d'interrupteur, ou fenêtre de rédaction cachée sous
+# l'explication. Seul aria-checked compte : el.checked bascule dès le clic, avant le « OK » de l'explication.
+# Pas de scrollIntoView : il ferait défiler le conteneur (overflow hidden) où glissent les deux volets.
+ANONYMOUS_JS = r"""
+(() => {
+  const ARGS = __ARGS__;
+  __HIDDEN_IN_MODAL__
+  const label = new RegExp(ARGS.anonymous, 'i');
+  const box = document.querySelector('div[role="dialog"] div[contenteditable="true"][role="textbox"]');
+  if (!box) return JSON.stringify({});
+  for (const el of box.closest('div[role="dialog"]').querySelectorAll('[role="switch"], input[type="checkbox"]')) {
+    const ids = (el.getAttribute('aria-labelledby') || '').split(/\s+/).filter(Boolean);
+    const text = [el.getAttribute('aria-label'), ...ids.map((id) => document.getElementById(id)?.textContent)].join(' ');
+    if (!label.test(text) || hiddenInModal(el)) continue;
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) continue;
+    return JSON.stringify({x: r.left + r.width / 2, y: r.top + r.height / 2, checked: el.getAttribute('aria-checked') === 'true'});
+  }
+  return JSON.stringify({});
+})()
+""".replace("__HIDDEN_IN_MODAL__", HIDDEN_IN_MODAL_JS)
+
+# Bouton (« OK », « Retour ») de l'explication « Publication anonyme » affichée après le clic sur l'interrupteur : point
+# à cliquer, hit = c'est bien lui sous ce point (pas pendant le glissement du volet) ; {} = pas d'explication à l'écran.
+# Le role="dialog" « Publication anonyme » n'entoure que l'en-tête (titre + « Retour », 60 px de haut, vu le 04/11/2026) :
+# « OK » est plus bas dans le même volet, cherché en remontant les parents jusqu'au volet (sans la fenêtre de rédaction).
+ANONYMOUS_PANEL_JS = r"""
+(() => {
+  const ARGS = __ARGS__;
+  __HIDDEN_IN_MODAL__
+  const anonymous = new RegExp(ARGS.anonymous, 'i');
+  const label = new RegExp(ARGS.button, 'i');
+  const textbox = 'div[contenteditable="true"][role="textbox"]';
+  for (const dialog of document.querySelectorAll('[role="dialog"]')) {
+    if (dialog.querySelector(textbox) || hiddenInModal(dialog)) continue;
+    if (!anonymous.test([dialog.getAttribute('aria-label'), dialog.querySelector('h2')?.textContent].join(' '))) continue;
+    for (let scope = dialog; scope && scope !== document.body && !scope.querySelector(textbox); scope = scope.parentElement) {
+      for (const el of scope.querySelectorAll('[role="button"]')) {
+        if (!label.test((el.getAttribute('aria-label') || el.innerText || '').trim())) continue;
+        const r = el.getBoundingClientRect();
+        if (!r.width || !r.height) continue;
+        const x = r.left + r.width / 2, y = r.top + r.height / 2;
+        const top = document.elementFromPoint(x, y);
+        return JSON.stringify({x, y, hit: !!top && el.contains(top)});
+      }
+    }
+  }
+  return JSON.stringify({});
+})()
+""".replace("__HIDDEN_IN_MODAL__", HIDDEN_IN_MODAL_JS)
+
 # Bouton « Publier » de la fenêtre de rédaction ; open=false = fenêtre fermée
 PUBLISH_JS = r"""
 (() => {
@@ -215,16 +322,27 @@ PUBLISH_JS = r"""
 })()
 """
 
-# Textes des boîtes de dialogue / alertes hors fenêtre de rédaction (erreurs, « en attente d'approbation »)
+# Textes des boîtes de dialogue / alertes (erreurs, « en attente d'approbation ») et messages de la fenêtre de
+# rédaction hors texte de la publication (limite anti-spam du compte)
 NOTICES_JS = r"""
 (() => {
-  const notices = [];
+  const notices = new Set();
   for (const el of document.querySelectorAll('[role="dialog"], [role="alertdialog"], [role="alert"], [role="status"]')) {
-    if (el.querySelector('div[contenteditable="true"][role="textbox"]')) continue;
+    const box = el.querySelector('div[contenteditable="true"][role="textbox"]');
+    if (box) {
+      // Fenêtre de rédaction : ses messages (« Nous limitons le nombre de fois… » sous « Publier »), jamais le texte
+      // de la publication (« Date limite » ferait un faux blocage)
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const text = node.textContent.trim();
+        if (text.length >= 20 && !box.contains(node)) notices.add(text.slice(0, 300));
+      }
+      continue;
+    }
     const text = (el.innerText || '').trim();
-    if (text) notices.push(text.slice(0, 300));
+    if (text) notices.add(text.slice(0, 300));
   }
-  return JSON.stringify({open: !!document.querySelector('div[role="dialog"] div[contenteditable="true"][role="textbox"]'), notices});
+  return JSON.stringify({open: !!document.querySelector('div[role="dialog"] div[contenteditable="true"][role="textbox"]'), notices: [...notices]});
 })()
 """
 
@@ -275,8 +393,40 @@ PENDING_COUNT_JS = r"""
 })()
 """
 
+# Bandeau qui interdit de publier dans le groupe (lu seulement si « Exprimez-vous… » est absent) : la ligne visible
+# dont le texte plié (comme share._fold) correspond à ARGS.pattern, et les deux suivantes (date de fin de suspension)
+RESTRICTION_JS = r"""
+(() => {
+  const ARGS = __ARGS__;
+  const pattern = new RegExp(ARGS.pattern);
+  const fold = (s) => (s || '').normalize('NFKD').replace(/[^\x00-\x7f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const lines = (document.body.innerText || '').split('\n').map((s) => s.trim()).filter(Boolean);
+  for (let i = 0; i < lines.length; i++) {
+    if (pattern.test(fold(lines[i]))) return JSON.stringify({text: lines.slice(i, i + 3).join(' ')});
+  }
+  return JSON.stringify({});
+})()
+"""
+
+
 class StopRun(Exception):
     """Blocage Facebook, page de connexion ou arrêt demandé : aucun autre groupe ce lancement-ci."""
+
+
+class AccountLimited(StopRun):
+    """Limite anti-spam de Facebook sur le compte (ACCOUNT_LIMIT_RE) : arrêt et pause de ACCOUNT_BLOCK_HOURS."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(f"Facebook limite les publications du compte (anti-spam) : « {message[:200]} »")
+        self.message = message
+
+
+class GroupRestricted(Exception):
+    """Bandeau de Facebook dans le groupe (open_composer) : publication impossible, groupe sauté jusqu'à `until`."""
+
+    def __init__(self, reason: str, until: datetime, message: str) -> None:
+        super().__init__(reason)
+        self.reason, self.until, self.message = reason, until, message
 
 
 @dataclass(slots=True)
@@ -343,11 +493,57 @@ def save_diagnostics(sb: SB, group_url: str, reason: str) -> None:
     print(f"  [DIAG] Capture et détails : {DEBUG_DIR / slug}.png / .json")
 
 
+def _retry_day(now: datetime, days: int) -> datetime:
+    """Minuit, `days` jours plus tard : le lancement quotidien de ce jour-là regarde de nouveau le groupe."""
+    return (now + timedelta(days=days)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def restriction_end(text: str, now: datetime) -> datetime | None:
+    """
+    Fin d'une suspension : « … jusqu'au 5 nov 2026, 06:47 » / « … until November 5, 2026 at 6:47 AM » (heure locale
+    du navigateur = celle de la machine). None si la date est illisible.
+    """
+    folded = share._fold(text)  # « jusqu’au » -> « jusquau », « jusqu'au » -> « jusqu au »
+    if match := re.search(rf"jusqu ?au (\d{{1,2}}) ({MONTH_RE})(?: (\d{{4}}))?(?: (?:a )?(\d{{1,2}}) (\d{{2}}))?\b", folded):
+        day, month, year, hour, minute, ampm = match[1], match[2], match[3], match[4], match[5], None
+    elif match := re.search(
+        rf"until ({MONTH_RE}) (\d{{1,2}})(?: (\d{{4}}))?(?: (?:at )?(\d{{1,2}}) (\d{{2}})(?: (am|pm))?)?\b", folded
+    ):
+        month, day, year, hour, minute, ampm = match[1], match[2], match[3], match[4], match[5], match[6]
+    else:
+        return None
+    hours = int(hour) if hour else 23
+    if ampm:
+        hours = hours % 12 + (12 if ampm == "pm" else 0)
+    try:
+        end = datetime(int(year or now.year), fb_dates.MONTHS[month], int(day), hours, int(minute or 59)).astimezone()
+    except ValueError:
+        return None
+    if not year and end < now - timedelta(days=1):
+        end = end.replace(year=end.year + 1)  # « jusqu'au 2 janv » lu fin décembre
+    return end
+
+
+def detect_restriction(sb: SB) -> GroupRestricted | None:
+    """Bandeau « suspendu » / « limite de contenus en attente » de la page du groupe (RESTRICTIONS), sinon None."""
+    pattern = "|".join(regex.pattern for _, regex in RESTRICTIONS)
+    text = share._clean((fb._run_js(sb, RESTRICTION_JS, {"pattern": pattern}) or {}).get("text"))
+    if not text:
+        return None
+    now = datetime.now().astimezone()
+    for reason, regex in RESTRICTIONS:
+        if regex.search(share._fold(text)):
+            until = restriction_end(text, now) if reason == "suspended" else None
+            return GroupRestricted(reason, until or _retry_day(now, RESTRICTION_RETRY_DAYS), text[:300])
+    return None
+
+
 def open_composer(sb: SB, group_url: str) -> str:
     """
-    "open", "not_member", "no_composer" ; StopRun sur une page de connexion. Le bouton « Exprimez-vous… » est
-    cherché jusqu'au bout du délai : « not_member » seulement s'il n'est jamais apparu ET qu'un « Rejoindre » était
-    visible (un « Rejoindre » seul est souvent celui d'un groupe suggéré).
+    "open", "not_member", "no_composer" ; StopRun sur une page de connexion ; GroupRestricted sur un bandeau de
+    suspension ou de limite de publications en attente (cherché seulement tant que « Exprimez-vous… » est absent).
+    Le bouton « Exprimez-vous… » est cherché jusqu'au bout du délai : « not_member » seulement s'il n'est jamais
+    apparu ET qu'un « Rejoindre » était visible (un « Rejoindre » seul est souvent celui d'un groupe suggéré).
     """
     sb.goto(group_url)
     sb.sleep(PAGE_LOAD_WAIT + random.uniform(0, 3))
@@ -369,10 +565,85 @@ def open_composer(sb: SB, group_url: str) -> str:
                 clicks += 1
                 sb.sleep(2.5)
                 continue
+        elif not composer_seen and (restriction := detect_restriction(sb)):
+            raise restriction
         sb.sleep(1)
     status = "not_member" if join_seen and not composer_seen else "no_composer"
     save_diagnostics(sb, group_url, status)
     return status
+
+
+def _anonymous_switch(sb: SB) -> dict[str, Any]:
+    return fb._run_js(sb, ANONYMOUS_JS, {"anonymous": ANONYMOUS_LABELS}) or {}
+
+
+def _click_panel_button(sb: SB, labels: str) -> bool:
+    """
+    Clic souris sur un bouton de l'explication « Publication anonyme », une fois le volet immobile et le bouton sous le
+    point : le volet glisse par-dessus la fenêtre de rédaction, un clic pendant le glissement tombe à côté, et Facebook
+    ignore les clics JS (element.click()). False = pas de bouton à l'écran (volet reparti, resté dans la page hors
+    du cadre), ou volet jamais immobile.
+    """
+    previous: dict[str, Any] = {}
+    for _ in range(PANEL_CLICK_TRIES):
+        button = fb._run_js(sb, ANONYMOUS_PANEL_JS, {"anonymous": ANONYMOUS_LABELS, "button": labels}) or {}
+        if "x" not in button:
+            return False
+        steady = "x" in previous and abs(button["x"] - previous["x"]) < 1 and abs(button["y"] - previous["y"]) < 1
+        if steady and button.get("hit"):
+            _click(sb, button["x"], button["y"])
+            return True
+        previous = button
+        sb.sleep(0.3)
+    return False
+
+
+def set_anonymous(sb: SB) -> str:
+    """
+    Active « Publier de manière anonyme » avant le texte et les affiches : "on", "absent" (pas d'interrupteur :
+    publication anonyme désactivée par les admins du groupe) ou "failed" (clic ou « OK » sans effet ; « Retour » à la
+    fenêtre de rédaction, publiée sous le nom du compte).
+    """
+    switch: dict[str, Any] = {}
+    deadline = time.monotonic() + ANONYMOUS_TIMEOUT
+    while time.monotonic() < deadline:
+        switch = _anonymous_switch(sb)
+        if "x" in switch:
+            break
+        sb.sleep(1)
+    if "x" not in switch:
+        return "absent"
+    ok_clicks = 0
+    for _ in range(ANONYMOUS_CLICKS):
+        switch = _anonymous_switch(sb)  # relu juste avant : sur un interrupteur déjà activé, un clic le désactiverait
+        if switch.get("checked"):
+            return "on"
+        if "x" not in switch:
+            break
+        sb.sleep(random.uniform(0.4, 0.9))
+        _click(sb, switch["x"], switch["y"])
+        clicked_ok = False
+        deadline = time.monotonic() + ANONYMOUS_CONFIRM_TIMEOUT
+        while time.monotonic() < deadline:
+            sb.sleep(1)
+            switch = _anonymous_switch(sb)
+            if switch.get("checked"):
+                return "on"
+            if clicked_ok and "x" in switch:
+                sb.sleep(ANONYMOUS_WAIT)  # fenêtre de rédaction revenue : délai pour l'interrupteur avant de le relire
+                break  # puis, s'il est toujours désactivé, nouveau clic
+            # L'explication « Publication anonyme » glisse par-dessus la fenêtre de rédaction un peu après le clic :
+            # l'interrupteur ne passe à aria-checked="true" qu'après son « OK »
+            if _click_panel_button(sb, ANONYMOUS_OK_LABELS):
+                clicked_ok = True
+                ok_clicks += 1
+                sb.sleep(ANONYMOUS_WAIT)
+    # Explication restée à l'écran : retour à la fenêtre de rédaction (sinon le texte serait collé dans un volet caché)
+    back = _click_panel_button(sb, ANONYMOUS_BACK_LABELS)
+    if back:
+        sb.sleep(ANONYMOUS_WAIT)
+    print(f"  [DIAG] Publication anonyme : {ok_clicks} clic(s) sur « OK »{', puis « Retour »' if back else ''}")
+    return "failed"
 
 
 def fill_composer(sb: SB, text: str) -> bool:
@@ -407,8 +678,18 @@ def discard_composer(sb: SB) -> None:
 
 
 def _notices(sb: SB) -> tuple[bool, list[str]]:
+    """(fenêtre de rédaction ouverte, messages : boîtes de dialogue / alertes + messages de la fenêtre de rédaction)."""
     state = fb._run_js(sb, NOTICES_JS) or {}
     return bool(state.get("open")), list(state.get("notices") or [])
+
+
+def _check_account_limit(sb: SB, notices: list[str], group_url: str) -> None:
+    """AccountLimited si un message est la limite anti-spam du compte (rien n'est publié : fenêtre vidée et fermée)."""
+    if message := next((n for n in notices if ACCOUNT_LIMIT_RE.search(share._fold(n))), None):
+        print(f"  [WARN] {share._clean(message)[:300]}")
+        save_diagnostics(sb, group_url, "account_limited")
+        discard_composer(sb)
+        raise AccountLimited(share._clean(message))
 
 
 def _ask(prompt: str) -> str:
@@ -472,8 +753,12 @@ def _pending_count(sb: SB) -> int:
 
 
 def publish(sb: SB, group_url: str, auto: bool, with_images: bool = False) -> str:
-    """"posted", "pending", "skipped", "not_published" ; StopRun sur blocage Facebook ou arrêt demandé."""
+    """
+    "posted", "pending", "skipped", "not_published" ; StopRun sur blocage Facebook ou arrêt demandé, AccountLimited
+    sur la limite anti-spam du compte (déjà affichée avant le clic, ou apparue après).
+    """
     _, baseline = _notices(sb)
+    _check_account_limit(sb, baseline, group_url)
     # « En attente d'approbation » s'affiche dans la publication elle-même, pas dans une alerte : compté avant / après
     pending_before = _pending_count(sb)
     if not auto:
@@ -508,6 +793,7 @@ def publish(sb: SB, group_url: str, auto: bool, with_images: bool = False) -> st
     while time.monotonic() < deadline:
         sb.sleep(1)
         still_open, notices = _notices(sb)
+        _check_account_limit(sb, notices, group_url)
         fresh = [share._fold(n) for n in notices if n not in baseline]
         if blocked := next((n for n in fresh if BLOCK_RE.search(n)), None):
             discard_composer(sb)
@@ -527,11 +813,22 @@ def publish(sb: SB, group_url: str, auto: bool, with_images: bool = False) -> st
     return "not_published"
 
 
-def post_to_group(sb: SB, group_url: str, text: str, auto: bool, images: list[Path] | None = None) -> str:
+def post_to_group(sb: SB, group_url: str, text: str, auto: bool, images: list[Path] | None = None,
+                  anonymous: bool = True) -> str:
     status = open_composer(sb, group_url)
     if status != "open":
         return status
     sb.sleep(random.uniform(1, 2))
+    if anonymous:
+        mode = set_anonymous(sb)
+        if mode == "on":
+            print("  [INFO] Publication anonyme activée")
+        elif mode == "absent":
+            print("  [WARN] Pas de « Publier de manière anonyme » dans ce groupe : publication sous le nom du compte")
+        else:
+            print("  [WARN] « Publier de manière anonyme » non activé : publication sous le nom du compte")
+            save_diagnostics(sb, group_url, "anonymous")
+        sb.sleep(random.uniform(1, 2))  # l'éditeur se redessine après le changement de mode
     if not fill_composer(sb, text):
         print("  [WARN] Texte non inséré dans la fenêtre de rédaction")
         save_diagnostics(sb, group_url, "fill_failed")
@@ -617,6 +914,39 @@ def _recently_posted(group: dict[str, Any], min_hours: float, now: datetime) -> 
     return False
 
 
+def _account_block_until(profile: str) -> datetime | None:
+    """Fin de la pause du compte (limite anti-spam vue par un lancement précédent), si elle n'est pas passée."""
+    with suppress(OSError, ValueError, KeyError, TypeError, AttributeError):
+        until = datetime.fromisoformat(json.loads(ACCOUNT_BLOCK_FILE.read_text(encoding="utf-8"))[profile]["until"])
+        return until if until > datetime.now().astimezone() else None
+    return None
+
+
+def _save_account_block(profile: str, message: str) -> datetime:
+    """Pause de ACCOUNT_BLOCK_HOURS pour ce profil (ACCOUNT_BLOCK_FILE), lue par _account_block_until au lancement suivant."""
+    now = datetime.now().astimezone()
+    until = now + timedelta(hours=ACCOUNT_BLOCK_HOURS)
+    blocks: dict[str, Any] = {}
+    with suppress(OSError, ValueError):
+        blocks = json.loads(ACCOUNT_BLOCK_FILE.read_text(encoding="utf-8"))
+    history = (blocks.get(profile) or {}).get("history", [])
+    blocks[profile] = {
+        "until": until.isoformat(timespec="seconds"),
+        "since": now.isoformat(timespec="seconds"),
+        "message": message[:500],
+        "history": [*history, now.isoformat(timespec="seconds")][-30:],  # dates des limites vues
+    }
+    share._write_json_atomic(ACCOUNT_BLOCK_FILE, blocks)
+    return until
+
+
+def _blocked_until(group: dict[str, Any]) -> datetime | None:
+    """Fin du blocage enregistré par record() (suspension, limite de publications en attente), sinon None."""
+    with suppress(KeyError, TypeError, ValueError):
+        return datetime.fromisoformat(group["blocked"]["until"])
+    return None
+
+
 def plan(targets: list[fb.GroupTarget], offers: list[dict[str, Any]], state: dict[str, dict[str, Any]],
          args: argparse.Namespace, today: date) -> list[Job]:
     excluded = share.load_excluded_owners(Path(args.excluded_owners_file))
@@ -625,6 +955,11 @@ def plan(targets: list[fb.GroupTarget], offers: list[dict[str, Any]], state: dic
     jobs = []
     for rank, target in enumerate(targets):
         group = state.get(target.group_id, {})
+        until = _blocked_until(group)
+        if until and until > now and not args.retry_blocked:
+            reason = RESTRICTION_LABELS.get(group["blocked"].get("reason"), group["blocked"].get("reason"))
+            print(f"[INFO] {target.group_id} : {reason} - ignoré jusqu'au {until:%d/%m/%Y %H:%M} (--retry-blocked pour réessayer)")
+            continue
         if _recently_posted(group, args.min_hours, now):
             print(f"[INFO] {target.group_id} : déjà publié il y a moins de {args.min_hours:g} h ({group['last_post_at']}) - ignoré")
             continue
@@ -651,14 +986,28 @@ def posters_for(job: Job, args: argparse.Namespace, today: date) -> list[Path]:
         return []
 
 
-def record(state: dict[str, dict[str, Any]], job: Job, status: str, site_url: str, images: int = 0) -> None:
-    """Historique du groupe ; "posted"/"pending" marquent les offres publiées (jamais republiées dans ce groupe)."""
+def record(state: dict[str, dict[str, Any]], job: Job, status: str, site_url: str, images: int = 0,
+           restriction: GroupRestricted | None = None) -> None:
+    """
+    Historique du groupe ; "posted"/"pending" marquent les offres publiées (jamais republiées dans ce groupe).
+    `restriction` -> group["blocked"] (sauté par plan() jusqu'à `until`) ; effacé dès que le groupe n'est plus bloqué.
+    """
     target = job.target
     group = state.setdefault(target.group_id, {"url": target.group_url, "posted": {}, "history": []})
     at = datetime.now().astimezone().isoformat(timespec="seconds")
     group.setdefault("history", []).append(
         {"at": at, "status": status, "offers": [o["id"] for o in job.offers], "images": images}
     )
+    if restriction:
+        previous = group.get("blocked") or {}
+        group["blocked"] = {
+            "reason": restriction.reason,
+            "until": restriction.until.isoformat(timespec="seconds"),
+            "since": previous.get("since", at) if previous.get("reason") == restriction.reason else at,
+            "message": restriction.message,
+        }
+    elif status not in ("stopped", "account_limited"):
+        group.pop("blocked", None)
     if status in ("posted", "pending"):
         group["last_post_at"] = at
         for offer in job.offers:
@@ -681,17 +1030,22 @@ def run(sb: SB, jobs: list[Job], state: dict[str, dict[str, Any]], state_path: P
             sb.sleep(pause)
         print(f"\n[{index}/{len(jobs)}] Groupe {target.group_id} - {len(batch)} offre(s)")
         images = posters_for(job, args, today)
+        restriction = None
         try:
-            status = post_to_group(sb, target.group_url, job.text, args.auto, images)
-        except StopRun:
-            record(state, job, "stopped", args.site_url, len(images))
+            status = post_to_group(sb, target.group_url, job.text, args.auto, images, anonymous=not args.no_anonymous)
+        except GroupRestricted as exc:
+            restriction, status = exc, exc.reason
+            print(f"  [INFO] « {exc.message} »")
+            print(f"  [INFO] {RESTRICTION_LABELS[exc.reason]} : groupe ignoré jusqu'au {exc.until:%d/%m/%Y %H:%M}")
+        except StopRun as exc:
+            record(state, job, "account_limited" if isinstance(exc, AccountLimited) else "stopped", args.site_url, len(images))
             share._write_json_atomic(state_path, state)
             raise
-        record(state, job, status, args.site_url, len(images))
+        record(state, job, status, args.site_url, len(images), restriction)
         share._write_json_atomic(state_path, state)
         totals[status] += 1
         print(f"  -> {status}")
-        failures = 0 if status in ("posted", "pending", "skipped", "not_member") else failures + 1
+        failures = 0 if status in ("posted", "pending", "skipped", "not_member", *RESTRICTION_LABELS) else failures + 1
         if failures >= MAX_FAILURES_IN_A_ROW:
             raise StopRun(f"{failures} échecs d'affilée : la page Facebook a peut-être changé, vérifiez avec --assisted")
 
@@ -710,6 +1064,10 @@ def parse_args() -> argparse.Namespace:
                         help=f"pause minimum entre deux groupes, en secondes (défaut {DEFAULT_DELAY_MIN})")
     parser.add_argument("--delay-max", type=float, default=DEFAULT_DELAY_MAX,
                         help=f"pause maximum entre deux groupes, en secondes (défaut {DEFAULT_DELAY_MAX})")
+    parser.add_argument("--retry-blocked", action="store_true",
+                        help="réessayer aussi les groupes où le compte est suspendu ou a trop de publications en attente "
+                             "(défaut : ignorés jusqu'à la fin de la suspension, ou 3 jours), et publier malgré la pause "
+                             f"du compte après une limite anti-spam de Facebook (défaut : {ACCOUNT_BLOCK_HOURS} h sans publier)")
     parser.add_argument("--min-days-left", type=int, default=1, help="jours de validité restants minimum d'une offre (défaut 1)")
     parser.add_argument("--assisted", action="store_true",
                         help="fenêtre visible, ENTRÉE dans le terminal avant chaque publication (défaut : automatique)")
@@ -719,6 +1077,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--preview", action="store_true",
                         help="texte et affiches prévus pour chaque groupe, sans navigateur Facebook ni publication")
     parser.add_argument("--no-images", action="store_true", help="publication texte seul, sans les affiches (visuals.py)")
+    parser.add_argument("--no-anonymous", action="store_true",
+                        help="publier sous le nom du compte (défaut : « Publier de manière anonyme » activé)")
     parser.add_argument("--single-link", action="store_true",
                         help="un seul lien (wipwork.com/jobs) au lieu d'un lien par offre, si Facebook bloque les publications")
     parser.add_argument("--login", action="store_true", help="forcer l'étape de connexion manuelle (fenêtre visible)")
@@ -771,6 +1131,14 @@ def main() -> None:
         return
 
     profile_dir = Path(args.profile)
+    account_paused = _account_block_until(profile_dir.name)
+    if account_paused and not args.retry_blocked:
+        print(f"[STOP] Facebook a limité les publications de ce compte (anti-spam) : aucune publication avant le "
+              f"{account_paused:%d/%m/%Y %H:%M} ({ACCOUNT_BLOCK_FILE}, --retry-blocked pour réessayer quand même)")
+        if not args.login:
+            return
+    elif account_paused:
+        account_paused = None  # --retry-blocked
     fb.PROFILE_DIR = profile_dir  # nom du profil affiché par fb.login_and_wait
     profile_dir.mkdir(parents=True, exist_ok=True)
     fb.close_orphan_chromes(profile_dir)
@@ -790,7 +1158,14 @@ def main() -> None:
             if (args.login or not logged_in) and not fb.login_and_wait(sb):
                 print("Abandon.")
                 return
+            if account_paused:
+                print("[INFO] Connexion seulement : compte en pause (limite anti-spam), rien n'est publié.")
+                return
             run(sb, jobs, state, state_path, args, today, totals)
+        except AccountLimited as exc:
+            until = _save_account_block(profile_dir.name, exc.message)
+            print(f"\n[STOP] {exc}\n[STOP] Aucun autre groupe ce lancement-ci, et aucune publication avant le "
+                  f"{until:%d/%m/%Y %H:%M} (insister prolonge la limite ; --retry-blocked pour réessayer quand même).")
         except StopRun as exc:
             print(f"\n[STOP] {exc} - aucun autre groupe ce lancement-ci.")
         except KeyboardInterrupt:
