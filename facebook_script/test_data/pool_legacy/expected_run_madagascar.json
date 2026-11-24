@@ -1,0 +1,975 @@
+{
+ "stdout": "[INFO] 45 offres uniques (45 annoncées par l'API), 4 groupe(s)\n[INFO] 4 publication(s) prévue(s) - mode automatique, sans fenêtre, profil profil_test_madagascar\n\n[1/4] Groupe testmadagascar1 - 40 offre(s)\n  -> posted\n\n[INFO] Pause de 0 min 59 s avant le groupe suivant (Ctrl+C pour arrêter)\n\n[2/4] Groupe testmadagascar2 - 40 offre(s)\n  -> pending\n\n[INFO] Pause de 0 min 55 s avant le groupe suivant (Ctrl+C pour arrêter)\n\n[3/4] Groupe testmadagascar3 - 40 offre(s)\n  -> not_member\n\n[INFO] Pause de 1 min 03 s avant le groupe suivant (Ctrl+C pour arrêter)\n\n[4/4] Groupe testmadagascar4 - 40 offre(s)\n  -> posted\n\nTerminé - 2 posted, 1 pending, 1 not_member. Suivi : <tmp>/facebook_share/group_posts_madagascar.json\n",
+ "calls": [
+  [
+   "profil_test_madagascar",
+   "https://www.facebook.com/groups/testmadagascar1/",
+   "302e9a27aebd",
+   0
+  ],
+  [
+   "profil_test_madagascar",
+   "https://www.facebook.com/groups/testmadagascar2/",
+   "634784712343",
+   0
+  ],
+  [
+   "profil_test_madagascar",
+   "https://www.facebook.com/groups/testmadagascar3/",
+   "372b97af79f3",
+   0
+  ],
+  [
+   "profil_test_madagascar",
+   "https://www.facebook.com/groups/testmadagascar4/",
+   "3ef8e8b39d8e",
+   0
+  ]
+ ],
+ "state": {
+  "group_posts_madagascar.json": {
+   "testmadagascar1": {
+    "url": "https://www.facebook.com/groups/testmadagascar1/",
+    "posted": {
+     "offre-fictive-005": {
+      "key": "entreprise fictive 6|responsable rh 5|toamasina",
+      "title": "Responsable RH 5",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-005",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-006": {
+      "key": "entreprise fictive 7|technicien de maintenance 6|mahajanga",
+      "title": "Technicien de maintenance 6",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-006",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-026": {
+      "key": "entreprise fictive 3|magasinier 26|mahajanga",
+      "title": "Magasinier 26",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-026",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-013": {
+      "key": "entreprise fictive 2|chauffeur livreur 13|toamasina",
+      "title": "Chauffeur livreur 13",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-013",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-035": {
+      "key": "entreprise fictive 12|magasinier 35|fianarantsoa",
+      "title": "Magasinier 35",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-035",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-022": {
+      "key": "entreprise fictive 11|chauffeur livreur 22|mahajanga",
+      "title": "Chauffeur livreur 22",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-022",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-019": {
+      "key": "entreprise fictive 8|developpeur web 19|fianarantsoa",
+      "title": "Développeur web 19",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-019",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-037": {
+      "key": "entreprise fictive 2|developpeur web 37|toamasina",
+      "title": "Développeur web 37",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-037",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-036": {
+      "key": "entreprise fictive 1|comptable 36|antananarivo",
+      "title": "Comptable 36",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-036",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-004": {
+      "key": "entreprise fictive 5|chauffeur livreur 4|antananarivo",
+      "title": "Chauffeur livreur 4",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-004",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-045": {
+      "key": "entreprise fictive 10|comptable 45|toamasina",
+      "title": "Comptable 45",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-045",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-031": {
+      "key": "entreprise fictive 8|chauffeur livreur 31|fianarantsoa",
+      "title": "Chauffeur livreur 31",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-031",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-023": {
+      "key": "entreprise fictive 12|responsable rh 23|fianarantsoa",
+      "title": "Responsable RH 23",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-023",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-021": {
+      "key": "entreprise fictive 10|assistant de direction 21|toamasina",
+      "title": "Assistant de direction 21",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-021",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-032": {
+      "key": "entreprise fictive 9|responsable rh 32|antananarivo",
+      "title": "Responsable RH 32",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-032",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-017": {
+      "key": "entreprise fictive 6|magasinier 17|toamasina",
+      "title": "Magasinier 17",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-017",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-041": {
+      "key": "entreprise fictive 6|responsable rh 41|toamasina",
+      "title": "Responsable RH 41",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-041",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-018": {
+      "key": "entreprise fictive 7|comptable 18|mahajanga",
+      "title": "Comptable 18",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-018",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-009": {
+      "key": "entreprise fictive 10|comptable 9|toamasina",
+      "title": "Comptable 9",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-009",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-038": {
+      "key": "entreprise fictive 3|commercial terrain 38|mahajanga",
+      "title": "Commercial terrain 38",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-038",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-008": {
+      "key": "entreprise fictive 9|magasinier 8|antananarivo",
+      "title": "Magasinier 8",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-008",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-039": {
+      "key": "entreprise fictive 4|assistant de direction 39|fianarantsoa",
+      "title": "Assistant de direction 39",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-039",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-024": {
+      "key": "entreprise fictive 1|technicien de maintenance 24|antananarivo",
+      "title": "Technicien de maintenance 24",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-024",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-044": {
+      "key": "entreprise fictive 9|magasinier 44|antananarivo",
+      "title": "Magasinier 44",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-044",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-020": {
+      "key": "entreprise fictive 9|commercial terrain 20|antananarivo",
+      "title": "Commercial terrain 20",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-020",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-033": {
+      "key": "entreprise fictive 10|technicien de maintenance 33|toamasina",
+      "title": "Technicien de maintenance 33",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-033",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-011": {
+      "key": "entreprise fictive 12|commercial terrain 11|fianarantsoa",
+      "title": "Commercial terrain 11",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-011",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-015": {
+      "key": "entreprise fictive 4|technicien de maintenance 15|fianarantsoa",
+      "title": "Technicien de maintenance 15",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-015",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-016": {
+      "key": "entreprise fictive 5|charge de clientele 16|antananarivo",
+      "title": "Chargé de clientèle 16",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-016",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-012": {
+      "key": "entreprise fictive 1|assistant de direction 12|antananarivo",
+      "title": "Assistant de direction 12",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-012",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-025": {
+      "key": "entreprise fictive 2|charge de clientele 25|toamasina",
+      "title": "Chargé de clientèle 25",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-025",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-040": {
+      "key": "entreprise fictive 5|chauffeur livreur 40|antananarivo",
+      "title": "Chauffeur livreur 40",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-040",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-043": {
+      "key": "entreprise fictive 8|charge de clientele 43|fianarantsoa",
+      "title": "Chargé de clientèle 43",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-043",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-034": {
+      "key": "entreprise fictive 11|charge de clientele 34|mahajanga",
+      "title": "Chargé de clientèle 34",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-034",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-042": {
+      "key": "entreprise fictive 7|technicien de maintenance 42|mahajanga",
+      "title": "Technicien de maintenance 42",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-042",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-003": {
+      "key": "entreprise fictive 4|assistant de direction 3|fianarantsoa",
+      "title": "Assistant de direction 3",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-003",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-027": {
+      "key": "entreprise fictive 4|comptable 27|fianarantsoa",
+      "title": "Comptable 27",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-027",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-014": {
+      "key": "entreprise fictive 3|responsable rh 14|mahajanga",
+      "title": "Responsable RH 14",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-014",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-007": {
+      "key": "entreprise fictive 8|charge de clientele 7|fianarantsoa",
+      "title": "Chargé de clientèle 7",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-007",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-010": {
+      "key": "entreprise fictive 11|developpeur web 10|mahajanga",
+      "title": "Développeur web 10",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-010",
+      "posted_at": "<date>"
+     }
+    },
+    "history": [
+     {
+      "at": "<date>",
+      "status": "posted",
+      "offers": [
+       "offre-fictive-005",
+       "offre-fictive-006",
+       "offre-fictive-026",
+       "offre-fictive-013",
+       "offre-fictive-035",
+       "offre-fictive-022",
+       "offre-fictive-019",
+       "offre-fictive-037",
+       "offre-fictive-036",
+       "offre-fictive-004",
+       "offre-fictive-045",
+       "offre-fictive-031",
+       "offre-fictive-023",
+       "offre-fictive-021",
+       "offre-fictive-032",
+       "offre-fictive-017",
+       "offre-fictive-041",
+       "offre-fictive-018",
+       "offre-fictive-009",
+       "offre-fictive-038",
+       "offre-fictive-008",
+       "offre-fictive-039",
+       "offre-fictive-024",
+       "offre-fictive-044",
+       "offre-fictive-020",
+       "offre-fictive-033",
+       "offre-fictive-011",
+       "offre-fictive-015",
+       "offre-fictive-016",
+       "offre-fictive-012",
+       "offre-fictive-025",
+       "offre-fictive-040",
+       "offre-fictive-043",
+       "offre-fictive-034",
+       "offre-fictive-042",
+       "offre-fictive-003",
+       "offre-fictive-027",
+       "offre-fictive-014",
+       "offre-fictive-007",
+       "offre-fictive-010"
+      ],
+      "images": 0,
+      "profile": "profil_test_madagascar"
+     }
+    ],
+    "last_post_at": "<date>"
+   },
+   "testmadagascar2": {
+    "url": "https://www.facebook.com/groups/testmadagascar2/",
+    "posted": {
+     "offre-fictive-018": {
+      "key": "entreprise fictive 7|comptable 18|mahajanga",
+      "title": "Comptable 18",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-018",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-022": {
+      "key": "entreprise fictive 11|chauffeur livreur 22|mahajanga",
+      "title": "Chauffeur livreur 22",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-022",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-044": {
+      "key": "entreprise fictive 9|magasinier 44|antananarivo",
+      "title": "Magasinier 44",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-044",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-007": {
+      "key": "entreprise fictive 8|charge de clientele 7|fianarantsoa",
+      "title": "Chargé de clientèle 7",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-007",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-036": {
+      "key": "entreprise fictive 1|comptable 36|antananarivo",
+      "title": "Comptable 36",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-036",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-005": {
+      "key": "entreprise fictive 6|responsable rh 5|toamasina",
+      "title": "Responsable RH 5",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-005",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-004": {
+      "key": "entreprise fictive 5|chauffeur livreur 4|antananarivo",
+      "title": "Chauffeur livreur 4",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-004",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-009": {
+      "key": "entreprise fictive 10|comptable 9|toamasina",
+      "title": "Comptable 9",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-009",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-032": {
+      "key": "entreprise fictive 9|responsable rh 32|antananarivo",
+      "title": "Responsable RH 32",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-032",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-023": {
+      "key": "entreprise fictive 12|responsable rh 23|fianarantsoa",
+      "title": "Responsable RH 23",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-023",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-040": {
+      "key": "entreprise fictive 5|chauffeur livreur 40|antananarivo",
+      "title": "Chauffeur livreur 40",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-040",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-034": {
+      "key": "entreprise fictive 11|charge de clientele 34|mahajanga",
+      "title": "Chargé de clientèle 34",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-034",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-033": {
+      "key": "entreprise fictive 10|technicien de maintenance 33|toamasina",
+      "title": "Technicien de maintenance 33",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-033",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-010": {
+      "key": "entreprise fictive 11|developpeur web 10|mahajanga",
+      "title": "Développeur web 10",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-010",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-042": {
+      "key": "entreprise fictive 7|technicien de maintenance 42|mahajanga",
+      "title": "Technicien de maintenance 42",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-042",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-021": {
+      "key": "entreprise fictive 10|assistant de direction 21|toamasina",
+      "title": "Assistant de direction 21",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-021",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-024": {
+      "key": "entreprise fictive 1|technicien de maintenance 24|antananarivo",
+      "title": "Technicien de maintenance 24",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-024",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-035": {
+      "key": "entreprise fictive 12|magasinier 35|fianarantsoa",
+      "title": "Magasinier 35",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-035",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-026": {
+      "key": "entreprise fictive 3|magasinier 26|mahajanga",
+      "title": "Magasinier 26",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-026",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-037": {
+      "key": "entreprise fictive 2|developpeur web 37|toamasina",
+      "title": "Développeur web 37",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-037",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-025": {
+      "key": "entreprise fictive 2|charge de clientele 25|toamasina",
+      "title": "Chargé de clientèle 25",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-025",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-013": {
+      "key": "entreprise fictive 2|chauffeur livreur 13|toamasina",
+      "title": "Chauffeur livreur 13",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-013",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-020": {
+      "key": "entreprise fictive 9|commercial terrain 20|antananarivo",
+      "title": "Commercial terrain 20",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-020",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-016": {
+      "key": "entreprise fictive 5|charge de clientele 16|antananarivo",
+      "title": "Chargé de clientèle 16",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-016",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-039": {
+      "key": "entreprise fictive 4|assistant de direction 39|fianarantsoa",
+      "title": "Assistant de direction 39",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-039",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-019": {
+      "key": "entreprise fictive 8|developpeur web 19|fianarantsoa",
+      "title": "Développeur web 19",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-019",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-017": {
+      "key": "entreprise fictive 6|magasinier 17|toamasina",
+      "title": "Magasinier 17",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-017",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-031": {
+      "key": "entreprise fictive 8|chauffeur livreur 31|fianarantsoa",
+      "title": "Chauffeur livreur 31",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-031",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-015": {
+      "key": "entreprise fictive 4|technicien de maintenance 15|fianarantsoa",
+      "title": "Technicien de maintenance 15",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-015",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-041": {
+      "key": "entreprise fictive 6|responsable rh 41|toamasina",
+      "title": "Responsable RH 41",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-041",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-038": {
+      "key": "entreprise fictive 3|commercial terrain 38|mahajanga",
+      "title": "Commercial terrain 38",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-038",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-011": {
+      "key": "entreprise fictive 12|commercial terrain 11|fianarantsoa",
+      "title": "Commercial terrain 11",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-011",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-008": {
+      "key": "entreprise fictive 9|magasinier 8|antananarivo",
+      "title": "Magasinier 8",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-008",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-003": {
+      "key": "entreprise fictive 4|assistant de direction 3|fianarantsoa",
+      "title": "Assistant de direction 3",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-003",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-027": {
+      "key": "entreprise fictive 4|comptable 27|fianarantsoa",
+      "title": "Comptable 27",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-027",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-014": {
+      "key": "entreprise fictive 3|responsable rh 14|mahajanga",
+      "title": "Responsable RH 14",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-014",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-012": {
+      "key": "entreprise fictive 1|assistant de direction 12|antananarivo",
+      "title": "Assistant de direction 12",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-012",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-043": {
+      "key": "entreprise fictive 8|charge de clientele 43|fianarantsoa",
+      "title": "Chargé de clientèle 43",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-043",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-045": {
+      "key": "entreprise fictive 10|comptable 45|toamasina",
+      "title": "Comptable 45",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-045",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-006": {
+      "key": "entreprise fictive 7|technicien de maintenance 6|mahajanga",
+      "title": "Technicien de maintenance 6",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-006",
+      "posted_at": "<date>"
+     }
+    },
+    "history": [
+     {
+      "at": "<date>",
+      "status": "pending",
+      "offers": [
+       "offre-fictive-018",
+       "offre-fictive-022",
+       "offre-fictive-044",
+       "offre-fictive-007",
+       "offre-fictive-036",
+       "offre-fictive-005",
+       "offre-fictive-004",
+       "offre-fictive-009",
+       "offre-fictive-032",
+       "offre-fictive-023",
+       "offre-fictive-040",
+       "offre-fictive-034",
+       "offre-fictive-033",
+       "offre-fictive-010",
+       "offre-fictive-042",
+       "offre-fictive-021",
+       "offre-fictive-024",
+       "offre-fictive-035",
+       "offre-fictive-026",
+       "offre-fictive-037",
+       "offre-fictive-025",
+       "offre-fictive-013",
+       "offre-fictive-020",
+       "offre-fictive-016",
+       "offre-fictive-039",
+       "offre-fictive-019",
+       "offre-fictive-017",
+       "offre-fictive-031",
+       "offre-fictive-015",
+       "offre-fictive-041",
+       "offre-fictive-038",
+       "offre-fictive-011",
+       "offre-fictive-008",
+       "offre-fictive-003",
+       "offre-fictive-027",
+       "offre-fictive-014",
+       "offre-fictive-012",
+       "offre-fictive-043",
+       "offre-fictive-045",
+       "offre-fictive-006"
+      ],
+      "images": 0,
+      "profile": "profil_test_madagascar"
+     }
+    ],
+    "last_post_at": "<date>"
+   },
+   "testmadagascar3": {
+    "url": "https://www.facebook.com/groups/testmadagascar3/",
+    "posted": {},
+    "history": [
+     {
+      "at": "<date>",
+      "status": "not_member",
+      "offers": [
+       "offre-fictive-023",
+       "offre-fictive-010",
+       "offre-fictive-004",
+       "offre-fictive-031",
+       "offre-fictive-027",
+       "offre-fictive-032",
+       "offre-fictive-014",
+       "offre-fictive-041",
+       "offre-fictive-036",
+       "offre-fictive-007",
+       "offre-fictive-040",
+       "offre-fictive-005",
+       "offre-fictive-019",
+       "offre-fictive-026",
+       "offre-fictive-012",
+       "offre-fictive-039",
+       "offre-fictive-045",
+       "offre-fictive-008",
+       "offre-fictive-025",
+       "offre-fictive-034",
+       "offre-fictive-015",
+       "offre-fictive-021",
+       "offre-fictive-003",
+       "offre-fictive-016",
+       "offre-fictive-017",
+       "offre-fictive-033",
+       "offre-fictive-035",
+       "offre-fictive-011",
+       "offre-fictive-024",
+       "offre-fictive-018",
+       "offre-fictive-042",
+       "offre-fictive-022",
+       "offre-fictive-013",
+       "offre-fictive-038",
+       "offre-fictive-043",
+       "offre-fictive-009",
+       "offre-fictive-006",
+       "offre-fictive-037",
+       "offre-fictive-020",
+       "offre-fictive-044"
+      ],
+      "images": 0,
+      "profile": "profil_test_madagascar"
+     }
+    ]
+   },
+   "testmadagascar4": {
+    "url": "https://www.facebook.com/groups/testmadagascar4/",
+    "posted": {
+     "offre-fictive-035": {
+      "key": "entreprise fictive 12|magasinier 35|fianarantsoa",
+      "title": "Magasinier 35",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-035",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-044": {
+      "key": "entreprise fictive 9|magasinier 44|antananarivo",
+      "title": "Magasinier 44",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-044",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-011": {
+      "key": "entreprise fictive 12|commercial terrain 11|fianarantsoa",
+      "title": "Commercial terrain 11",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-011",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-033": {
+      "key": "entreprise fictive 10|technicien de maintenance 33|toamasina",
+      "title": "Technicien de maintenance 33",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-033",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-007": {
+      "key": "entreprise fictive 8|charge de clientele 7|fianarantsoa",
+      "title": "Chargé de clientèle 7",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-007",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-036": {
+      "key": "entreprise fictive 1|comptable 36|antananarivo",
+      "title": "Comptable 36",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-036",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-005": {
+      "key": "entreprise fictive 6|responsable rh 5|toamasina",
+      "title": "Responsable RH 5",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-005",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-024": {
+      "key": "entreprise fictive 1|technicien de maintenance 24|antananarivo",
+      "title": "Technicien de maintenance 24",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-024",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-004": {
+      "key": "entreprise fictive 5|chauffeur livreur 4|antananarivo",
+      "title": "Chauffeur livreur 4",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-004",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-015": {
+      "key": "entreprise fictive 4|technicien de maintenance 15|fianarantsoa",
+      "title": "Technicien de maintenance 15",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-015",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-027": {
+      "key": "entreprise fictive 4|comptable 27|fianarantsoa",
+      "title": "Comptable 27",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-027",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-042": {
+      "key": "entreprise fictive 7|technicien de maintenance 42|mahajanga",
+      "title": "Technicien de maintenance 42",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-042",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-018": {
+      "key": "entreprise fictive 7|comptable 18|mahajanga",
+      "title": "Comptable 18",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-018",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-045": {
+      "key": "entreprise fictive 10|comptable 45|toamasina",
+      "title": "Comptable 45",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-045",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-037": {
+      "key": "entreprise fictive 2|developpeur web 37|toamasina",
+      "title": "Développeur web 37",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-037",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-041": {
+      "key": "entreprise fictive 6|responsable rh 41|toamasina",
+      "title": "Responsable RH 41",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-041",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-040": {
+      "key": "entreprise fictive 5|chauffeur livreur 40|antananarivo",
+      "title": "Chauffeur livreur 40",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-040",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-003": {
+      "key": "entreprise fictive 4|assistant de direction 3|fianarantsoa",
+      "title": "Assistant de direction 3",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-003",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-020": {
+      "key": "entreprise fictive 9|commercial terrain 20|antananarivo",
+      "title": "Commercial terrain 20",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-020",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-032": {
+      "key": "entreprise fictive 9|responsable rh 32|antananarivo",
+      "title": "Responsable RH 32",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-032",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-031": {
+      "key": "entreprise fictive 8|chauffeur livreur 31|fianarantsoa",
+      "title": "Chauffeur livreur 31",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-031",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-043": {
+      "key": "entreprise fictive 8|charge de clientele 43|fianarantsoa",
+      "title": "Chargé de clientèle 43",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-043",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-034": {
+      "key": "entreprise fictive 11|charge de clientele 34|mahajanga",
+      "title": "Chargé de clientèle 34",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-034",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-013": {
+      "key": "entreprise fictive 2|chauffeur livreur 13|toamasina",
+      "title": "Chauffeur livreur 13",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-013",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-022": {
+      "key": "entreprise fictive 11|chauffeur livreur 22|mahajanga",
+      "title": "Chauffeur livreur 22",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-022",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-008": {
+      "key": "entreprise fictive 9|magasinier 8|antananarivo",
+      "title": "Magasinier 8",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-008",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-023": {
+      "key": "entreprise fictive 12|responsable rh 23|fianarantsoa",
+      "title": "Responsable RH 23",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-023",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-021": {
+      "key": "entreprise fictive 10|assistant de direction 21|toamasina",
+      "title": "Assistant de direction 21",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-021",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-012": {
+      "key": "entreprise fictive 1|assistant de direction 12|antananarivo",
+      "title": "Assistant de direction 12",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-012",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-026": {
+      "key": "entreprise fictive 3|magasinier 26|mahajanga",
+      "title": "Magasinier 26",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-026",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-006": {
+      "key": "entreprise fictive 7|technicien de maintenance 6|mahajanga",
+      "title": "Technicien de maintenance 6",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-006",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-016": {
+      "key": "entreprise fictive 5|charge de clientele 16|antananarivo",
+      "title": "Chargé de clientèle 16",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-016",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-019": {
+      "key": "entreprise fictive 8|developpeur web 19|fianarantsoa",
+      "title": "Développeur web 19",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-019",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-014": {
+      "key": "entreprise fictive 3|responsable rh 14|mahajanga",
+      "title": "Responsable RH 14",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-014",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-010": {
+      "key": "entreprise fictive 11|developpeur web 10|mahajanga",
+      "title": "Développeur web 10",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-010",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-038": {
+      "key": "entreprise fictive 3|commercial terrain 38|mahajanga",
+      "title": "Commercial terrain 38",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-038",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-039": {
+      "key": "entreprise fictive 4|assistant de direction 39|fianarantsoa",
+      "title": "Assistant de direction 39",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-039",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-017": {
+      "key": "entreprise fictive 6|magasinier 17|toamasina",
+      "title": "Magasinier 17",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-017",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-009": {
+      "key": "entreprise fictive 10|comptable 9|toamasina",
+      "title": "Comptable 9",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-009",
+      "posted_at": "<date>"
+     },
+     "offre-fictive-025": {
+      "key": "entreprise fictive 2|charge de clientele 25|toamasina",
+      "title": "Chargé de clientèle 25",
+      "url": "https://www.wipwork.com/jobs/offre-fictive-025",
+      "posted_at": "<date>"
+     }
+    },
+    "history": [
+     {
+      "at": "<date>",
+      "status": "posted",
+      "offers": [
+       "offre-fictive-035",
+       "offre-fictive-044",
+       "offre-fictive-011",
+       "offre-fictive-033",
+       "offre-fictive-007",
+       "offre-fictive-036",
+       "offre-fictive-005",
+       "offre-fictive-024",
+       "offre-fictive-004",
+       "offre-fictive-015",
+       "offre-fictive-027",
+       "offre-fictive-042",
+       "offre-fictive-018",
+       "offre-fictive-045",
+       "offre-fictive-037",
+       "offre-fictive-041",
+       "offre-fictive-040",
+       "offre-fictive-003",
+       "offre-fictive-020",
+       "offre-fictive-032",
+       "offre-fictive-031",
+       "offre-fictive-043",
+       "offre-fictive-034",
+       "offre-fictive-013",
+       "offre-fictive-022",
+       "offre-fictive-008",
+       "offre-fictive-023",
+       "offre-fictive-021",
+       "offre-fictive-012",
+       "offre-fictive-026",
+       "offre-fictive-006",
+       "offre-fictive-016",
+       "offre-fictive-019",
+       "offre-fictive-014",
+       "offre-fictive-010",
+       "offre-fictive-038",
+       "offre-fictive-039",
+       "offre-fictive-017",
+       "offre-fictive-009",
+       "offre-fictive-025"
+      ],
+      "images": 0,
+      "profile": "profil_test_madagascar"
+     }
+    ],
+    "last_post_at": "<date>"
+   }
+  }
+ }
+}

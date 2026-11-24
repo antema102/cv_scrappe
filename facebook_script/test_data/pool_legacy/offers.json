@@ -1,0 +1,962 @@
+[
+ {
+  "id": "offre-fictive-001",
+  "name": "Développeur web 1",
+  "slug": "offre-fictive-001",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-02T01:01:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 2"
+  },
+  "lieu": "Toamasina",
+  "type": "Informatique",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-002",
+  "name": "Commercial terrain 2",
+  "slug": "offre-fictive-002",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-03T02:02:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 3"
+  },
+  "lieu": "Mahajanga",
+  "type": "Commerce",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-003",
+  "name": "Assistant de direction 3",
+  "slug": "offre-fictive-003",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-04T03:03:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 4"
+  },
+  "lieu": "Fianarantsoa",
+  "type": "Administration",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-004",
+  "name": "Chauffeur livreur 4",
+  "slug": "offre-fictive-004",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-05T04:04:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 5"
+  },
+  "lieu": "Antananarivo",
+  "type": "Transport",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-005",
+  "name": "Responsable RH 5",
+  "slug": "offre-fictive-005",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-06T05:05:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 6"
+  },
+  "lieu": "Toamasina",
+  "type": "Comptabilité",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-006",
+  "name": "Technicien de maintenance 6",
+  "slug": "offre-fictive-006",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-07T06:06:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 7"
+  },
+  "lieu": "Mahajanga",
+  "type": "Informatique",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-007",
+  "name": "Chargé de clientèle 7",
+  "slug": "offre-fictive-007",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-08T07:07:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 8"
+  },
+  "lieu": "Fianarantsoa",
+  "type": "Commerce",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-008",
+  "name": "Magasinier 8",
+  "slug": "offre-fictive-008",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-09T08:08:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 9"
+  },
+  "lieu": "Antananarivo",
+  "type": "Administration",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-009",
+  "name": "Comptable 9",
+  "slug": "offre-fictive-009",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-10T09:09:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 10"
+  },
+  "lieu": "Toamasina",
+  "type": "Transport",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-010",
+  "name": "Développeur web 10",
+  "slug": "offre-fictive-010",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-11T10:10:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 11"
+  },
+  "lieu": "Mahajanga",
+  "type": "Comptabilité",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-011",
+  "name": "Commercial terrain 11",
+  "slug": "offre-fictive-011",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-12T11:11:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 12"
+  },
+  "lieu": "Fianarantsoa",
+  "type": "Informatique",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-012",
+  "name": "Assistant de direction 12",
+  "slug": "offre-fictive-012",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-13T12:12:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 1"
+  },
+  "lieu": "Antananarivo",
+  "type": "Commerce",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-013",
+  "name": "Chauffeur livreur 13",
+  "slug": "offre-fictive-013",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-14T13:13:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 2"
+  },
+  "lieu": "Toamasina",
+  "type": "Administration",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-014",
+  "name": "Responsable RH 14",
+  "slug": "offre-fictive-014",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-15T14:14:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 3"
+  },
+  "lieu": "Mahajanga",
+  "type": "Transport",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-015",
+  "name": "Technicien de maintenance 15",
+  "slug": "offre-fictive-015",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-16T15:15:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 4"
+  },
+  "lieu": "Fianarantsoa",
+  "type": "Comptabilité",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-016",
+  "name": "Chargé de clientèle 16",
+  "slug": "offre-fictive-016",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-17T16:16:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 5"
+  },
+  "lieu": "Antananarivo",
+  "type": "Informatique",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-017",
+  "name": "Magasinier 17",
+  "slug": "offre-fictive-017",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-18T17:17:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 6"
+  },
+  "lieu": "Toamasina",
+  "type": "Commerce",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-018",
+  "name": "Comptable 18",
+  "slug": "offre-fictive-018",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-19T18:18:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 7"
+  },
+  "lieu": "Mahajanga",
+  "type": "Administration",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-019",
+  "name": "Développeur web 19",
+  "slug": "offre-fictive-019",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-20T19:19:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 8"
+  },
+  "lieu": "Fianarantsoa",
+  "type": "Transport",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-020",
+  "name": "Commercial terrain 20",
+  "slug": "offre-fictive-020",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-21T20:20:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 9"
+  },
+  "lieu": "Antananarivo",
+  "type": "Comptabilité",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-021",
+  "name": "Assistant de direction 21",
+  "slug": "offre-fictive-021",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-22T21:21:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 10"
+  },
+  "lieu": "Toamasina",
+  "type": "Informatique",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-022",
+  "name": "Chauffeur livreur 22",
+  "slug": "offre-fictive-022",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-23T22:22:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 11"
+  },
+  "lieu": "Mahajanga",
+  "type": "Commerce",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-023",
+  "name": "Responsable RH 23",
+  "slug": "offre-fictive-023",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-24T23:23:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 12"
+  },
+  "lieu": "Fianarantsoa",
+  "type": "Administration",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-024",
+  "name": "Technicien de maintenance 24",
+  "slug": "offre-fictive-024",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-25T00:24:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 1"
+  },
+  "lieu": "Antananarivo",
+  "type": "Transport",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-025",
+  "name": "Chargé de clientèle 25",
+  "slug": "offre-fictive-025",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-26T01:25:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 2"
+  },
+  "lieu": "Toamasina",
+  "type": "Comptabilité",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-026",
+  "name": "Magasinier 26",
+  "slug": "offre-fictive-026",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-27T02:26:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 3"
+  },
+  "lieu": "Mahajanga",
+  "type": "Informatique",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-027",
+  "name": "Comptable 27",
+  "slug": "offre-fictive-027",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-28T03:27:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 4"
+  },
+  "lieu": "Fianarantsoa",
+  "type": "Commerce",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-028",
+  "name": "Développeur web 28",
+  "slug": "offre-fictive-028",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-01T04:28:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 5"
+  },
+  "lieu": "Antananarivo",
+  "type": "Administration",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-029",
+  "name": "Commercial terrain 29",
+  "slug": "offre-fictive-029",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-02T05:29:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 6"
+  },
+  "lieu": "Toamasina",
+  "type": "Transport",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-030",
+  "name": "Assistant de direction 30",
+  "slug": "offre-fictive-030",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-03T06:30:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 7"
+  },
+  "lieu": "Mahajanga",
+  "type": "Comptabilité",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-031",
+  "name": "Chauffeur livreur 31",
+  "slug": "offre-fictive-031",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-04T07:31:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 8"
+  },
+  "lieu": "Fianarantsoa",
+  "type": "Informatique",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-032",
+  "name": "Responsable RH 32",
+  "slug": "offre-fictive-032",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-05T08:32:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 9"
+  },
+  "lieu": "Antananarivo",
+  "type": "Commerce",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-033",
+  "name": "Technicien de maintenance 33",
+  "slug": "offre-fictive-033",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-06T09:33:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 10"
+  },
+  "lieu": "Toamasina",
+  "type": "Administration",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-034",
+  "name": "Chargé de clientèle 34",
+  "slug": "offre-fictive-034",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-07T10:34:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 11"
+  },
+  "lieu": "Mahajanga",
+  "type": "Transport",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-035",
+  "name": "Magasinier 35",
+  "slug": "offre-fictive-035",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-08T11:35:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 12"
+  },
+  "lieu": "Fianarantsoa",
+  "type": "Comptabilité",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-036",
+  "name": "Comptable 36",
+  "slug": "offre-fictive-036",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-09T12:36:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 1"
+  },
+  "lieu": "Antananarivo",
+  "type": "Informatique",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-037",
+  "name": "Développeur web 37",
+  "slug": "offre-fictive-037",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-10T13:37:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 2"
+  },
+  "lieu": "Toamasina",
+  "type": "Commerce",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-038",
+  "name": "Commercial terrain 38",
+  "slug": "offre-fictive-038",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-11T14:38:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 3"
+  },
+  "lieu": "Mahajanga",
+  "type": "Administration",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-039",
+  "name": "Assistant de direction 39",
+  "slug": "offre-fictive-039",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-12T15:39:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 4"
+  },
+  "lieu": "Fianarantsoa",
+  "type": "Transport",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-040",
+  "name": "Chauffeur livreur 40",
+  "slug": "offre-fictive-040",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-13T16:40:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 5"
+  },
+  "lieu": "Antananarivo",
+  "type": "Comptabilité",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-041",
+  "name": "Responsable RH 41",
+  "slug": "offre-fictive-041",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-14T17:41:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 6"
+  },
+  "lieu": "Toamasina",
+  "type": "Informatique",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-042",
+  "name": "Technicien de maintenance 42",
+  "slug": "offre-fictive-042",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-15T18:42:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 7"
+  },
+  "lieu": "Mahajanga",
+  "type": "Commerce",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-043",
+  "name": "Chargé de clientèle 43",
+  "slug": "offre-fictive-043",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-16T19:43:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 8"
+  },
+  "lieu": "Fianarantsoa",
+  "type": "Administration",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-044",
+  "name": "Magasinier 44",
+  "slug": "offre-fictive-044",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-17T20:44:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 9"
+  },
+  "lieu": "Antananarivo",
+  "type": "Transport",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-045",
+  "name": "Comptable 45",
+  "slug": "offre-fictive-045",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-18T21:45:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 10"
+  },
+  "lieu": "Toamasina",
+  "type": "Comptabilité",
+  "companyCountry": "Madagascar"
+ },
+ {
+  "id": "offre-fictive-046",
+  "name": "Développeur web 46",
+  "slug": "offre-fictive-046",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-19T22:46:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 11"
+  },
+  "lieu": "Douala",
+  "type": "Informatique",
+  "companyCountry": "Cameroun"
+ },
+ {
+  "id": "offre-fictive-047",
+  "name": "Commercial terrain 47",
+  "slug": "offre-fictive-047",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-20T23:47:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 12"
+  },
+  "lieu": "Yaoundé",
+  "type": "Commerce",
+  "companyCountry": "Cameroun"
+ },
+ {
+  "id": "offre-fictive-048",
+  "name": "Assistant de direction 48",
+  "slug": "offre-fictive-048",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-21T00:48:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 1"
+  },
+  "lieu": "Douala",
+  "type": "Administration",
+  "companyCountry": "Cameroun"
+ },
+ {
+  "id": "offre-fictive-049",
+  "name": "Chauffeur livreur 49",
+  "slug": "offre-fictive-049",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-22T01:49:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 2"
+  },
+  "lieu": "Yaoundé",
+  "type": "Transport",
+  "companyCountry": "Cameroun"
+ },
+ {
+  "id": "offre-fictive-050",
+  "name": "Responsable RH 50",
+  "slug": "offre-fictive-050",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-23T02:50:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 3"
+  },
+  "lieu": "Douala",
+  "type": "Comptabilité",
+  "companyCountry": "Cameroun"
+ },
+ {
+  "id": "offre-fictive-051",
+  "name": "Technicien de maintenance 51",
+  "slug": "offre-fictive-051",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-24T03:51:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 4"
+  },
+  "lieu": "Yaoundé",
+  "type": "Informatique",
+  "companyCountry": "Cameroun"
+ },
+ {
+  "id": "offre-fictive-052",
+  "name": "Chargé de clientèle 52",
+  "slug": "offre-fictive-052",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-25T04:52:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 5"
+  },
+  "lieu": "Douala",
+  "type": "Commerce",
+  "companyCountry": "Cameroun"
+ },
+ {
+  "id": "offre-fictive-053",
+  "name": "Magasinier 53",
+  "slug": "offre-fictive-053",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-26T05:53:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 6"
+  },
+  "lieu": "Yaoundé",
+  "type": "Administration",
+  "companyCountry": "Cameroun"
+ },
+ {
+  "id": "offre-fictive-054",
+  "name": "Comptable 54",
+  "slug": "offre-fictive-054",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-27T06:54:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 7"
+  },
+  "lieu": "Douala",
+  "type": "Transport",
+  "companyCountry": "Cameroun"
+ },
+ {
+  "id": "offre-fictive-055",
+  "name": "Développeur web 55",
+  "slug": "offre-fictive-055",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-28T07:55:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 8"
+  },
+  "lieu": "Yaoundé",
+  "type": "Comptabilité",
+  "companyCountry": "Cameroun"
+ },
+ {
+  "id": "offre-fictive-056",
+  "name": "Commercial terrain 56",
+  "slug": "offre-fictive-056",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-01T08:56:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 9"
+  },
+  "lieu": "Accra",
+  "type": "Informatique",
+  "companyCountry": "Ghana"
+ },
+ {
+  "id": "offre-fictive-057",
+  "name": "Assistant de direction 57",
+  "slug": "offre-fictive-057",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-02T09:57:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 10"
+  },
+  "lieu": "Kumasi",
+  "type": "Commerce",
+  "companyCountry": "Ghana"
+ },
+ {
+  "id": "offre-fictive-058",
+  "name": "Chauffeur livreur 58",
+  "slug": "offre-fictive-058",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-03T10:58:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 11"
+  },
+  "lieu": "Accra",
+  "type": "Administration",
+  "companyCountry": "Ghana"
+ },
+ {
+  "id": "offre-fictive-059",
+  "name": "Responsable RH 59",
+  "slug": "offre-fictive-059",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-04T11:59:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 12"
+  },
+  "lieu": "Kumasi",
+  "type": "Transport",
+  "companyCountry": "Ghana"
+ },
+ {
+  "id": "offre-fictive-060",
+  "name": "Technicien de maintenance 60",
+  "slug": "offre-fictive-060",
+  "status": "active",
+  "isPublic": true,
+  "moderationStatus": "approve",
+  "createdAt": "2026-11-05T12:00:00Z",
+  "expiresAt": "2027-06-30T00:00:00Z",
+  "proprietaire": {
+   "name": "Entreprise Fictive 1"
+  },
+  "lieu": "Accra",
+  "type": "Comptabilité",
+  "companyCountry": "Ghana"
+ }
+]
