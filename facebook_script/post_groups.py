@@ -110,13 +110,15 @@ import re
 import sys
 import time
 from collections import Counter
-from contextlib import nullcontext, redirect_stdout, suppress
+from collections.abc import Iterator
+from contextlib import ExitStack, contextmanager, nullcontext, redirect_stdout, suppress
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from io import StringIO
 from pathlib import Path
 from typing import Any
 
+import account_pool
 import fb_dates
 import scraper as fb
 import share
@@ -228,6 +230,7 @@ ACCOUNT_LIMIT_RE = re.compile(
 )
 ACCOUNT_BLOCK_HOURS = 24  # aucun lancement pendant 24 h : celui du lendemain 8 h est sauté (repris le surlendemain)
 ACCOUNT_BLOCK_FILE = share.OUTPUT_DIR / "account_block.json"  # {profil: {until, since, message}}
+ACCOUNT_IDS_FILE = share.OUTPUT_DIR / "share_account_ids.json"  # {profil: identifiant Facebook (cookie c_user)}
 # Bandeaux qui remplacent « Exprimez-vous… » (texte plié), vus sur les captures du 04/11/2026 : 6 groupes sur 8 en
 # « no_composer » chaque jour depuis le 24/10 avaient 5 publications jamais approuvées, les 2 autres une suspension.
 # Retenter chaque jour n'y change rien : le groupe est sauté jusqu'à la fin de la suspension, ou RESTRICTION_RETRY_DAYS.
@@ -1460,6 +1463,68 @@ def open_profile(profile_dir: Path) -> Path:
     return profile_dir
 
 
+class ProfileBusy(StopRun):
+    """Profil Chrome déjà ouvert par un autre lancement (publication ou vérification) : ce compte est sauté."""
+
+    def __init__(self, profile: str) -> None:
+        super().__init__(f"profil {profile} occupé (publication ou vérification en cours) : sauté ce lancement-ci")
+
+
+def profile_lock_path(profile_dir: Path) -> Path:
+    """Verrou d'un profil de partage, lu à l'appel (share.OUTPUT_DIR peut être redirigé)."""
+    return share.OUTPUT_DIR / f".profile_{profile_dir.name}.lock"
+
+
+@contextmanager
+def profile_session(profile_dir: Path, headless: bool) -> Iterator[SB]:
+    """
+    Chrome sur un profil de partage, sous verrou (spec §5.7) : verrou pris AVANT toute action sur le profil (fermeture
+    des Chrome orphelins comprise), tenu pendant toute l'utilisation, relâché APRÈS la fermeture de Chrome — aussi sur
+    exception. Profil déjà tenu (autre publication, vérification, --login) -> ProfileBusy, jamais d'attente.
+    """
+    with ExitStack() as stack:
+        try:
+            stack.enter_context(fb.run_lock(profile_lock_path(profile_dir)))
+        except fb.RunAlreadyActive:
+            raise ProfileBusy(profile_dir.name) from None
+        open_profile(profile_dir)
+        sb = stack.enter_context(SB(uc=True, locale="fr", user_data_dir=str(profile_dir), headless=headless))
+        fb._activate_cdp_mode(sb)
+        yield sb
+
+
+def facebook_user_id(sb: SB) -> str:
+    """Identifiant du compte Facebook connecté (cookie c_user, lu comme fb._session_active), "" si absent."""
+    try:
+        cookies = sb.cdp.get_all_cookies()
+    except Exception:
+        return ""
+    return next((str(getattr(c, "value", "")) for c in cookies if getattr(c, "name", "") == "c_user"), "")
+
+
+def check_account_identity(profile: str, sb: SB) -> None:
+    """
+    Un compte Facebook = un seul profil du pool : un dossier de profil copié garderait la session du compte d'origine
+    (quota et limite anti-spam faussés). Conflit -> StopRun pour ce profil ; sinon identifiant enregistré.
+    """
+    user_id = facebook_user_id(sb)
+    if not user_id:
+        return
+    ids: dict[str, str] = {}
+    if ACCOUNT_IDS_FILE.exists():
+        try:
+            ids = json.loads(ACCOUNT_IDS_FILE.read_text(encoding="utf-8"))
+        except ValueError:
+            raise StopRun(f"{ACCOUNT_IDS_FILE} illisible : corrigez-le ou supprimez-le") from None
+    other = account_pool.account_id_conflict(ids, profile, user_id)
+    if other:
+        raise StopRun(f"même compte Facebook que le profil {other} : un compte Facebook = un seul profil (dossier de "
+                      f"profil copié ?) - profil {profile} arrêté")
+    if ids.get(profile) != user_id:
+        ids[profile] = user_id
+        share._write_json_atomic(ACCOUNT_IDS_FILE, ids)
+
+
 def login_only(selected: list[CountrySettings]) -> None:
     """
     --login : ouvre seulement Chrome sur le profil de chaque pays choisi (une fois par profil) pour (re)connecter le
@@ -1476,15 +1541,16 @@ def login_only(selected: list[CountrySettings]) -> None:
         done.add(settings.profile.name)
         countries = ", ".join(s.country.name for s in selected if s.profile.name == settings.profile.name)
         print(f"\n[INFO] Profil {settings.profile.name} ({countries})")
-        profile_dir = open_profile(settings.profile)
-        with SB(uc=True, locale="fr", user_data_dir=str(profile_dir), headless=False) as sb:
-            fb._activate_cdp_mode(sb)
-            if fb.is_logged_in(sb):
-                print(f"[OK] Profil {profile_dir.name} déjà connecté.")
-                continue
-            if not fb.login_and_wait(sb):
-                print("Abandon.")
-                return
+        try:
+            with profile_session(settings.profile, headless=False) as sb:
+                if fb.is_logged_in(sb):
+                    print(f"[OK] Profil {settings.profile.name} déjà connecté.")
+                    continue
+                if not fb.login_and_wait(sb):
+                    print("Abandon.")
+                    return
+        except ProfileBusy as exc:
+            print(f"[WARN] {exc}")
 
 
 def load_targets(selected: list[CountrySettings], all_settings: dict[str, CountrySettings],
@@ -1512,11 +1578,10 @@ def publish_country(settings: CountrySettings, jobs: list[Job], state: dict[str,
                     today: date, claims: dict[str, Owner]) -> Counter[str]:
     """Publie les groupes d'un pays avec son profil ; StopRun remonte (arrêt de ce profil ou de tout le lancement)."""
     totals: Counter[str] = Counter()
-    profile_dir = open_profile(settings.profile)
+    profile_dir = settings.profile
     mode = ("automatique" if args.auto else "assisté") + (", sans fenêtre" if args.headless else ", fenêtre visible")
     print(f"[INFO] {len(jobs)} publication(s) prévue(s) - mode {mode}, profil {profile_dir.name}")
-    with SB(uc=True, locale="fr", user_data_dir=str(profile_dir), headless=args.headless) as sb:
-        fb._activate_cdp_mode(sb)
+    with profile_session(profile_dir, args.headless) as sb:  # ProfileBusy (StopRun) si le profil est déjà ouvert
         try:
             logged_in = fb.is_logged_in(sb)
             if (args.headless or not sys.stdin.isatty()) and not logged_in:
