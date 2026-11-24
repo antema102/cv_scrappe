@@ -231,6 +231,11 @@ ACCOUNT_LIMIT_RE = re.compile(
 ACCOUNT_BLOCK_HOURS = 24  # aucun lancement pendant 24 h : celui du lendemain 8 h est sauté (repris le surlendemain)
 ACCOUNT_BLOCK_FILE = share.OUTPUT_DIR / "account_block.json"  # {profil: {until, since, message}}
 ACCOUNT_IDS_FILE = share.OUTPUT_DIR / "share_account_ids.json"  # {profil: identifiant Facebook (cookie c_user)}
+ACCOUNTS_FILE = fb.SCRIPT_DIR / "share_accounts.json"  # pool de comptes (account_pool.py) ; vide = fonctionnement actuel
+MEMBERSHIP_FILE = share.OUTPUT_DIR / "share_membership.json"  # adhésions vues par --check-membership
+MEMBERSHIP_LOCK = share.OUTPUT_DIR / ".share_membership.lock"  # écriture de MEMBERSHIP_FILE (relire, fusionner, écrire)
+MEMBERSHIP_LOCK_WAIT = 5  # s : MEMBERSHIP_LOCK retenté toutes les 0,2 s, puis erreur
+CHECK_DELAY_MIN, CHECK_DELAY_MAX = 20, 40  # pause entre deux groupes vérifiés (lecture seule, plus courte qu'une publication)
 # Bandeaux qui remplacent « Exprimez-vous… » (texte plié), vus sur les captures du 04/11/2026 : 6 groupes sur 8 en
 # « no_composer » chaque jour depuis le 24/10 avaient 5 publications jamais approuvées, les 2 autres une suspension.
 # Retenter chaque jour n'y change rien : le groupe est sauté jusqu'à la fin de la suspension, ou RESTRICTION_RETRY_DAYS.
@@ -528,6 +533,16 @@ class GroupRestricted(Exception):
 
 
 @dataclass(slots=True)
+class MembershipResult:
+    """Résultat d'une visite de --check-membership (lecture seule)."""
+
+    status: str  # account_pool.MEMBER | NOT_MEMBER | UNKNOWN
+    detail: str  # "composer" | "restriction" | "join_button" | "no_composer" | "load_error"
+    numeric_id: str = ""
+    restriction: GroupRestricted | None = None
+
+
+@dataclass(slots=True)
 class Job:
     target: fb.GroupTarget
     offers: list[dict[str, Any]]  # dans l'ordre des affiches
@@ -677,6 +692,39 @@ def open_composer(sb: SB, group_url: str, on_group_id: Any = None) -> str:
     status = "not_member" if join_seen and not composer_seen else "no_composer"
     save_diagnostics(sb, group_url, status)
     return status
+
+
+def membership_status(sb: SB, group_url: str) -> MembershipResult:
+    """
+    --check-membership (spec §5.8) : le compte est-il membre du groupe ? LECTURE SEULE : ni clic, ni saisie, ni
+    « Rejoindre », ni fenêtre de rédaction — seul mouvement : le défilement de COMPOSER_JS vers le bouton.
+    « Exprimez-vous… » vu -> member ; bandeau de suspension / limite d'attente -> member + restriction (de groupe) ;
+    « Rejoindre » sans « Exprimez-vous… » -> not_member ; sinon unknown. Page de connexion -> StopRun.
+    """
+    try:
+        sb.goto(group_url)
+    except Exception:
+        return MembershipResult(account_pool.UNKNOWN, "load_error")
+    sb.sleep(PAGE_LOAD_WAIT + random.uniform(0, 3))
+    if fb._is_auth_wall(fb._page_state(sb)):
+        raise StopRun("page de connexion Facebook : reconnectez le compte avec --login --account <profil>")
+    numeric_id = str((fb._run_js(sb, GROUP_ID_JS) or {}).get("id") or "")
+    join_seen = False
+    deadline = time.monotonic() + COMPOSER_TIMEOUT
+    while True:
+        found = fb._run_js(sb, COMPOSER_JS, {"composer": COMPOSER_LABELS, "join": JOIN_LABELS}) or {}
+        if found.get("open") or "x" in found:
+            return MembershipResult(account_pool.MEMBER, "composer", numeric_id)
+        join_seen = join_seen or bool(found.get("join"))
+        restriction = detect_restriction(sb)
+        if restriction:
+            return MembershipResult(account_pool.MEMBER, "restriction", numeric_id, restriction)
+        if time.monotonic() >= deadline:
+            break
+        sb.sleep(1)
+    status, detail = (account_pool.NOT_MEMBER, "join_button") if join_seen else (account_pool.UNKNOWN, "no_composer")
+    save_diagnostics(sb, group_url, f"check_{detail}")
+    return MembershipResult(status, detail, numeric_id)
 
 
 def _anonymous_switch(sb: SB) -> dict[str, Any]:
@@ -1406,10 +1454,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-groups", type=int, default=0, help="publications au maximum par pays ce lancement-ci (0 = tous les groupes)")
     parser.add_argument("--min-hours", type=float, default=DEFAULT_MIN_HOURS,
                         help=f"heures minimum entre deux publications dans un même groupe (défaut {DEFAULT_MIN_HOURS})")
-    parser.add_argument("--delay-min", type=float, default=DEFAULT_DELAY_MIN,
-                        help=f"pause minimum entre deux groupes, en secondes (défaut {DEFAULT_DELAY_MIN})")
-    parser.add_argument("--delay-max", type=float, default=DEFAULT_DELAY_MAX,
-                        help=f"pause maximum entre deux groupes, en secondes (défaut {DEFAULT_DELAY_MAX})")
+    parser.add_argument("--delay-min", type=float, default=None,
+                        help=f"pause minimum entre deux groupes, en secondes (défaut {DEFAULT_DELAY_MIN} ; "
+                             f"--check-membership : {CHECK_DELAY_MIN})")
+    parser.add_argument("--delay-max", type=float, default=None,
+                        help=f"pause maximum entre deux groupes, en secondes (défaut {DEFAULT_DELAY_MAX} ; "
+                             f"--check-membership : {CHECK_DELAY_MAX})")
     parser.add_argument("--retry-blocked", action="store_true",
                         help="réessayer aussi les groupes où le compte est suspendu ou a trop de publications en attente "
                              "(défaut : ignorés jusqu'à la fin de la suspension, ou 3 jours), et publier malgré la pause "
@@ -1434,16 +1484,38 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--excluded-owners-file", default=str(share.EXCLUDED_OWNERS_FILE))
     parser.add_argument("--api-url", default=os.getenv("WIPWORK_OFFERS_API_URL", share.DEFAULT_OFFERS_API))
     parser.add_argument("--site-url", default=os.getenv("WIPWORK_SITE_URL", share.DEFAULT_SITE_URL))
+    pool = parser.add_argument_group("pool de comptes (share_accounts.json)")
+    pool.add_argument("--accounts-file", default=str(ACCOUNTS_FILE),
+                      help=f"comptes du pool (défaut {ACCOUNTS_FILE.name} ; aucun compte actif = fonctionnement actuel)")
+    pool.add_argument("--account", action="append", default=[], metavar="PROFIL",
+                      help="restreint aux comptes donnés (répétable) : connexion, vérification, résumé, publication")
+    pool.add_argument("--check-membership", action="store_true",
+                      help="vérifie, sans publier ni cliquer, les adhésions des comptes aux groupes (tous les pays par défaut)")
+    pool.add_argument("--recheck", action="store_true", help="--check-membership : revisite aussi les groupes déjà vérifiés")
+    pool.add_argument("--membership-summary", action="store_true",
+                      help="résumé des adhésions de chaque compte, sans navigateur (tous les pays par défaut)")
     args = parser.parse_args()
     if args.assisted and (args.auto or args.headless):
         parser.error("--assisted se relit dans la fenêtre Chrome : incompatible avec --auto / --headless")
     args.auto = not args.assisted
     # Fenêtre visible pour relire (--assisted), sur demande (--visible) ou pour se connecter (--login)
     args.headless = not (args.assisted or args.visible or args.login)
+    modes = [name for name, on in (("--check-membership", args.check_membership), ("--membership-summary",
+             args.membership_summary), ("--login", args.login), ("--preview", args.preview)) if on]
+    if len(modes) > 1:
+        parser.error(f"{' et '.join(modes)} s'excluent")
+    if args.account and args.profile:
+        parser.error("--account (pool de comptes) et --profile (fonctionnement actuel) s'excluent")
+    if args.delay_min is None:
+        args.delay_min = CHECK_DELAY_MIN if args.check_membership else DEFAULT_DELAY_MIN
+    if args.delay_max is None:
+        args.delay_max = CHECK_DELAY_MAX if args.check_membership else DEFAULT_DELAY_MAX
     if args.delay_max < args.delay_min:
         parser.error("--delay-max doit être >= --delay-min")
     if sum(bool(x) for x in (args.country, args.countries, args.all_countries)) > 1:
         parser.error("--country, --countries et --all-countries s'excluent")
+    if (args.check_membership or args.membership_summary) and not (args.country or args.countries or args.all_countries):
+        args.all_countries = True  # vérification et résumé : tous les pays qui ont des groupes
     if args.all_countries:
         args.country_list = active_countries("share_groups")
         if not args.country_list:
@@ -1551,6 +1623,135 @@ def login_only(selected: list[CountrySettings]) -> None:
                     return
         except ProfileBusy as exc:
             print(f"[WARN] {exc}")
+
+
+def login_accounts(accounts: list[account_pool.Account]) -> None:
+    """--login en mode pool ou avec --account : (re)connecte chaque compte, l'un après l'autre (actif ou non)."""
+    if not sys.stdin.isatty():
+        print("[ERREUR] --login demande un terminal (connexion manuelle puis ENTRÉE).")
+        return
+    for acc in accounts:
+        print(f"\n[INFO] Compte {acc.label} (profil {acc.profile})")
+        try:
+            with profile_session(acc.path, headless=False) as sb:
+                if fb.is_logged_in(sb):
+                    print(f"[OK] Profil {acc.profile} déjà connecté.")
+                elif not fb.login_and_wait(sb):
+                    print("Abandon.")
+                    return
+                check_account_identity(acc.profile, sb)
+        except StopRun as exc:  # ProfileBusy compris
+            print(f"[STOP] {exc}")
+
+
+def save_membership(profile: str, entries: dict[str, dict[str, Any]]) -> None:
+    """Adhésions vérifiées d'un compte : verrou court, relecture, fusion (seules ses entrées changent), écriture atomique."""
+    deadline = time.monotonic() + MEMBERSHIP_LOCK_WAIT
+    while True:
+        try:
+            with fb.run_lock(MEMBERSHIP_LOCK):
+                data = account_pool.load_membership(MEMBERSHIP_FILE)
+                share._write_json_atomic(MEMBERSHIP_FILE, account_pool.merge_account_membership(data, profile, entries))
+                return
+        except fb.RunAlreadyActive:
+            if time.monotonic() > deadline:
+                raise StopRun(f"{MEMBERSHIP_LOCK} tenu depuis plus de {MEMBERSHIP_LOCK_WAIT} s : réessayez") from None
+            time.sleep(0.2)
+
+
+def _pool_context(targets: dict[str, list[fb.GroupTarget]], all_settings: dict[str, CountrySettings]
+                  ) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
+    """Suivis des pays (lecture seule) et profil des entrées d'historique sans profil (profil configuré du pays)."""
+    states = {code: load_state(all_settings[code].state_path) for code in targets}
+    return states, {code: all_settings[code].profile.name for code in targets}
+
+
+def _chosen_accounts(accounts: list[account_pool.Account], args: argparse.Namespace) -> list[account_pool.Account]:
+    return [acc for acc in accounts if not args.account or acc.profile in args.account]
+
+
+def check_memberships(accounts: list[account_pool.Account], targets: dict[str, list[fb.GroupTarget]],
+                      all_settings: dict[str, CountrySettings], args: argparse.Namespace) -> int:
+    """
+    --check-membership (spec §5.8) : pour chaque compte choisi (actif ou non), visite en lecture seule les groupes
+    d'adhésion inconnue ou « non membre » depuis plus de 7 jours ; écrit share_membership.json après chaque groupe.
+    Indépendante de la publication : pas de verrou de publication, jamais d'écriture dans group_posts_<code>.json.
+    """
+    chosen = _chosen_accounts(accounts, args)
+    if not chosen:
+        print(f"[ERREUR] Aucun compte à vérifier : ajoutez-les dans {ACCOUNTS_FILE.name}")
+        return 1
+    states, fallback = _pool_context(targets, all_settings)
+    try:
+        membership = account_pool.load_membership(MEMBERSHIP_FILE)
+    except account_pool.MembershipFileError as exc:
+        print(f"[ERREUR] {exc}")
+        return 1
+    exit_code = 0
+    for acc in chosen:
+        now = datetime.now().astimezone()
+        memberships = account_pool.Memberships(states, fallback, membership)
+        visits = [(code, target) for code, country_targets in targets.items() for target in country_targets
+                  if memberships.needs_check(acc.profile, account_pool.group_key(code, target.group_id), now, args.recheck)]
+        if args.max_groups > 0:
+            visits = visits[: args.max_groups]
+        print(f"\n[INFO] Compte {acc.label} (profil {acc.profile}) : {len(visits)} groupe(s) à vérifier")
+        if not visits:
+            continue
+        try:
+            with profile_session(acc.path, args.headless) as sb:
+                if not fb.is_logged_in(sb):
+                    print(f"[STOP] Profil {acc.profile} non connecté : python facebook_script/post_groups.py --login "
+                          f"--account {acc.profile}")
+                    exit_code = 1
+                    continue
+                check_account_identity(acc.profile, sb)
+                for index, (code, target) in enumerate(visits, 1):
+                    if index > 1:
+                        sb.sleep(random.uniform(args.delay_min, args.delay_max))
+                    result = membership_status(sb, target.group_url)
+                    key = account_pool.group_key(code, target.group_id)
+                    entry: dict[str, Any] = {"status": result.status, "detail": result.detail, "url": target.group_url,
+                                             "checked_at": datetime.now().astimezone().isoformat(timespec="seconds")}
+                    if result.numeric_id:
+                        entry["numeric_id"] = result.numeric_id
+                    if result.restriction:
+                        entry["restriction"] = {"reason": result.restriction.reason,
+                                                "until": result.restriction.until.isoformat(timespec="seconds")}
+                    save_membership(acc.profile, {key: entry})
+                    membership = account_pool.merge_account_membership(membership, acc.profile, {key: entry})
+                    print(f"  [{index}/{len(visits)}] {key} -> {result.status} ({result.detail})")
+        except StopRun as exc:  # ProfileBusy, page de connexion, même compte Facebook qu'un autre profil
+            print(f"[STOP] {exc}")
+            exit_code = exit_code or (0 if isinstance(exc, ProfileBusy) else 1)
+            continue
+        summary_memberships = account_pool.Memberships(states, fallback, membership)
+        keys = {code: [account_pool.group_key(code, t.group_id) for t in ts] for code, ts in targets.items()}
+        print(account_pool.membership_summary_text(
+            [acc], keys, summary_memberships, account_pool.group_restrictions(states, membership, datetime.now().astimezone()),
+            {code: COUNTRIES[code].name for code in targets}))
+    return exit_code
+
+
+def print_membership_summary(accounts: list[account_pool.Account], targets: dict[str, list[fb.GroupTarget]],
+                             all_settings: dict[str, CountrySettings], args: argparse.Namespace) -> int:
+    """--membership-summary : adhésions de chaque compte, par pays, sans navigateur ni verrou."""
+    chosen = _chosen_accounts(accounts, args)
+    if not chosen:
+        print(f"[INFO] Pool : aucun compte dans {ACCOUNTS_FILE.name}")
+        return 0
+    states, fallback = _pool_context(targets, all_settings)
+    try:
+        membership = account_pool.load_membership(MEMBERSHIP_FILE)
+    except account_pool.MembershipFileError as exc:
+        print(f"[ERREUR] {exc}")
+        return 1
+    keys = {code: [account_pool.group_key(code, t.group_id) for t in ts] for code, ts in targets.items()}
+    print(account_pool.membership_summary_text(
+        chosen, keys, account_pool.Memberships(states, fallback, membership),
+        account_pool.group_restrictions(states, membership, datetime.now().astimezone()),
+        {code: COUNTRIES[code].name for code in targets}))
+    return 0
 
 
 def load_targets(selected: list[CountrySettings], all_settings: dict[str, CountrySettings],
@@ -1699,8 +1900,35 @@ def main() -> None:
     all_settings = {code: country_settings(country, args, config, use_cli=False) for code, country in COUNTRIES.items()}
     selected = [country_settings(country, args, config, use_cli=True) for country in args.country_list]
     all_settings.update({settings.country.code: settings for settings in selected})
+    try:
+        accounts = account_pool.load_accounts(Path(args.accounts_file), fb.PROJECT_ROOT, args.max_groups_per_day)
+    except account_pool.AccountsError as exc:
+        print(f"[ERREUR] {exc}")
+        sys.exit(1)
+    unknown = [profile for profile in args.account if profile not in {acc.profile for acc in accounts}]
+    if unknown:
+        listed = ", ".join(acc.profile for acc in accounts) or "aucun"
+        print(f"[ERREUR] --account : compte inconnu « {unknown[0]} » dans {Path(args.accounts_file).name} (comptes : {listed})")
+        sys.exit(1)
+    if args.check_membership or args.membership_summary:
+        targets = load_targets(selected, all_settings, args)[0]
+        targets = {s.country.code: targets.get(s.country.code, []) for s in selected}
+        try:
+            if args.membership_summary:
+                exit_code = print_membership_summary(accounts, targets, all_settings, args)
+            else:
+                exit_code = check_memberships(accounts, targets, all_settings, args)
+        except KeyboardInterrupt:
+            print("\n[INFO] Interruption (Ctrl+C) - les adhésions déjà vérifiées sont enregistrées.")
+            exit_code = 1
+        if exit_code:
+            sys.exit(exit_code)
+        return
     if args.login:
-        login_only(selected)
+        if args.account or (account_pool.pool_enabled(accounts) and not args.profile):
+            login_accounts(_chosen_accounts(accounts, args))
+        else:
+            login_only(selected)
         return
     try:
         with nullcontext() if args.preview else fb.run_lock(LOCK_FILE):
