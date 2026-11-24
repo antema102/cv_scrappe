@@ -437,5 +437,84 @@ class RotationTest(unittest.TestCase):
         self.assertEqual(served_twice, {"M1", "M2", "M3", "M4", "S1", "S2", "S3", "C1", "C2"})  # tous servis en 2 cycles
 
 
+NAMES = {"madagascar": "Madagascar", "senegal": "Sénégal", "cameroun": "Cameroun"}
+
+
+def account(profile: str, active: bool = True, quota: int = 0) -> ap.Account:
+    return ap.Account(profile, Path("/profils") / profile, profile, active, quota)
+
+
+class ReportsTest(unittest.TestCase):
+    def test_under_used(self) -> None:
+        self.assertEqual(ap.under_used({"H": 57, "B": 7, "C": 3}), ["B", "C"])
+        self.assertEqual(ap.under_used({"A": 20, "B": 20}), [])
+        self.assertEqual(ap.under_used({"A": 5, "B": 0}), ["B"])
+        self.assertEqual(ap.under_used({"A": 0, "B": 0}), [])  # rien à répartir : personne n'est sous-utilisé
+        self.assertEqual(ap.under_used({}), [])
+
+    def test_allocation_table(self) -> None:
+        groups = groups_of([("madagascar", 30), ("senegal", 20), ("cameroun", 10), ("senegal", 0)])
+        groups.append("senegal/extra")
+        members = {g: ["A", "B", "C"] for g in groups}
+        members["senegal/extra"] = ["A"]
+        caps = {"A": 20, "B": None, "C": None}
+        al = ap.allocate(groups, members, caps, ["A", "B", "C"])
+        text = ap.allocation_table(al, [account("A", quota=20), account("B"), account("C")], caps,
+                                   {g: g.split("/")[0] for g in groups}, NAMES)
+        lines = text.splitlines()
+        self.assertEqual(lines[0].split(), ["Compte", "Madagascar", "Sénégal", "Cameroun", "Total", "Quota", "restant"])
+        rows = {line.split()[0]: line.split()[1:] for line in lines[1:4]}
+        self.assertEqual(rows["A"][-2:], ["20", "20"])
+        self.assertEqual(rows["B"][-1], "∞")
+        self.assertEqual(sum(int(r[3]) for r in rows.values()), 61)
+        self.assertIn("Pays (servis / à publier) : Madagascar 30/30 · Sénégal 21/21 · Cameroun 10/10", text)
+
+    def test_membership_summary_text(self) -> None:
+        keys = {"madagascar": [f"madagascar/g{i}" for i in range(4)], "senegal": ["senegal/s1"]}
+        states = {"madagascar": {"g0": {"history": [{"at": at(20), "status": "posted", "profile": "H"}]},
+                                 "g1": {"history": [{"at": at(20), "status": "posted", "profile": "H"}]}}}
+        membership = {"N": {"madagascar/g0": {"status": "member", "checked_at": at(25, 10)},
+                            "madagascar/g1": {"status": "not_member", "checked_at": at(25, 11)},
+                            "madagascar/g2": {"status": "member", "checked_at": at(25, 12), "detail": "restriction",
+                                              "restriction": {"reason": "suspended", "until": at(3, 6, month=12)}}}}
+        memberships = ap.Memberships(states, {}, membership)
+        restrictions = ap.group_restrictions(states, membership, NOW)
+        text = ap.membership_summary_text([account("H"), account("N", active=False, quota=15), account("Z")], keys,
+                                          memberships, restrictions, NAMES)
+        lines = {line.split()[0]: line for line in text.splitlines() if line.split()}
+        self.assertIn("Madagascar (4)", text)
+        self.assertIn("2 membre · 0 non membre · 2 ?", lines["H"])
+        self.assertIn("(publications)", lines["H"])
+        self.assertIn("2 membre · 1 non membre · 1 ?", lines["N"])
+        self.assertIn("25/11/2026 12:00", lines["N"])
+        self.assertIn("non", lines["N"].split()[1])
+        self.assertIn("15", lines["N"])
+        self.assertIn("jamais", lines["Z"])
+        self.assertIn("Groupes sans membre confirmé parmi les comptes actifs : 3 (madagascar/g2, madagascar/g3, senegal/s1)", text)
+        self.assertIn("madagascar/g2 (suspendu jusqu'au 03/12/2026 06:00, vu par N)", text)
+
+    def test_signals_text(self) -> None:
+        text = ap.signals_text(
+            unserved={"senegal/s1": "aucun compte membre confirmé", "senegal/s2": "membres au quota",
+                      "madagascar/g9": "restriction de groupe jusqu'au 03/12/2026 06:00",
+                      "cameroun/c1": "API du pays illisible"},
+            inactive={"Z": "pause jusqu'au 02/12/2026 08:00"},
+            stopped={"A": ("limite anti-spam du compte", 4)},
+            loads={"H": 57, "B": 7, "C": 3},
+            country_last={"senegal": datetime.fromisoformat(at(29)), "madagascar": None,
+                          "cameroun": datetime.fromisoformat(at(30))},
+            country_names=NAMES)
+        for needle in ("aucun compte membre confirmé : senegal/s1", "membres au quota : senegal/s2",
+                       "restriction de groupe jusqu'au 03/12/2026 06:00 : madagascar/g9",
+                       "API du pays illisible : cameroun/c1", "Sénégal (2 groupe(s), en attente depuis le 29/11/2026)",
+                       "Madagascar (1 groupe(s), jamais servi)", "Z (pause jusqu'au 02/12/2026 08:00)",
+                       "A (limite anti-spam du compte) - 4 groupe(s) laissé(s) pour le cycle suivant",
+                       "Sous-utilisés : B (7), C (3)"):
+            self.assertIn(needle, text)
+        empty = ap.signals_text({}, {}, {}, {"A": 3}, {}, NAMES)
+        self.assertIn("Non servis : —", empty)
+        self.assertIn("Sous-utilisés : —", empty)
+
+
 if __name__ == "__main__":
     unittest.main()

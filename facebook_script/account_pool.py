@@ -234,6 +234,10 @@ class Memberships:
     def last_check(self, profile: str) -> datetime | None:
         return self._checked_at.get(profile)
 
+    def has_history(self, profile: str) -> bool:
+        """Au moins une preuve tirée des publications (affichée « (publications) » sans vérification)."""
+        return any(slot[0] == profile for slot in self._history)
+
 
 @dataclass(frozen=True, slots=True)
 class Restriction:
@@ -430,6 +434,114 @@ def allocate(groups: Sequence[str], members: Mapping[str, Sequence[str]], caps: 
             loads[profile] += 1
     return Allocation({g: p for g, p in owner.items() if p is not None},
                       [g for g in groups if owner[g] is None], loads)
+
+
+# ---------------------------------------------------------------------------
+# Signalements et textes (§5.6, §5.9)
+# ---------------------------------------------------------------------------
+
+RESTRICTION_TEXTS = {"suspended": "suspendu", "pending_limit": "limite de publications en attente"}
+MAX_LISTED = 5  # groupes cités par ligne, puis « … »
+
+
+def under_used(loads: Mapping[str, int]) -> list[str]:
+    """Comptes dont la charge est nulle ou inférieure à la moitié de la moyenne (rien à répartir : aucun)."""
+    total = sum(loads.values())
+    if not loads or total == 0:
+        return []
+    half_mean = total / len(loads) / 2
+    return [profile for profile, load in loads.items() if load == 0 or load < half_mean]
+
+
+def _when(value: datetime) -> str:
+    return f"{value:%d/%m/%Y %H:%M}"
+
+
+def _listed(keys: Sequence[str]) -> str:
+    shown = ", ".join(keys[:MAX_LISTED])
+    return f"{shown}, …" if len(keys) > MAX_LISTED else shown
+
+
+def _table(header: list[str], rows: list[list[str]]) -> list[str]:
+    widths = [max(len(row[i]) for row in [header, *rows]) for i in range(len(header))]
+    lines = []
+    for row in [header, *rows]:
+        cells = [row[0].ljust(widths[0])] + [cell.rjust(widths[i]) for i, cell in enumerate(row) if i]
+        lines.append("  ".join(cells).rstrip())
+    return lines
+
+
+def _quota_text(value: int | None) -> str:
+    return "∞" if value is None or value == 0 else str(value)
+
+
+def allocation_table(allocation: Allocation, accounts: Sequence[Account], caps: Mapping[str, int | None],
+                     country_of: Mapping[str, str], country_names: Mapping[str, str]) -> str:
+    """Tableau de répartition : groupes par compte et par pays, total, quota restant ; groupes servis par pays."""
+    countries = [code for code in country_names if code in set(country_of.values())]
+    header = ["Compte", *(country_names[c] for c in countries), "Total", "Quota restant"]
+    rows = []
+    for acc in accounts:
+        mine = [country_of[g] for g, p in allocation.owner.items() if p == acc.profile]
+        rows.append([acc.profile, *(str(mine.count(c)) for c in countries), str(len(mine)), _quota_text(caps.get(acc.profile))])
+    served = [country_of[g] for g in allocation.owner]
+    total = list(country_of.values())
+    summary = " · ".join(f"{country_names[c]} {served.count(c)}/{total.count(c)}" for c in countries)
+    return "\n".join([*_table(header, rows), f"Pays (servis / à publier) : {summary}"])
+
+
+def membership_summary_text(accounts: Sequence[Account], keys_by_country: Mapping[str, list[str]],
+                            memberships: Memberships, restrictions: Mapping[str, Restriction],
+                            country_names: Mapping[str, str]) -> str:
+    """Résumé des adhésions (--membership-summary) : par compte et par pays, groupes sans membre, restrictions."""
+    codes = [code for code in keys_by_country if keys_by_country[code]]
+    header = ["Compte", "Actif", "Quota", *(f"{country_names.get(c, c)} ({len(keys_by_country[c])})" for c in codes),
+              "Dernière vérification"]
+    rows = []
+    for acc in accounts:
+        cells = []
+        for code in codes:
+            statuses = [memberships.status(acc.profile, key) for key in keys_by_country[code]]
+            cells.append(f"{statuses.count(MEMBER)} membre · {statuses.count(NOT_MEMBER)} non membre · "
+                         f"{statuses.count(UNKNOWN)} ?")
+        last = memberships.last_check(acc.profile)
+        seen = _when(last) if last else "(publications)" if memberships.has_history(acc.profile) else "jamais"
+        rows.append([acc.profile, "oui" if acc.active else "non", _quota_text(acc.quota), *cells, seen])
+    active = [acc.profile for acc in accounts if acc.active]
+    orphans = [key for code in codes for key in keys_by_country[code]
+               if not any(memberships.status(profile, key) == MEMBER for profile in active)]
+    lines = _table(header, rows)
+    lines.append(f"Groupes sans membre confirmé parmi les comptes actifs : "
+                 f"{f'{len(orphans)} ({_listed(orphans)})' if orphans else 'aucun'}")
+    current = [f"{r.key} ({RESTRICTION_TEXTS.get(r.reason, r.reason)} jusqu'au {_when(r.until)}"
+               f"{f', vu par {r.seen_by}' if r.seen_by else ''})" for r in sorted(restrictions.values(), key=lambda r: r.key)]
+    lines.append(f"Restrictions de groupe en cours : {' ; '.join(current) if current else 'aucune'}")
+    return "\n".join(lines)
+
+
+def signals_text(unserved: Mapping[str, str], inactive: Mapping[str, str], stopped: Mapping[str, tuple[str, int]],
+                 loads: Mapping[str, int], country_last: Mapping[str, datetime | None],
+                 country_names: Mapping[str, str]) -> str:
+    """Signalements (§5.6) : groupes non servis par raison, pays en attente, comptes inactifs / arrêtés / sous-utilisés."""
+    by_reason: dict[str, list[str]] = {}
+    by_country: dict[str, int] = {}
+    for key, reason in unserved.items():
+        by_reason.setdefault(reason, []).append(key)
+        code = key.split("/", 1)[0]
+        by_country[code] = by_country.get(code, 0) + 1
+    waiting = []
+    for code, count in by_country.items():
+        last = country_last.get(code)
+        since = f"en attente depuis le {last:%d/%m/%Y}" if last else "jamais servi"
+        waiting.append(f"{country_names.get(code, code)} ({count} groupe(s), {since})")
+    lines = ["Non servis : " + (" ; ".join(f"{reason} : {_listed(keys)}" for reason, keys in by_reason.items()) or "—"),
+             "En attente : " + (" ; ".join(waiting) or "—"),
+             "Comptes inactifs : " + (" ; ".join(f"{p} ({reason})" for p, reason in inactive.items()) or "—")]
+    if stopped:
+        lines.append("Arrêtés en cours de cycle : " + " ; ".join(
+            f"{p} ({reason}) - {left} groupe(s) laissé(s) pour le cycle suivant" for p, (reason, left) in stopped.items()))
+    lines.append("Sous-utilisés : " + (", ".join(f"{p} ({loads[p]})" for p in under_used(loads)) or "—"))
+    return "\n".join(lines)
 
 
 def account_id_conflict(ids: dict[str, str], profile: str, user_id: str) -> str | None:
