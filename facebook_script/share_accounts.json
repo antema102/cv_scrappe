@@ -1,0 +1,12 @@
+{
+  "_aide": [
+    "Pool de comptes de post_groups.py : actif dès qu'un compte a \"active\": true (sinon fonctionnement actuel).",
+    "profile : dossier du profil Chrome (relatif à la racine du projet) ; jamais my_custom_profile_facebook (scraping).",
+    "max_groups_per_day : publications par jour et par compte, tous pays confondus ; 0 = illimité.",
+    "Pour arrêter un compte : \"active\": false (jamais 0). --max-groups-per-day l'emporte pour tous les comptes.",
+    "Connexion : python facebook_script/post_groups.py --login --account <profil>",
+    "Adhésions : python facebook_script/post_groups.py --check-membership --account <profil>"
+  ],
+  "defaults": {"max_groups_per_day": 0},
+  "accounts": []
+}
