@@ -35,7 +35,7 @@ Usage :
     python facebook_script/pages.py                                  # pays/madagascar/pages.txt : scraping + IA + JSON
     python facebook_script/pages.py --url https://www.facebook.com/profile.php?id=61559428572369
     python facebook_script/pages.py --max-posts 5                     # test rapide
-    python facebook_script/pages.py --max-age-days 30                 # publications des 30 derniers jours (défaut 15)
+    python facebook_script/pages.py --max-age-days 30                 # publications des 30 derniers jours (défaut 5)
     python facebook_script/pages.py --no-ai                           # scraping seul (aucun appel OpenAI)
     python facebook_script/pages.py --skip-scrape                     # IA + JSON sur les publications déjà scrapées
     python facebook_script/pages.py --skip-scrape --reanalyze         # ré-analyse ce qui a été analysé avec un ancien prompt/modèle
@@ -1528,8 +1528,9 @@ def parse_args() -> argparse.Namespace:
         help=f"Durée max du scroll d'une page ou d'un groupe (défaut {DEFAULT_MAX_SCROLL_MINUTES} ; 0 = illimitée)",
     )
     parser.add_argument(
-        "--max-age-days", type=int, default=15, metavar="N",
-        help="Seulement les publications des N derniers jours, aujourd'hui compris (défaut 15 : le 15 on garde du 1er au 15 ; 0 = toutes)",
+        "--max-age-days", type=int, default=fb.DEFAULT_MAX_AGE_DAYS, metavar="N",
+        help=f"Seulement les publications des N derniers jours, aujourd'hui compris (défaut {fb.DEFAULT_MAX_AGE_DAYS} : "
+             f"le 24 on garde du 20 au 24 ; 0 = toutes)",
     )
     parser.add_argument("--max-idle", type=int, default=fb.DEFAULT_MAX_IDLE, metavar="N", help="Scrolls sans nouveauté avant fin du fil")
     parser.add_argument("--scroll-delay", type=float, default=fb.DEFAULT_SCROLL_DELAY, metavar="SECONDES", help="Pause moyenne après chaque scroll")

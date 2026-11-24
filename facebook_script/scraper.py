@@ -114,6 +114,9 @@ HOVER_WAIT = 0.8  # après un survol souris réel
 HOVER_MAX_MISSES = 5  # permaliens introuvables d'affilée avant de couper le survol réel
 FEED_TIMEOUT = 30
 CDP_TIMEOUT = 60  # s sans réponse de Chrome à une commande = onglet figé
+# Fenêtre de fraîcheur par défaut (--max-age-days de scraper.py et pages.py) : publications des 5 derniers jours,
+# aujourd'hui compris (le 24, du 20 au 24). 15 jusqu'au 24/11/2026 (demande de l'utilisateur).
+DEFAULT_MAX_AGE_DAYS = 5
 
 # Valeurs du paramètre d'URL ?sorting_setting= des groupes (ignoré par Facebook s'il n'est pas reconnu)
 SORT_PARAMS = {
@@ -1358,7 +1361,7 @@ class ScrapeOptions:
     ocr: bool = True
     any_root: bool = False  # pages : publications hors div[role="feed"]
     exact_dates: bool = False  # survol réel du lien horodatage pour lire la date complète (infobulle)
-    max_age_days: int = 0  # 15 = seulement les publications des 15 derniers jours (aujourd'hui compris) ; 0 = toutes
+    max_age_days: int = 0  # 5 = seulement les publications des 5 derniers jours (aujourd'hui compris) ; 0 = toutes
     max_minutes: float = 0  # durée max du scroll d'un fil ; 0 = illimitée
 
 
@@ -1632,8 +1635,8 @@ def parse_args() -> argparse.Namespace:
         help="Arrête un groupe après N publications déjà en cache d'affilée (0 = jamais) - relances avec --sort chrono",
     )
     parser.add_argument(
-        "--max-age-days", type=int, default=15, metavar="N",
-        help="Seulement les publications des N derniers jours, aujourd'hui compris (défaut 15 ; 0 = toutes)",
+        "--max-age-days", type=int, default=DEFAULT_MAX_AGE_DAYS, metavar="N",
+        help=f"Seulement les publications des N derniers jours, aujourd'hui compris (défaut {DEFAULT_MAX_AGE_DAYS} ; 0 = toutes)",
     )
     parser.add_argument(
         "--max-idle", type=int, default=DEFAULT_MAX_IDLE, metavar="N",
