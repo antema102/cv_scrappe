@@ -66,6 +66,7 @@ Pas d'envoi au backend : aucune route /api ne reçoit de publications Facebook.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import copy
 import hashlib
 import json
@@ -88,6 +89,7 @@ from bs4.element import Script, Stylesheet
 from fb_dates import dates_agree, is_too_old, parse_facebook_date
 from mycdp import dom as cdp_dom  # mycdp est installé avec seleniumbase (pilote du mode CDP)
 from mycdp import input_ as cdp_input
+from mycdp import page as cdp_page
 from mycdp import runtime as cdp_runtime
 from seleniumbase import SB
 
@@ -111,6 +113,7 @@ EXPAND_WAIT = 1.0  # laisse Facebook déplier "Voir plus" / réagir au survol sy
 HOVER_WAIT = 0.8  # après un survol souris réel
 HOVER_MAX_MISSES = 5  # permaliens introuvables d'affilée avant de couper le survol réel
 FEED_TIMEOUT = 30
+CDP_TIMEOUT = 60  # s sans réponse de Chrome à une commande = onglet figé
 
 # Valeurs du paramètre d'URL ?sorting_setting= des groupes (ignoré par Facebook s'il n'est pas reconnu)
 SORT_PARAMS = {
@@ -1170,21 +1173,49 @@ def _activate_cdp_mode(sb: SB) -> None:
     for _ in range(2):
         try:
             sb.activate_cdp_mode()
-            return
+            break
         except TypeError:
             sb.sleep(3)
-    sb.activate_cdp_mode()
+    else:
+        sb.activate_cdp_mode()
+    _answer_js_dialogs(sb)
+
+
+def _answer_js_dialogs(sb: SB) -> None:
+    """Répond aux boîtes natives (« Quitter la page ? », alert...) : sans réponse, l'onglet reste figé."""
+    async def answer(event: Any, connection: Any) -> None:
+        leave = event.type_ == cdp_page.DialogType.BEFOREUNLOAD
+        print(f"    [INFO] Boîte de dialogue {event.type_.value} : {'page quittée' if leave else 'fermée'}")
+        with suppress(Exception):
+            await connection.send(cdp_page.handle_java_script_dialog(accept=leave))
+
+    sb.cdp.add_handler(cdp_page.JavascriptDialogOpening, answer)
+
+
+class CdpTimeout(TimeoutError):
+    pass
+
+
+def _cdp_wait(sb: SB, awaitable: Any, timeout: float = CDP_TIMEOUT) -> Any:
+    """Réponse de Chrome, ou CdpTimeout : sans délai, un onglet figé bloquait le script indéfiniment."""
+    loop = sb.cdp.loop
+    task = loop.create_task(awaitable)
+    try:
+        # shield : la réponse tardive ne doit pas tomber sur une Transaction annulée (boucle d'écoute de SeleniumBase)
+        return loop.run_until_complete(asyncio.wait_for(asyncio.shield(task), timeout))
+    except asyncio.TimeoutError:
+        raise CdpTimeout(f"Chrome ne répond plus depuis {timeout:.0f} s (onglet figé ?)") from None
 
 
 def _cdp_send(sb: SB, command: Any) -> Any:
-    return sb.cdp.loop.run_until_complete(sb.cdp.page.send(command))
+    return _cdp_wait(sb, sb.cdp.page.send(command))
 
 
 def _run_js(sb: SB, script: str, args: Any = None) -> Any:
     """Exécute un des scripts *_JS ci-dessus et décode son JSON (None en cas d'erreur)."""
     code = script.replace("__ARGS__", json.dumps(args if args is not None else {}))
     try:
-        raw = sb.cdp.evaluate(code)
+        raw = _cdp_wait(sb, sb.cdp.page.evaluate(code))
     except Exception as exc:
         print(f"    [JS] {str(exc)[:200]}")
         return None
