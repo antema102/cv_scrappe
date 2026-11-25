@@ -3,3 +3,6 @@
 # Le compte du profil de ce pays (facebook_script/share_countries.json) doit être membre de chaque groupe.
 # Distinct de groups.txt (groupes SCRAPÉS). Un groupe ne doit être listé que pour un seul pays.
 
+https://www.facebook.com/groups/1886333118673853/
+https://www.facebook.com/groups/5713980082053616/
+https://www.facebook.com/groups/778203175602622/

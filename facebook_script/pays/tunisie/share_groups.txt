@@ -3,3 +3,23 @@
 # Le compte du profil de ce pays (facebook_script/share_countries.json) doit être membre de chaque groupe.
 # Distinct de groups.txt (groupes SCRAPÉS). Un groupe ne doit être listé que pour un seul pays.
 
+https://www.facebook.com/groups/344983110823407/
+https://www.facebook.com/groups/604483950623234/
+https://www.facebook.com/groups/1330677537746473/
+https://www.facebook.com/groups/473336620989913/
+https://www.facebook.com/groups/345107195951980/
+https://www.facebook.com/groups/1395549364019040/
+https://www.facebook.com/groups/1004131451792422/
+https://www.facebook.com/groups/375528897839033/
+https://www.facebook.com/groups/814495299365024/
+https://www.facebook.com/groups/emploitourismehotellerietunisie/
+https://www.facebook.com/groups/66345866919/
+https://www.facebook.com/groups/735884039002791/
+https://www.facebook.com/groups/673611056976815/
+https://www.facebook.com/groups/1063806410322155/
+https://www.facebook.com/groups/827805600269610/
+https://www.facebook.com/groups/107492516030277/
+https://www.facebook.com/groups/1419121948338725/
+https://www.facebook.com/groups/194810701419682/
+https://www.facebook.com/groups/1757219624491078/
+https://www.facebook.com/groups/Job.tunisie
