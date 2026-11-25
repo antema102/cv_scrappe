@@ -6,13 +6,14 @@ module.exports = {
       name: "daily-scraper",
       cwd: __dirname,
       script: "python",
-      args: "run_daily.py",
+      args: "run_daily.py --at 19:00",  // chaque jour à 19 h (heure de Madagascar, TZ ci-dessous), même après un redémarrage
       interpreter: "none",
       autorestart: true,
       watch: false,
       env: {
         PYTHONUNBUFFERED: "1",
         PYTHONIOENCODING: "utf-8",
+        TZ: "Indian/Antananarivo",
       },
       out_file: "logs/daily-scraper.out.log",
       error_file: "logs/daily-scraper.err.log",

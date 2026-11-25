@@ -27,6 +27,8 @@ a expiré, il s'arrête (pas d'attente de connexion manuelle) — reconnecter le
 puis laisser le cycle suivant reprendre.
 
 Planification :
+    - Avec --at HH:MM (PM2 : --at 19:00, TZ=Indian/Antananarivo) : chaque jour à cette heure, même après un
+      redémarrage (un cycle de plus de 24 h saute un jour au lieu de décaler l'horaire).
     - Premier lancement à minuit (ou tout de suite avec --now).
     - Le lancement suivant est prévu 24 h après le début du cycle.
     - Si le cycle dure plus de 24 h, le lancement suivant a lieu dès la fin du
@@ -55,6 +57,7 @@ import threading
 import time
 from contextlib import suppress
 from datetime import datetime, timedelta
+from datetime import time as dtime
 from pathlib import Path
 from typing import BinaryIO
 
@@ -174,6 +177,20 @@ def next_midnight() -> datetime:
     return datetime.combine(datetime.now().date() + timedelta(days=1), datetime.min.time())
 
 
+def parse_at(value: str) -> dtime:
+    """« 19:00 » -> heure du lancement quotidien (--at) ; ValueError si illisible."""
+    hours, _, minutes = value.strip().partition(":")
+    if not (hours.isdigit() and minutes.isdigit() and len(minutes) == 2):
+        raise ValueError(f"heure attendue au format HH:MM, pas « {value} »")
+    return dtime(int(hours), int(minutes))  # ValueError si 25:00 ou 19:60
+
+
+def next_at(at: dtime, after: datetime) -> datetime:
+    """Prochain HH:MM strictement après `after` (aujourd'hui s'il n'est pas passé, sinon demain)."""
+    candidate = datetime.combine(after.date(), at)
+    return candidate if candidate > after else candidate + timedelta(days=1)
+
+
 def load_next_run() -> datetime | None:
     try:
         data = json.loads(SCHEDULE_FILE.read_text(encoding="utf-8"))
@@ -221,12 +238,19 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Planificateur quotidien du scraper")
     parser.add_argument("--now", action="store_true", help="lancer le premier cycle immédiatement")
     parser.add_argument("--once", action="store_true", help="un seul cycle immédiat puis quitter")
+    parser.add_argument("--at", metavar="HH:MM", default=None,
+                        help="lancement chaque jour à cette heure (heure locale du serveur), même après un redémarrage "
+                             "(défaut : minuit au premier lancement, puis 24 h après le début de chaque cycle)")
     parser.add_argument(
         "--stall-minutes", type=float, default=DEFAULT_STALL_MINUTES,
         help=f"arrête et relance une étape qui n'écrit plus rien depuis N minutes (défaut {DEFAULT_STALL_MINUTES})",
     )
     args = parser.parse_args()
     stall_seconds = args.stall_minutes * 60
+    try:
+        at = parse_at(args.at) if args.at else None
+    except ValueError as exc:
+        parser.error(f"--at : {exc}")
 
     if args.once:
         run_cycle(stall_seconds)
@@ -234,6 +258,8 @@ def main() -> int:
 
     if args.now:
         next_run = datetime.now()
+    elif at:
+        next_run = next_at(at, datetime.now())  # heure fixe : ni minuit ni l'ancien horaire enregistré
     else:
         next_run = load_next_run() or next_midnight()
     save_next_run(next_run)
@@ -244,11 +270,16 @@ def main() -> int:
         run_cycle(stall_seconds)
         cycle_end = datetime.now()
 
-        # 24 h après le début du cycle, ou dès maintenant si le cycle a dépassé 24 h
-        next_run = max(cycle_start + INTERVAL, cycle_end)
-        if next_run == cycle_end:
-            retard = cycle_end - (cycle_start + INTERVAL)
-            log(f"Cycle trop long ({retard} de retard) — horaire décalé")
+        if at:
+            # Tous les jours à la même heure : prochain HH:MM après la fin du cycle (un cycle de plus de 24 h saute
+            # un jour au lieu de décaler l'horaire)
+            next_run = next_at(at, cycle_end)
+        else:
+            # 24 h après le début du cycle, ou dès maintenant si le cycle a dépassé 24 h
+            next_run = max(cycle_start + INTERVAL, cycle_end)
+            if next_run == cycle_end:
+                retard = cycle_end - (cycle_start + INTERVAL)
+                log(f"Cycle trop long ({retard} de retard) — horaire décalé")
         save_next_run(next_run)
 
 
