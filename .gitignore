@@ -16,3 +16,5 @@ dist/
 .env
 .env.local
 .env.*.local
+# Identifiants des comptes Facebook du pool (jamais dans git)
+facebook_script/share_accounts.local.txt

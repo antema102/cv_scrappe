@@ -1,0 +1,11 @@
+{
+  "defaults": {},
+  "countries": {
+    "cameroun": {
+      "min_offers": 5
+    },
+    "ghana": {
+      "min_offers": 3
+    }
+  }
+}

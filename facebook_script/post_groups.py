@@ -103,6 +103,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import dataclasses
 import json
 import os
 import random
@@ -110,13 +111,15 @@ import re
 import sys
 import time
 from collections import Counter
-from contextlib import nullcontext, redirect_stdout, suppress
+from collections.abc import Iterator
+from contextlib import ExitStack, contextmanager, nullcontext, redirect_stdout, suppress
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from io import StringIO
 from pathlib import Path
 from typing import Any
 
+import account_pool
 import fb_dates
 import scraper as fb
 import share
@@ -219,6 +222,15 @@ BLOCK_RE = re.compile(
     r"community standards|reessayez plus tard|try again later|nous avons supprime|we removed"
 )
 PENDING_RE = re.compile(r"en attente|pending|approbation|approval|examin|review")
+# Affiches refusées par Facebook (texte plié, 25/11/2026) : « Impossible de télécharger vos fichiers : <groupe>_1.png et
+# <groupe>_2.png » en rouge sous « Publier », puis après le clic la boîte « Impossible d'importer les photos — Désolé,
+# aucune nouvelle photo n'a pu être téléchargée. Veuillez réessayer. » ; la fenêtre de rédaction reste ouverte (rien
+# n'est publié). Avant : non reconnu, clic sur « Publier » puis 120 s d'attente et groupe non servi.
+UPLOAD_ERROR_RE = re.compile(
+    r"impossible de telecharger (?:vos|votre|les|le) fichiers?|impossible d ?importer (?:les|la) photos?|"
+    r"aucune nouvelle photo|couldn ?t upload|could not upload|unable to upload|upload failed|"
+    r"nao foi possivel (?:carregar|enviar)"
+)
 # Limite anti-spam du COMPTE (texte plié), écrite en rouge sous « Publier » dans la fenêtre de rédaction (04/11/2026) :
 # « Nous limitons le nombre de fois que vous pouvez publier, commenter ou faire autre chose dans un laps de temps donné
 # afin de protéger la communauté contre le spam. Vous pouvez réessayer plus tard. » Avant : jamais vue (NOTICES_JS
@@ -228,6 +240,12 @@ ACCOUNT_LIMIT_RE = re.compile(
 )
 ACCOUNT_BLOCK_HOURS = 24  # aucun lancement pendant 24 h : celui du lendemain 8 h est sauté (repris le surlendemain)
 ACCOUNT_BLOCK_FILE = share.OUTPUT_DIR / "account_block.json"  # {profil: {until, since, message}}
+ACCOUNT_IDS_FILE = share.OUTPUT_DIR / "share_account_ids.json"  # {profil: identifiant Facebook (cookie c_user)}
+ACCOUNTS_FILE = fb.SCRIPT_DIR / "share_accounts.json"  # pool de comptes (account_pool.py) ; vide = fonctionnement actuel
+MEMBERSHIP_FILE = share.OUTPUT_DIR / "share_membership.json"  # adhésions vues par --check-membership
+MEMBERSHIP_LOCK = share.OUTPUT_DIR / ".share_membership.lock"  # écriture de MEMBERSHIP_FILE (relire, fusionner, écrire)
+MEMBERSHIP_LOCK_WAIT = 5  # s : MEMBERSHIP_LOCK retenté toutes les 0,2 s, puis erreur
+CHECK_DELAY_MIN, CHECK_DELAY_MAX = 20, 40  # pause entre deux groupes vérifiés (lecture seule, plus courte qu'une publication)
 # Bandeaux qui remplacent « Exprimez-vous… » (texte plié), vus sur les captures du 04/11/2026 : 6 groupes sur 8 en
 # « no_composer » chaque jour depuis le 24/10 avaient 5 publications jamais approuvées, les 2 autres une suspension.
 # Retenter chaque jour n'y change rien : le groupe est sauté jusqu'à la fin de la suspension, ou RESTRICTION_RETRY_DAYS.
@@ -516,12 +534,29 @@ class AccountLimited(StopRun):
         self.message = message
 
 
+class PhotoUploadFailed(Exception):
+    """
+    Facebook refuse les affiches (UPLOAD_ERROR_RE) alors que rien n'est publié : avant le clic sur « Publier », ou après
+    avec la fenêtre de rédaction toujours ouverte (fermée = publiée). post_to_group refait la publication sans affiches.
+    """
+
+
 class GroupRestricted(Exception):
     """Bandeau de Facebook dans le groupe (open_composer) : publication impossible, groupe sauté jusqu'à `until`."""
 
     def __init__(self, reason: str, until: datetime, message: str) -> None:
         super().__init__(reason)
         self.reason, self.until, self.message = reason, until, message
+
+
+@dataclass(slots=True)
+class MembershipResult:
+    """Résultat d'une visite de --check-membership (lecture seule)."""
+
+    status: str  # account_pool.MEMBER | NOT_MEMBER | UNKNOWN
+    detail: str  # "composer" | "restriction" | "join_button" | "no_composer" | "load_error"
+    numeric_id: str = ""
+    restriction: GroupRestricted | None = None
 
 
 @dataclass(slots=True)
@@ -674,6 +709,39 @@ def open_composer(sb: SB, group_url: str, on_group_id: Any = None) -> str:
     status = "not_member" if join_seen and not composer_seen else "no_composer"
     save_diagnostics(sb, group_url, status)
     return status
+
+
+def membership_status(sb: SB, group_url: str) -> MembershipResult:
+    """
+    --check-membership (spec §5.8) : le compte est-il membre du groupe ? LECTURE SEULE : ni clic, ni saisie, ni
+    « Rejoindre », ni fenêtre de rédaction — seul mouvement : le défilement de COMPOSER_JS vers le bouton.
+    « Exprimez-vous… » vu -> member ; bandeau de suspension / limite d'attente -> member + restriction (de groupe) ;
+    « Rejoindre » sans « Exprimez-vous… » -> not_member ; sinon unknown. Page de connexion -> StopRun.
+    """
+    try:
+        sb.goto(group_url)
+    except Exception:
+        return MembershipResult(account_pool.UNKNOWN, "load_error")
+    sb.sleep(PAGE_LOAD_WAIT + random.uniform(0, 3))
+    if fb._is_auth_wall(fb._page_state(sb)):
+        raise StopRun("page de connexion Facebook : reconnectez le compte avec --login --account <profil>")
+    numeric_id = str((fb._run_js(sb, GROUP_ID_JS) or {}).get("id") or "")
+    join_seen = False
+    deadline = time.monotonic() + COMPOSER_TIMEOUT
+    while True:
+        found = fb._run_js(sb, COMPOSER_JS, {"composer": COMPOSER_LABELS, "join": JOIN_LABELS}) or {}
+        if found.get("open") or "x" in found:
+            return MembershipResult(account_pool.MEMBER, "composer", numeric_id)
+        join_seen = join_seen or bool(found.get("join"))
+        restriction = detect_restriction(sb)
+        if restriction:
+            return MembershipResult(account_pool.MEMBER, "restriction", numeric_id, restriction)
+        if time.monotonic() >= deadline:
+            break
+        sb.sleep(1)
+    status, detail = (account_pool.NOT_MEMBER, "join_button") if join_seen else (account_pool.UNKNOWN, "no_composer")
+    save_diagnostics(sb, group_url, f"check_{detail}")
+    return MembershipResult(status, detail, numeric_id)
 
 
 def _anonymous_switch(sb: SB) -> dict[str, Any]:
@@ -851,6 +919,18 @@ def attach_images(sb: SB, images: list[Path]) -> int:
     return count
 
 
+def _report_block(sb: SB, group_url: str, notices: list[str], baseline: list[str]) -> None:
+    """« Blocage » vu après le clic : messages apparus en entier + capture, AVANT de toucher à la page."""
+    for notice in (n for n in notices if n not in baseline):
+        print(f"  [DIAG] Message apparu après « Publier » : {share._clean(notice)[:300]}")
+    save_diagnostics(sb, group_url, "block")
+
+
+def _upload_error(notices: list[str]) -> str | None:
+    """Message de Facebook qui refuse les affiches jointes, sinon None."""
+    return next((n for n in notices if UPLOAD_ERROR_RE.search(share._fold(n))), None)
+
+
 def _pending_count(sb: SB) -> int:
     return int((fb._run_js(sb, PENDING_COUNT_JS, {"pending": PENDING_POST_PATTERN}) or {}).get("count", 0))
 
@@ -885,7 +965,12 @@ def publish(sb: SB, group_url: str, auto: bool, with_images: bool = False, on_pu
     deadline = time.monotonic() + (IMAGE_UPLOAD_TIMEOUT if with_images else PUBLISH_ENABLED_TIMEOUT)
     while button.get("disabled") and time.monotonic() < deadline:
         sb.sleep(1)
+        if with_images and (failure := _upload_error(_notices(sb)[1])):
+            raise PhotoUploadFailed(failure)
         button = fb._run_js(sb, PUBLISH_JS, {"publish": PUBLISH_LABELS}) or {}
+    # Affiches refusées : jamais « Publier » (rien n'est encore parti)
+    if with_images and (failure := _upload_error(_notices(sb)[1])):
+        raise PhotoUploadFailed(failure)
     if "x" not in button or button.get("disabled"):
         print("  [WARN] Bouton « Publier » introuvable ou désactivé (sujet obligatoire dans ce groupe ?)")
         save_diagnostics(sb, group_url, "not_published")
@@ -900,16 +985,26 @@ def publish(sb: SB, group_url: str, auto: bool, with_images: bool = False, on_pu
         sb.sleep(1)
         still_open, notices = _notices(sb)
         _check_account_limit(sb, notices, group_url)
+        # Affiches refusées après le clic, fenêtre de rédaction toujours ouverte : rien n'est publié
+        if with_images and still_open and (failure := _upload_error(notices)):
+            raise PhotoUploadFailed(failure)
         fresh = [share._fold(n) for n in notices if n not in baseline]
-        if blocked := next((n for n in fresh if BLOCK_RE.search(n)), None):
+        # Blocage seulement si la fenêtre de rédaction est encore ouverte (rien publié) ; fermée : traité plus bas
+        if still_open and (blocked := next((n for n in fresh if BLOCK_RE.search(n)), None)):
+            _report_block(sb, group_url, notices, baseline)
             discard_composer(sb)
             raise StopRun(f"Facebook bloque la publication : « {blocked[:150]} »")
         if not still_open:
             sb.sleep(NOTICE_WAIT)
             _, notices = _notices(sb)
             fresh = [share._fold(n) for n in notices if n not in baseline]
-            if blocked := next((n for n in fresh if BLOCK_RE.search(n)), None):
-                raise StopRun(f"Facebook bloque la publication : « {blocked[:150]} »")
+            # Fenêtre de rédaction fermée = publiée. Un message apparu ENSUITE (question de Facebook, règles du groupe
+            # « pas de spam »…) ne la rend pas « non publiée » : bug du 25/11/2026, StopRun ici, publication jamais
+            # enregistrée et mêmes offres republiées 9 min plus tard. Un vrai blocage arrête le groupe suivant
+            # (fenêtre encore ouverte, plus haut).
+            if next((n for n in fresh if BLOCK_RE.search(n)), None):
+                print("  [WARN] Publication faite, puis message de Facebook (enregistrée quand même, à vérifier) :")
+                _report_block(sb, group_url, notices, baseline)
             if any(PENDING_RE.search(n) for n in fresh) or _pending_count(sb) > pending_before:
                 return "pending"
             return "posted"
@@ -950,7 +1045,19 @@ def post_to_group(sb: SB, group_url: str, text: str, auto: bool, images: list[Pa
             save_diagnostics(sb, group_url, "images")
     else:
         sb.sleep(LINK_PREVIEW_WAIT)
-    return publish(sb, group_url, auto, with_images=bool(images), on_publishing=on_publishing)
+    try:
+        return publish(sb, group_url, auto, with_images=bool(images), on_publishing=on_publishing)
+    except PhotoUploadFailed as exc:
+        print(f"  [WARN] Facebook refuse les affiches : « {share._clean(str(exc))[:200]} »")
+        save_diagnostics(sb, group_url, "photo_upload")
+        discard_composer(sb)
+        if not images:  # déjà le nouvel essai sans affiches : on n'insiste pas
+            return "upload_failed"
+        # Rien n'a été publié (fenêtre de rédaction encore ouverte) : un seul nouvel essai, texte seul (toutes les
+        # offres et leurs liens y sont). on_group_id=None : groupe déjà identifié à la première ouverture.
+        print("  [INFO] Nouvel essai sans affiches")
+        return post_to_group(sb, group_url, text, auto, None, anonymous=anonymous, on_group_id=None,
+                             on_publishing=on_publishing)
 
 
 # ---------------------------------------------------------------------------
@@ -1235,6 +1342,37 @@ def _blocked_until(group: dict[str, Any]) -> datetime | None:
     return None
 
 
+def _same_group_view(state: dict[str, dict[str, Any]], target: fb.GroupTarget, group: dict[str, Any]) -> dict[str, Any]:
+    """
+    Suivi d'un groupe vu à travers TOUTES ses adresses de la liste (nom personnalisé et id numérique) : dernière
+    publication la plus récente, offres déjà publiées réunies, blocage le plus long. Bug du 25/11/2026 : la ligne gardée
+    pour un groupe à deux adresses peut changer d'un lancement à l'autre (id numérique appris entre-temps) ; lues sur la
+    seule ligne gardée, ces protections étaient vides et les mêmes offres repartaient dans le même groupe.
+    """
+    identity = group_identity(target, group)
+    same = [other for gid, other in state.items() if gid != target.group_id
+            and group_identity(fb.GroupTarget(gid, str(other.get("url") or "")), other) == identity]
+    if not same:
+        return group
+    lines = [group, *same]
+    view = dict(group)
+    view["posted"] = {k: v for line in lines for k, v in (line.get("posted") or {}).items()}
+    last = [d for d in (_parse_iso(line.get("last_post_at")) for line in lines) if d]
+    if last:
+        view["last_post_at"] = max(last).isoformat(timespec="seconds")
+    blocks = [line["blocked"] for line in lines if line.get("blocked") and _blocked_until(line)]
+    if blocks:
+        view["blocked"] = max(blocks, key=lambda b: _parse_iso(b.get("until")) or datetime.min.astimezone())
+    return view
+
+
+def _parse_iso(value: Any) -> datetime | None:
+    with suppress(TypeError, ValueError):
+        parsed = datetime.fromisoformat(str(value))
+        return parsed if parsed.tzinfo else parsed.astimezone()
+    return None
+
+
 def plan(targets: list[fb.GroupTarget], offers: list[dict[str, Any]], state: dict[str, dict[str, Any]],
          settings: CountrySettings, args: argparse.Namespace, today: date, claims: dict[str, Owner],
          quota: int | None = None) -> list[Job]:
@@ -1250,6 +1388,7 @@ def plan(targets: list[fb.GroupTarget], offers: list[dict[str, Any]], state: dic
         if owner is not None and owner != (country.code, target.group_id):
             print(f"[WARN] {target.group_id} : même groupe que {owner[1]} ({owner[0]}) - ignoré")
             continue
+        group = _same_group_view(state, target, group)  # protections de toutes les adresses de ce groupe
         until = _blocked_until(group)
         if until and until > now and not args.retry_blocked:
             reason = RESTRICTION_LABELS.get(group["blocked"].get("reason"), group["blocked"].get("reason"))
@@ -1403,10 +1542,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-groups", type=int, default=0, help="publications au maximum par pays ce lancement-ci (0 = tous les groupes)")
     parser.add_argument("--min-hours", type=float, default=DEFAULT_MIN_HOURS,
                         help=f"heures minimum entre deux publications dans un même groupe (défaut {DEFAULT_MIN_HOURS})")
-    parser.add_argument("--delay-min", type=float, default=DEFAULT_DELAY_MIN,
-                        help=f"pause minimum entre deux groupes, en secondes (défaut {DEFAULT_DELAY_MIN})")
-    parser.add_argument("--delay-max", type=float, default=DEFAULT_DELAY_MAX,
-                        help=f"pause maximum entre deux groupes, en secondes (défaut {DEFAULT_DELAY_MAX})")
+    parser.add_argument("--delay-min", type=float, default=None,
+                        help=f"pause minimum entre deux groupes, en secondes (défaut {DEFAULT_DELAY_MIN} ; "
+                             f"--check-membership : {CHECK_DELAY_MIN})")
+    parser.add_argument("--delay-max", type=float, default=None,
+                        help=f"pause maximum entre deux groupes, en secondes (défaut {DEFAULT_DELAY_MAX} ; "
+                             f"--check-membership : {CHECK_DELAY_MAX})")
     parser.add_argument("--retry-blocked", action="store_true",
                         help="réessayer aussi les groupes où le compte est suspendu ou a trop de publications en attente "
                              "(défaut : ignorés jusqu'à la fin de la suspension, ou 3 jours), et publier malgré la pause "
@@ -1431,16 +1572,45 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--excluded-owners-file", default=str(share.EXCLUDED_OWNERS_FILE))
     parser.add_argument("--api-url", default=os.getenv("WIPWORK_OFFERS_API_URL", share.DEFAULT_OFFERS_API))
     parser.add_argument("--site-url", default=os.getenv("WIPWORK_SITE_URL", share.DEFAULT_SITE_URL))
+    pool = parser.add_argument_group("pool de comptes (share_accounts.json)")
+    pool.add_argument("--accounts-file", default=str(ACCOUNTS_FILE),
+                      help=f"comptes du pool (défaut {ACCOUNTS_FILE.name} ; aucun compte actif = fonctionnement actuel)")
+    pool.add_argument("--account", action="append", default=[], metavar="PROFIL",
+                      help="restreint aux comptes donnés (répétable) : connexion, vérification, résumé, publication")
+    pool.add_argument("--check-membership", action="store_true",
+                      help="vérifie, sans publier ni cliquer, les adhésions des comptes aux groupes (tous les pays par défaut)")
+    pool.add_argument("--recheck", action="store_true", help="--check-membership : revisite aussi les groupes déjà vérifiés")
+    pool.add_argument("--membership-summary", action="store_true",
+                      help="résumé des adhésions de chaque compte, sans navigateur (tous les pays par défaut)")
+    pool.add_argument("--join-assist", action="store_true",
+                      help="avec --account : ouvre un par un les groupes dont le compte n'est pas membre confirmé ; vous "
+                           "les rejoignez vous-même, puis ENTRÉE (adhésion revérifiée et enregistrée ; aucun clic du script)")
     args = parser.parse_args()
     if args.assisted and (args.auto or args.headless):
         parser.error("--assisted se relit dans la fenêtre Chrome : incompatible avec --auto / --headless")
     args.auto = not args.assisted
     # Fenêtre visible pour relire (--assisted), sur demande (--visible) ou pour se connecter (--login)
     args.headless = not (args.assisted or args.visible or args.login)
+    modes = [name for name, on in (("--check-membership", args.check_membership), ("--membership-summary",
+             args.membership_summary), ("--join-assist", args.join_assist), ("--login", args.login),
+             ("--preview", args.preview)) if on]
+    if len(modes) > 1:
+        parser.error(f"{' et '.join(modes)} s'excluent")
+    if args.join_assist and not args.account:
+        parser.error("--join-assist demande --account <profil> (un compte à la fois conseillé)")
+    if args.account and args.profile:
+        parser.error("--account (pool de comptes) et --profile (fonctionnement actuel) s'excluent")
+    if args.delay_min is None:
+        args.delay_min = CHECK_DELAY_MIN if args.check_membership else DEFAULT_DELAY_MIN
+    if args.delay_max is None:
+        args.delay_max = CHECK_DELAY_MAX if args.check_membership else DEFAULT_DELAY_MAX
     if args.delay_max < args.delay_min:
         parser.error("--delay-max doit être >= --delay-min")
     if sum(bool(x) for x in (args.country, args.countries, args.all_countries)) > 1:
         parser.error("--country, --countries et --all-countries s'excluent")
+    if (args.check_membership or args.membership_summary or args.join_assist) and not (
+            args.country or args.countries or args.all_countries):
+        args.all_countries = True  # vérification et résumé : tous les pays qui ont des groupes
     if args.all_countries:
         args.country_list = active_countries("share_groups")
         if not args.country_list:
@@ -1460,6 +1630,68 @@ def open_profile(profile_dir: Path) -> Path:
     return profile_dir
 
 
+class ProfileBusy(StopRun):
+    """Profil Chrome déjà ouvert par un autre lancement (publication ou vérification) : ce compte est sauté."""
+
+    def __init__(self, profile: str) -> None:
+        super().__init__(f"profil {profile} occupé (publication ou vérification en cours) : sauté ce lancement-ci")
+
+
+def profile_lock_path(profile_dir: Path) -> Path:
+    """Verrou d'un profil de partage, lu à l'appel (share.OUTPUT_DIR peut être redirigé)."""
+    return share.OUTPUT_DIR / f".profile_{profile_dir.name}.lock"
+
+
+@contextmanager
+def profile_session(profile_dir: Path, headless: bool) -> Iterator[SB]:
+    """
+    Chrome sur un profil de partage, sous verrou (spec §5.7) : verrou pris AVANT toute action sur le profil (fermeture
+    des Chrome orphelins comprise), tenu pendant toute l'utilisation, relâché APRÈS la fermeture de Chrome — aussi sur
+    exception. Profil déjà tenu (autre publication, vérification, --login) -> ProfileBusy, jamais d'attente.
+    """
+    with ExitStack() as stack:
+        try:
+            stack.enter_context(fb.run_lock(profile_lock_path(profile_dir)))
+        except fb.RunAlreadyActive:
+            raise ProfileBusy(profile_dir.name) from None
+        open_profile(profile_dir)
+        sb = stack.enter_context(SB(uc=True, locale="fr", user_data_dir=str(profile_dir), headless=headless))
+        fb._activate_cdp_mode(sb)
+        yield sb
+
+
+def facebook_user_id(sb: SB) -> str:
+    """Identifiant du compte Facebook connecté (cookie c_user, lu comme fb._session_active), "" si absent."""
+    try:
+        cookies = sb.cdp.get_all_cookies()
+    except Exception:
+        return ""
+    return next((str(getattr(c, "value", "")) for c in cookies if getattr(c, "name", "") == "c_user"), "")
+
+
+def check_account_identity(profile: str, sb: SB) -> None:
+    """
+    Un compte Facebook = un seul profil du pool : un dossier de profil copié garderait la session du compte d'origine
+    (quota et limite anti-spam faussés). Conflit -> StopRun pour ce profil ; sinon identifiant enregistré.
+    """
+    user_id = facebook_user_id(sb)
+    if not user_id:
+        return
+    ids: dict[str, str] = {}
+    if ACCOUNT_IDS_FILE.exists():
+        try:
+            ids = json.loads(ACCOUNT_IDS_FILE.read_text(encoding="utf-8"))
+        except ValueError:
+            raise StopRun(f"{ACCOUNT_IDS_FILE} illisible : corrigez-le ou supprimez-le") from None
+    other = account_pool.account_id_conflict(ids, profile, user_id)
+    if other:
+        raise StopRun(f"même compte Facebook que le profil {other} : un compte Facebook = un seul profil (dossier de "
+                      f"profil copié ?) - profil {profile} arrêté")
+    if ids.get(profile) != user_id:
+        ids[profile] = user_id
+        share._write_json_atomic(ACCOUNT_IDS_FILE, ids)
+
+
 def login_only(selected: list[CountrySettings]) -> None:
     """
     --login : ouvre seulement Chrome sur le profil de chaque pays choisi (une fois par profil) pour (re)connecter le
@@ -1476,15 +1708,206 @@ def login_only(selected: list[CountrySettings]) -> None:
         done.add(settings.profile.name)
         countries = ", ".join(s.country.name for s in selected if s.profile.name == settings.profile.name)
         print(f"\n[INFO] Profil {settings.profile.name} ({countries})")
-        profile_dir = open_profile(settings.profile)
-        with SB(uc=True, locale="fr", user_data_dir=str(profile_dir), headless=False) as sb:
-            fb._activate_cdp_mode(sb)
-            if fb.is_logged_in(sb):
-                print(f"[OK] Profil {profile_dir.name} déjà connecté.")
-                continue
-            if not fb.login_and_wait(sb):
-                print("Abandon.")
+        try:
+            with profile_session(settings.profile, headless=False) as sb:
+                if fb.is_logged_in(sb):
+                    print(f"[OK] Profil {settings.profile.name} déjà connecté.")
+                    continue
+                if not fb.login_and_wait(sb):
+                    print("Abandon.")
+                    return
+        except ProfileBusy as exc:
+            print(f"[WARN] {exc}")
+
+
+def login_accounts(accounts: list[account_pool.Account]) -> None:
+    """--login en mode pool ou avec --account : (re)connecte chaque compte, l'un après l'autre (actif ou non)."""
+    if not sys.stdin.isatty():
+        print("[ERREUR] --login demande un terminal (connexion manuelle puis ENTRÉE).")
+        return
+    for acc in accounts:
+        print(f"\n[INFO] Compte {acc.label} (profil {acc.profile})")
+        try:
+            with profile_session(acc.path, headless=False) as sb:
+                if fb.is_logged_in(sb):
+                    print(f"[OK] Profil {acc.profile} déjà connecté.")
+                elif not fb.login_and_wait(sb):
+                    print("Abandon.")
+                    return
+                check_account_identity(acc.profile, sb)
+        except StopRun as exc:  # ProfileBusy compris
+            print(f"[STOP] {exc}")
+
+
+def save_membership(profile: str, entries: dict[str, dict[str, Any]]) -> None:
+    """Adhésions vérifiées d'un compte : verrou court, relecture, fusion (seules ses entrées changent), écriture atomique."""
+    deadline = time.monotonic() + MEMBERSHIP_LOCK_WAIT
+    while True:
+        try:
+            with fb.run_lock(MEMBERSHIP_LOCK):
+                data = account_pool.load_membership(MEMBERSHIP_FILE)
+                share._write_json_atomic(MEMBERSHIP_FILE, account_pool.merge_account_membership(data, profile, entries))
                 return
+        except fb.RunAlreadyActive:
+            if time.monotonic() > deadline:
+                raise StopRun(f"{MEMBERSHIP_LOCK} tenu depuis plus de {MEMBERSHIP_LOCK_WAIT} s : réessayez") from None
+            time.sleep(0.2)
+
+
+def _pool_context(targets: dict[str, list[fb.GroupTarget]], all_settings: dict[str, CountrySettings]
+                  ) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
+    """Suivis des pays (lecture seule) et profil des entrées d'historique sans profil (profil configuré du pays)."""
+    states = {code: load_state(all_settings[code].state_path) for code in targets}
+    return states, {code: all_settings[code].profile.name for code in targets}
+
+
+def _chosen_accounts(accounts: list[account_pool.Account], args: argparse.Namespace) -> list[account_pool.Account]:
+    return [acc for acc in accounts if not args.account or acc.profile in args.account]
+
+
+def _membership_entry(result: MembershipResult, target: fb.GroupTarget) -> dict[str, Any]:
+    """Entrée de share_membership.json pour une visite (vérification ou mode assisté)."""
+    entry: dict[str, Any] = {"status": result.status, "detail": result.detail, "url": target.group_url,
+                             "checked_at": datetime.now().astimezone().isoformat(timespec="seconds")}
+    if result.numeric_id:
+        entry["numeric_id"] = result.numeric_id
+    if result.restriction:
+        entry["restriction"] = {"reason": result.restriction.reason,
+                                "until": result.restriction.until.isoformat(timespec="seconds")}
+    return entry
+
+
+def join_assist(accounts: list[account_pool.Account], targets: dict[str, list[fb.GroupTarget]],
+                all_settings: dict[str, CountrySettings], args: argparse.Namespace) -> int:
+    """
+    --join-assist : pour chaque compte choisi, ouvre un par un (fenêtre visible) les groupes dont il n'est pas membre
+    confirmé ; l'UTILISATEUR rejoint le groupe lui-même (et répond aux questions des admins), puis ENTRÉE ; le script
+    revérifie alors l'adhésion en lecture seule et l'enregistre. Le script ne clique jamais : rejoindre reste humain
+    (règle de l'utilisateur, 24/11/2026 ; des demandes d'adhésion automatiques en masse = signal de spam).
+    """
+    if not sys.stdin.isatty():
+        print("[ERREUR] --join-assist demande un terminal (vous rejoignez chaque groupe, puis ENTRÉE).")
+        return 1
+    states, fallback = _pool_context(targets, all_settings)
+    try:
+        membership = account_pool.load_membership(MEMBERSHIP_FILE)
+    except account_pool.MembershipFileError as exc:
+        print(f"[ERREUR] {exc}")
+        return 1
+    for acc in _chosen_accounts(accounts, args):
+        memberships = account_pool.Memberships(states, fallback, membership)
+        todo = [(code, target, memberships.status(acc.profile, account_pool.group_key(code, target.group_id)))
+                for code, country_targets in targets.items() for target in country_targets]
+        todo = [item for item in todo if item[2] != account_pool.MEMBER]
+        if args.max_groups > 0:
+            todo = todo[: args.max_groups]
+        print(f"\n[INFO] Compte {acc.label} (profil {acc.profile}) : {len(todo)} groupe(s) sans adhésion confirmée")
+        if not todo:
+            continue
+        try:
+            with profile_session(acc.path, headless=False) as sb:
+                if not fb.is_logged_in(sb) and not fb.login_and_wait(sb):
+                    print("Abandon.")
+                    return 1
+                check_account_identity(acc.profile, sb)
+                for index, (code, target, status) in enumerate(todo, 1):
+                    key = account_pool.group_key(code, target.group_id)
+                    sb.goto(target.group_url)
+                    answer = _ask(f"\n  [{index}/{len(todo)}] {key} ({status}) : rejoignez le groupe dans Chrome "
+                                  f"(questions des admins comprises), puis ENTRÉE ; s = passer, q = arrêter : ")
+                    if answer == "q":
+                        print("[INFO] Arrêt demandé - ce qui est vérifié est enregistré.")
+                        return 0
+                    if answer == "s":
+                        continue
+                    result = membership_status(sb, target.group_url)  # lecture seule
+                    entry = _membership_entry(result, target)
+                    save_membership(acc.profile, {key: entry})
+                    membership = account_pool.merge_account_membership(membership, acc.profile, {key: entry})
+                    hint = "" if result.status == account_pool.MEMBER else (
+                        " - pas encore membre (demande en attente d'approbation ?) : revérifié par --check-membership")
+                    print(f"    -> {result.status} ({result.detail}){hint}")
+        except StopRun as exc:  # ProfileBusy, page de connexion, même compte Facebook qu'un autre profil
+            print(f"[STOP] {exc}")
+    return 0
+
+
+def check_memberships(accounts: list[account_pool.Account], targets: dict[str, list[fb.GroupTarget]],
+                      all_settings: dict[str, CountrySettings], args: argparse.Namespace) -> int:
+    """
+    --check-membership (spec §5.8) : pour chaque compte choisi (actif ou non), visite en lecture seule les groupes
+    d'adhésion inconnue ou « non membre » depuis plus de 7 jours ; écrit share_membership.json après chaque groupe.
+    Indépendante de la publication : pas de verrou de publication, jamais d'écriture dans group_posts_<code>.json.
+    """
+    chosen = _chosen_accounts(accounts, args)
+    if not chosen:
+        print(f"[ERREUR] Aucun compte à vérifier : ajoutez-les dans {ACCOUNTS_FILE.name}")
+        return 1
+    states, fallback = _pool_context(targets, all_settings)
+    try:
+        membership = account_pool.load_membership(MEMBERSHIP_FILE)
+    except account_pool.MembershipFileError as exc:
+        print(f"[ERREUR] {exc}")
+        return 1
+    exit_code = 0
+    for acc in chosen:
+        now = datetime.now().astimezone()
+        memberships = account_pool.Memberships(states, fallback, membership)
+        visits = [(code, target) for code, country_targets in targets.items() for target in country_targets
+                  if memberships.needs_check(acc.profile, account_pool.group_key(code, target.group_id), now, args.recheck)]
+        if args.max_groups > 0:
+            visits = visits[: args.max_groups]
+        print(f"\n[INFO] Compte {acc.label} (profil {acc.profile}) : {len(visits)} groupe(s) à vérifier")
+        if not visits:
+            continue
+        try:
+            with profile_session(acc.path, args.headless) as sb:
+                if not fb.is_logged_in(sb):
+                    print(f"[STOP] Profil {acc.profile} non connecté : python facebook_script/post_groups.py --login "
+                          f"--account {acc.profile}")
+                    exit_code = 1
+                    continue
+                check_account_identity(acc.profile, sb)
+                for index, (code, target) in enumerate(visits, 1):
+                    if index > 1:
+                        sb.sleep(random.uniform(args.delay_min, args.delay_max))
+                    result = membership_status(sb, target.group_url)
+                    key = account_pool.group_key(code, target.group_id)
+                    entry = _membership_entry(result, target)
+                    save_membership(acc.profile, {key: entry})
+                    membership = account_pool.merge_account_membership(membership, acc.profile, {key: entry})
+                    print(f"  [{index}/{len(visits)}] {key} -> {result.status} ({result.detail})")
+        except StopRun as exc:  # ProfileBusy, page de connexion, même compte Facebook qu'un autre profil
+            print(f"[STOP] {exc}")
+            exit_code = exit_code or (0 if isinstance(exc, ProfileBusy) else 1)
+            continue
+        summary_memberships = account_pool.Memberships(states, fallback, membership)
+        keys = {code: [account_pool.group_key(code, t.group_id) for t in ts] for code, ts in targets.items()}
+        print(account_pool.membership_summary_text(
+            [acc], keys, summary_memberships, account_pool.group_restrictions(states, membership, datetime.now().astimezone()),
+            {code: COUNTRIES[code].name for code in targets}))
+    return exit_code
+
+
+def print_membership_summary(accounts: list[account_pool.Account], targets: dict[str, list[fb.GroupTarget]],
+                             all_settings: dict[str, CountrySettings], args: argparse.Namespace) -> int:
+    """--membership-summary : adhésions de chaque compte, par pays, sans navigateur ni verrou."""
+    chosen = _chosen_accounts(accounts, args)
+    if not chosen:
+        print(f"[INFO] Pool : aucun compte dans {ACCOUNTS_FILE.name}")
+        return 0
+    states, fallback = _pool_context(targets, all_settings)
+    try:
+        membership = account_pool.load_membership(MEMBERSHIP_FILE)
+    except account_pool.MembershipFileError as exc:
+        print(f"[ERREUR] {exc}")
+        return 1
+    keys = {code: [account_pool.group_key(code, t.group_id) for t in ts] for code, ts in targets.items()}
+    print(account_pool.membership_summary_text(
+        chosen, keys, account_pool.Memberships(states, fallback, membership),
+        account_pool.group_restrictions(states, membership, datetime.now().astimezone()),
+        {code: COUNTRIES[code].name for code in targets}))
+    return 0
 
 
 def load_targets(selected: list[CountrySettings], all_settings: dict[str, CountrySettings],
@@ -1512,11 +1935,10 @@ def publish_country(settings: CountrySettings, jobs: list[Job], state: dict[str,
                     today: date, claims: dict[str, Owner]) -> Counter[str]:
     """Publie les groupes d'un pays avec son profil ; StopRun remonte (arrêt de ce profil ou de tout le lancement)."""
     totals: Counter[str] = Counter()
-    profile_dir = open_profile(settings.profile)
+    profile_dir = settings.profile
     mode = ("automatique" if args.auto else "assisté") + (", sans fenêtre" if args.headless else ", fenêtre visible")
     print(f"[INFO] {len(jobs)} publication(s) prévue(s) - mode {mode}, profil {profile_dir.name}")
-    with SB(uc=True, locale="fr", user_data_dir=str(profile_dir), headless=args.headless) as sb:
-        fb._activate_cdp_mode(sb)
+    with profile_session(profile_dir, args.headless) as sb:  # ProfileBusy (StopRun) si le profil est déjà ouvert
         try:
             logged_in = fb.is_logged_in(sb)
             if (args.headless or not sys.stdin.isatty()) and not logged_in:
@@ -1529,6 +1951,24 @@ def publish_country(settings: CountrySettings, jobs: list[Job], state: dict[str,
             summary = ", ".join(f"{count} {status}" for status, count in totals.most_common()) or "aucune"
             print(f"\nTerminé - {summary}. Suivi : {settings.state_path}")
     return totals
+
+
+def country_offers(settings: CountrySettings, args: argparse.Namespace, group_count: int) -> list[dict[str, Any]] | None:
+    """Offres WipWork du pays (filtrées sur le pays) ; None si l'API est restée illisible."""
+    country = settings.country
+    try:
+        offers, announced = share.fetch_offers(args.api_url, settings.api_name)
+    except share.ShareError as exc:
+        print(f"[ERREUR] API des offres ({args.api_url}, pays={settings.api_name}) : {exc}")
+        return None
+    offers, foreign = share.offers_for_country(offers, [settings.api_name, country.name, country.label])
+    print(f"[INFO] {len(offers)} offres uniques ({announced} annoncées par l'API), {group_count} groupe(s)")
+    if foreign:
+        print(f"[WARN] {foreign} offre(s) d'un autre pays renvoyée(s) par l'API pour pays={settings.api_name} : écartée(s)")
+    if not offers and not announced:
+        print(f"[INFO] Aucune offre WipWork pour pays={settings.api_name} (nom attendu par l'API ? « api_name » "
+              f"dans {Path(args.settings_file).name})")
+    return offers
 
 
 def run_countries(selected: list[CountrySettings], all_settings: dict[str, CountrySettings], args: argparse.Namespace) -> int:
@@ -1553,20 +1993,11 @@ def run_countries(selected: list[CountrySettings], all_settings: dict[str, Count
             print(f"[STOP] Profil {settings.profile.name} arrêté plus tôt ({stopped[settings.profile.name]}) : {country.name} ignoré")
             results[country.code] = "profil arrêté"
             continue
-        try:
-            offers, announced = share.fetch_offers(args.api_url, settings.api_name)
-        except share.ShareError as exc:
-            print(f"[ERREUR] API des offres ({args.api_url}, pays={settings.api_name}) : {exc}")
+        offers = country_offers(settings, args, len(targets))
+        if offers is None:
             results[country.code] = "API illisible"
             exit_code = 1
             continue
-        offers, foreign = share.offers_for_country(offers, [settings.api_name, country.name, country.label])
-        print(f"[INFO] {len(offers)} offres uniques ({announced} annoncées par l'API), {len(targets)} groupe(s)")
-        if foreign:
-            print(f"[WARN] {foreign} offre(s) d'un autre pays renvoyée(s) par l'API pour pays={settings.api_name} : écartée(s)")
-        if not offers and not announced:
-            print(f"[INFO] Aucune offre WipWork pour pays={settings.api_name} (nom attendu par l'API ? « api_name » "
-                  f"dans {Path(args.settings_file).name})")
 
         state = load_state(settings.state_path)
         if recover_interrupted(state) and not args.preview:
@@ -1624,6 +2055,252 @@ def run_countries(selected: list[CountrySettings], all_settings: dict[str, Count
     return exit_code
 
 
+# ---------------------------------------------------------------------------
+# Pool de comptes (spec docs/superpowers/specs/2026-11-24-repartition-comptes-facebook-design.md, §5)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class PoolJob:
+    job: Job
+    key: str  # account_pool.group_key
+    settings: CountrySettings  # réglages du pays (profil remplacé par celui du compte à l'exécution)
+
+
+def active_accounts(accounts: list[account_pool.Account], all_settings: dict[str, CountrySettings],
+                    args: argparse.Namespace, today: date) -> tuple[list[account_pool.Account], dict[str, int | None], dict[str, str]]:
+    """§5.1 : (comptes actifs dans l'ordre du fichier, quota restant par profil — None = illimité —, raisons des inactifs)."""
+    active: list[account_pool.Account] = []
+    caps: dict[str, int | None] = {}
+    inactive: dict[str, str] = {}
+    for acc in accounts:
+        paused = _account_block_until(acc.profile)
+        if not acc.active:
+            inactive[acc.profile] = "désactivé"
+        elif args.account and acc.profile not in args.account:
+            inactive[acc.profile] = "non choisi (--account)"
+        elif not acc.path.exists():
+            inactive[acc.profile] = f"jamais connecté (--login --account {acc.profile})"
+        elif paused and not args.retry_blocked:
+            inactive[acc.profile] = f"pause jusqu'au {paused:%d/%m/%Y %H:%M}"
+        else:
+            cap = account_pool.remaining_cap(acc.quota, posts_today(all_settings, acc.path, today))
+            if cap == 0:
+                inactive[acc.profile] = "quota atteint"
+                continue
+            active.append(acc)
+            caps[acc.profile] = cap
+    return active, caps, inactive
+
+
+def _pause(sb: SB, args: argparse.Namespace) -> None:
+    pause = random.uniform(args.delay_min, args.delay_max)
+    print(f"\n[INFO] Pause de {int(pause // 60)} min {int(pause % 60):02d} s avant le groupe suivant (Ctrl+C pour arrêter)")
+    sb.sleep(pause)
+
+
+def publish_account(account: account_pool.Account,
+                    batches: list[tuple[CountrySettings, list[Job], dict[str, dict[str, Any]]]],
+                    args: argparse.Namespace, today: date, claims: dict[str, Owner], totals: Counter[str],
+                    country_totals: dict[str, Counter[str]], pause_before: bool = False) -> None:
+    """
+    Un compte, un seul Chrome pour tous ses pays (§5.7) : verrou du profil tenu de l'ouverture à la fermeture de Chrome,
+    run() pays après pays dans la même session. StopRun / AccountLimited remontent : aucun autre groupe de ce compte.
+    """
+    count = sum(len(jobs) for _, jobs, _ in batches)
+    mode = ("automatique" if args.auto else "assisté") + (", sans fenêtre" if args.headless else ", fenêtre visible")
+    print(f"\n{'=' * 60}\n  Compte {account.label} (profil {account.profile}) - {count} groupe(s), "
+          f"{len(batches)} pays, mode {mode}\n{'=' * 60}")
+    with profile_session(account.path, args.headless) as sb:
+        logged_in = fb.is_logged_in(sb)
+        if (args.headless or not sys.stdin.isatty()) and not logged_in:
+            raise StopRun(f"profil Facebook {account.profile} non connecté : reconnectez-le dans un terminal avec "
+                          f"python facebook_script/post_groups.py --login --account {account.profile}")
+        if not logged_in and not fb.login_and_wait(sb):
+            raise StopRun("connexion abandonnée")
+        check_account_identity(account.profile, sb)
+        for index, (settings, jobs, state) in enumerate(batches):
+            if index or pause_before:
+                _pause(sb, args)
+            print(f"\n[INFO] {settings.country.name} : {len(jobs)} groupe(s)")
+            batch_totals: Counter[str] = Counter()
+            try:
+                run(sb, jobs, state, dataclasses.replace(settings, profile=account.path), args, today, batch_totals, claims)
+            finally:
+                totals.update(batch_totals)
+                country_totals.setdefault(settings.country.code, Counter()).update(batch_totals)
+
+
+def _print_pool_preview(order: list[account_pool.Account], plans: dict[str, list[PoolJob]], args: argparse.Namespace,
+                        today: date) -> None:
+    for acc in order:
+        jobs = plans.get(acc.profile) or []
+        if not jobs:
+            continue
+        print(f"\n{'=' * 60}\n  Compte {acc.label} (profil {acc.profile}) - {len(jobs)} groupe(s)\n{'=' * 60}")
+        for pool_job in jobs:
+            job = pool_job.job
+            print(f"\n{'-' * 60}\n{job.target.group_url} ({len(job.offers)} offres)\n{'-' * 60}\n{job.text}")
+            for path in posters_for(job, args, today):
+                print(f"[AFFICHE] {path}")
+
+
+def run_pool(accounts: list[account_pool.Account], selected: list[CountrySettings],
+             all_settings: dict[str, CountrySettings], args: argparse.Namespace) -> int:
+    """
+    Mode pool (§5.3 à §5.7) : groupes à publier de tous les pays choisis, attribués aux comptes membres confirmés
+    (quota global par compte, charge équilibrée), puis publiés compte par compte. Un compte arrêté (limite anti-spam,
+    déconnexion, profil occupé) garde ses groupes restants pour le cycle suivant : jamais transférés.
+    """
+    today = date.today()
+    now = datetime.now().astimezone()
+    exit_code = 0
+    pool_profiles = {acc.profile for acc in accounts}
+    config = load_settings_file(Path(args.settings_file))
+    for settings in selected:
+        if settings.profile.name not in pool_profiles:
+            print(f"[WARN] Profil historique {settings.profile.name} ({settings.country.name}) absent de "
+                  f"{Path(args.accounts_file).name} : il ne publie plus dans ce pays")
+        ignored = [key for key in ("profile", "max_groups_per_day")
+                   if key in ((config.get("countries") or {}).get(settings.country.code) or {})]
+        if ignored:
+            print(f"[WARN] {settings.country.name} : {', '.join(ignored)} de {Path(args.settings_file).name} ignoré(s) "
+                  f"en mode pool (profil et quota viennent du compte)")
+
+    active, caps, inactive = active_accounts(accounts, all_settings, args, today)
+    try:
+        membership = account_pool.load_membership(MEMBERSHIP_FILE)
+    except account_pool.MembershipFileError as exc:
+        print(f"[ERREUR] {exc}")
+        return 1
+    targets_by_country, claims = load_targets(selected, all_settings, args)
+    states: dict[str, dict[str, Any]] = {}
+    for settings in selected:
+        state = load_state(settings.state_path)
+        if recover_interrupted(state) and not args.preview:
+            share._write_json_atomic(settings.state_path, state)
+        states[settings.country.code] = state
+    memberships = account_pool.Memberships(states, {s.country.code: s.profile.name for s in selected}, membership)
+    restrictions = {} if args.retry_blocked else account_pool.group_restrictions(states, membership, now)
+
+    plan_args = argparse.Namespace(**{**vars(args), "max_groups": 0})  # --max-groups : par priorité, plus bas
+    pool_jobs: dict[str, PoolJob] = {}
+    candidates: list[account_pool.Candidate] = []
+    unserved: dict[str, str] = {}
+    for settings in selected:
+        country = settings.country
+        print(f"\n[INFO] {country.name} ({country.code})")
+        targets = targets_by_country.get(country.code, [])
+        if not targets:
+            print(f"[ERREUR] Aucun groupe : ajoutez des liens dans {settings.groups_file}")
+            continue
+        offers = country_offers(settings, args, len(targets))
+        if offers is None:
+            exit_code = 1
+            unserved.update({account_pool.group_key(country.code, t.group_id): "API du pays illisible" for t in targets})
+            continue
+        rank = {target.group_id: index for index, target in enumerate(targets)}
+        country_last = account_pool.country_last_post(states[country.code])
+        found = []
+        for job in plan(targets, offers, states[country.code], settings, plan_args, today, claims):
+            key = account_pool.group_key(country.code, job.target.group_id)
+            pool_jobs[key] = PoolJob(job, key, settings)
+            found.append(account_pool.Candidate(key, country.code, rank[job.target.group_id],
+                                                account_pool._parse_dt(job.last_post_at), country_last))
+        found.sort(key=account_pool.priority_key)
+        candidates += found[: args.max_groups] if args.max_groups > 0 else found
+    candidates.sort(key=account_pool.priority_key)
+
+    groups: list[str] = []
+    members: dict[str, list[str]] = {}
+    for candidate in candidates:
+        if candidate.key in restrictions:
+            restriction = restrictions[candidate.key]
+            unserved[candidate.key] = f"restriction de groupe jusqu'au {restriction.until:%d/%m/%Y %H:%M}"
+            continue
+        found_members = [acc.profile for acc in active if memberships.status(acc.profile, candidate.key) == account_pool.MEMBER]
+        if not found_members:
+            unserved[candidate.key] = "aucun compte membre confirmé"
+            continue
+        groups.append(candidate.key)
+        members[candidate.key] = found_members
+    order = [acc.profile for acc in active]
+    allocation = account_pool.allocate(groups, members, caps, order)
+    unserved.update({key: "membres au quota" for key in allocation.unserved})
+
+    names = {s.country.code: s.country.name for s in selected}
+    country_last = {code: account_pool.country_last_post(state) for code, state in states.items()}
+    print(f"\n{'=' * 60}\nRépartition du pool : {len(allocation.owner)} groupe(s) pour {len(active)} compte(s) actif(s)\n{'=' * 60}")
+    if active:
+        print(account_pool.allocation_table(allocation, active, caps, {k: k.split('/', 1)[0] for k in [*groups]}, names))
+    print(account_pool.signals_text(unserved, inactive, {}, allocation.loads, country_last, names))
+
+    plans: dict[str, list[PoolJob]] = {}
+    for key in groups:  # ordre de priorité
+        if key in allocation.owner:
+            plans.setdefault(allocation.owner[key], []).append(pool_jobs[key])
+    if args.preview:
+        _print_pool_preview(active, plans, args, today)
+        print(f"\n[INFO] Aperçu : {len(allocation.owner)} publication(s) prévue(s), rien n'est publié.")
+        return exit_code
+
+    stopped: dict[str, tuple[str, int]] = {}
+    account_totals: dict[str, Counter[str]] = {}
+    country_totals: dict[str, Counter[str]] = {}
+    started = False
+    for acc in active:
+        jobs = plans.get(acc.profile) or []
+        if not jobs:
+            continue
+        batches: list[tuple[CountrySettings, list[Job], dict[str, Any]]] = []
+        for pool_job in jobs:  # pays dans l'ordre de leur premier groupe, groupes par priorité
+            code = pool_job.settings.country.code
+            batch = next((b for b in batches if b[0].country.code == code), None)
+            if batch is None:
+                batch = (pool_job.settings, [], states[code])
+                batches.append(batch)
+            batch[1].append(pool_job.job)
+        totals = account_totals.setdefault(acc.profile, Counter())
+        try:
+            publish_account(acc, batches, args, today, claims, totals, country_totals, pause_before=started)
+        except AccountLimited as exc:
+            until = _save_account_block(acc.profile, exc.message)
+            print(f"\n[STOP] {exc}\n[STOP] Aucun autre groupe pour le compte {acc.profile} (pause jusqu'au "
+                  f"{until:%d/%m/%Y %H:%M}) ; ses groupes restants attendent le cycle suivant.")
+            stopped[acc.profile] = (f"limite anti-spam, pause jusqu'au {until:%d/%m/%Y %H:%M}", len(jobs) - sum(totals.values()))
+        except StopRun as exc:
+            print(f"\n[STOP] {exc} - ses groupes restants attendent le cycle suivant.")
+            stopped[acc.profile] = (str(exc), len(jobs) - sum(totals.values()))
+            if exc.scope == "all":
+                break
+        except KeyboardInterrupt:
+            print("\n[INFO] Interruption (Ctrl+C) - les publications déjà faites sont enregistrées.")
+            stopped[acc.profile] = ("interrompu", len(jobs) - sum(totals.values()))
+            break
+        except Exception as exc:  # Chrome ou CDP en échec (CdpTimeout, SessionNotCreatedException...) : ce compte seulement
+            # Suivis écrits après chaque groupe, marqueur « publishing » gardé en mémoire et sur disque : rien n'est
+            # perdu ni republié ; les groupes restants de ce compte attendent le cycle suivant (jamais transférés).
+            print(f"\n[ERREUR] Compte {acc.profile} : erreur inattendue ({exc!r}) - ses groupes restants attendent le "
+                  f"cycle suivant ; les autres comptes continuent.")
+            stopped[acc.profile] = (f"erreur inattendue : {type(exc).__name__}", len(jobs) - sum(totals.values()))
+            exit_code = 1
+        started = True
+
+    print(f"\n{'=' * 60}\nRécapitulatif par compte :")
+    for acc in active:
+        if acc.profile in account_totals:
+            summary = ", ".join(f"{n} {status}" for status, n in account_totals[acc.profile].most_common()) or "aucune"
+            print(f"  {acc.profile:<36} {summary}")
+    print("Récapitulatif par pays :")
+    for settings in selected:
+        code = settings.country.code
+        summary = ", ".join(f"{n} {status}" for status, n in (country_totals.get(code) or Counter()).most_common()) or "aucune"
+        print(f"  {settings.country.name:<24} {summary}")
+    report = account_pool.signals_text({}, {}, stopped, allocation.loads, country_last, names).splitlines()
+    print(next((line for line in report if line.startswith("Arrêtés")), "Aucun compte arrêté en cours de cycle."))
+    return exit_code
+
+
 def main() -> None:
     for stream in (sys.stdout, sys.stderr):
         with suppress(Exception):
@@ -1634,12 +2311,49 @@ def main() -> None:
     all_settings = {code: country_settings(country, args, config, use_cli=False) for code, country in COUNTRIES.items()}
     selected = [country_settings(country, args, config, use_cli=True) for country in args.country_list]
     all_settings.update({settings.country.code: settings for settings in selected})
-    if args.login:
-        login_only(selected)
+    try:
+        accounts = account_pool.load_accounts(Path(args.accounts_file), fb.PROJECT_ROOT, args.max_groups_per_day)
+    except account_pool.AccountsError as exc:
+        print(f"[ERREUR] {exc}")
+        sys.exit(1)
+    unknown = [profile for profile in args.account if profile not in {acc.profile for acc in accounts}]
+    if unknown:
+        listed = ", ".join(acc.profile for acc in accounts) or "aucun"
+        print(f"[ERREUR] --account : compte inconnu « {unknown[0]} » dans {Path(args.accounts_file).name} (comptes : {listed})")
+        sys.exit(1)
+    if args.check_membership or args.membership_summary or args.join_assist:
+        targets = load_targets(selected, all_settings, args)[0]
+        targets = {s.country.code: targets.get(s.country.code, []) for s in selected}
+        try:
+            if args.membership_summary:
+                exit_code = print_membership_summary(accounts, targets, all_settings, args)
+            elif args.join_assist:
+                exit_code = join_assist(accounts, targets, all_settings, args)
+            else:
+                exit_code = check_memberships(accounts, targets, all_settings, args)
+        except KeyboardInterrupt:
+            print("\n[INFO] Interruption (Ctrl+C) - les adhésions déjà vérifiées sont enregistrées.")
+            exit_code = 1
+        if exit_code:
+            sys.exit(exit_code)
         return
+    if args.login:
+        if args.account or (account_pool.pool_enabled(accounts) and not args.profile):
+            login_accounts(_chosen_accounts(accounts, args))
+        else:
+            login_only(selected)
+        return
+    if args.account and not account_pool.pool_enabled(accounts):
+        # Sinon --account serait ignoré et la publication partirait avec le profil historique du pays
+        print(f"[ERREUR] --account : aucun compte actif dans {Path(args.accounts_file).name} (pool désactivé) - "
+              f"passez le compte à \"active\": true pour publier avec lui")
+        sys.exit(1)
     try:
         with nullcontext() if args.preview else fb.run_lock(LOCK_FILE):
-            exit_code = run_countries(selected, all_settings, args)
+            if account_pool.pool_enabled(accounts) and not args.profile:
+                exit_code = run_pool(accounts, selected, all_settings, args)
+            else:
+                exit_code = run_countries(selected, all_settings, args)
     except fb.RunAlreadyActive:
         print("[ERREUR] post_groups.py tourne déjà (autre terminal ou PM2) : attendez sa fin - deux lancements "
               "publieraient deux fois dans les mêmes groupes.")

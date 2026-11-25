@@ -3,3 +3,4 @@
 # Le pays de ces pages est celui de ce dossier : une page ne doit être listée que pour un seul pays.
 
 https://www.facebook.com/recherche1Emploi
+https://www.facebook.com/minajobs.net/

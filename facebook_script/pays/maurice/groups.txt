@@ -2,3 +2,6 @@
 # Les lignes vides et celles qui commencent par # sont ignorées.
 # Distinct de share_groups.txt (groupes où l'on PUBLIE). Un groupe ne doit être listé que pour un seul pays.
 
+https://www.facebook.com/groups/1886333118673853/
+https://www.facebook.com/groups/5713980082053616/
+https://www.facebook.com/groups/778203175602622/

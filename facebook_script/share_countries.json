@@ -9,7 +9,8 @@
     "per_post : offres par publication (défaut 40) ; min_offers : offres nouvelles minimum pour publier (défaut 40).",
     "max_groups_per_day : publications au plus par jour et par profil, tous pays du profil confondus (0 = aucun quota) ;",
     "  les groupes jamais publiés passent d'abord, puis ceux publiés le moins récemment.",
-    "La ligne de commande (--per-post, --min-offers, --max-groups-per-day, --profile) l'emporte sur ce fichier."
+    "La ligne de commande (--per-post, --min-offers, --max-groups-per-day, --profile) l'emporte sur ce fichier.",
+    "En mode pool (share_accounts.json avec un compte actif), profile et max_groups_per_day sont ignorés : profil et quota viennent du compte."
   ],
   "defaults": {},
   "countries": {

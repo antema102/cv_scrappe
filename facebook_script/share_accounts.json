@@ -1,0 +1,26 @@
+{
+  "_aide": [
+    "Pool de comptes de post_groups.py : actif dès qu'un compte a \"active\": true (sinon fonctionnement actuel).",
+    "profile : dossier du profil Chrome (relatif à la racine du projet) ; jamais my_custom_profile_facebook (scraping).",
+    "max_groups_per_day : publications par jour et par compte, tous pays confondus ; 0 = illimité.",
+    "Pour arrêter un compte : \"active\": false (jamais 0). --max-groups-per-day l'emporte pour tous les comptes.",
+    "Connexion : python facebook_script/post_groups.py --login --account <profil>",
+    "Adhésions : python facebook_script/post_groups.py --check-membership --account <profil>"
+  ],
+  "defaults": {"max_groups_per_day": 0},
+  "accounts": [
+    {"profile": "my_custom_profile_facebook_share", "label": "Compte historique", "active": false},
+    {"profile": "my_custom_profile_facebook_share_2", "label": "Compte 2 (validation Task 11)", "active": false},
+    {"profile": "my_custom_profile_facebook_share_3", "label": "Compte 3", "active": false},
+    {"profile": "my_custom_profile_facebook_share_4", "label": "Compte 4", "active": false},
+    {"profile": "my_custom_profile_facebook_share_5", "label": "Compte 5", "active": false},
+    {"profile": "my_custom_profile_facebook_share_6", "label": "Compte 6", "active": false},
+    {"profile": "my_custom_profile_facebook_share_7", "label": "Compte 7", "active": false},
+    {"profile": "my_custom_profile_facebook_share_8", "label": "Compte 8", "active": false},
+    {"profile": "my_custom_profile_facebook_share_9", "label": "Compte 9", "active": false},
+    {"profile": "my_custom_profile_facebook_share_10", "label": "Compte 10", "active": false},
+    {"profile": "my_custom_profile_facebook_share_11", "label": "Compte 11", "active": false},
+    {"profile": "my_custom_profile_facebook_share_12", "label": "Compte 12", "active": false},
+    {"profile": "my_custom_profile_facebook_share_13", "label": "Compte 13", "active": false}
+  ]
+}
