@@ -222,6 +222,15 @@ BLOCK_RE = re.compile(
     r"community standards|reessayez plus tard|try again later|nous avons supprime|we removed"
 )
 PENDING_RE = re.compile(r"en attente|pending|approbation|approval|examin|review")
+# Affiches refusées par Facebook (texte plié, 25/11/2026) : « Impossible de télécharger vos fichiers : <groupe>_1.png et
+# <groupe>_2.png » en rouge sous « Publier », puis après le clic la boîte « Impossible d'importer les photos — Désolé,
+# aucune nouvelle photo n'a pu être téléchargée. Veuillez réessayer. » ; la fenêtre de rédaction reste ouverte (rien
+# n'est publié). Avant : non reconnu, clic sur « Publier » puis 120 s d'attente et groupe non servi.
+UPLOAD_ERROR_RE = re.compile(
+    r"impossible de telecharger (?:vos|votre|les|le) fichiers?|impossible d ?importer (?:les|la) photos?|"
+    r"aucune nouvelle photo|couldn ?t upload|could not upload|unable to upload|upload failed|"
+    r"nao foi possivel (?:carregar|enviar)"
+)
 # Limite anti-spam du COMPTE (texte plié), écrite en rouge sous « Publier » dans la fenêtre de rédaction (04/11/2026) :
 # « Nous limitons le nombre de fois que vous pouvez publier, commenter ou faire autre chose dans un laps de temps donné
 # afin de protéger la communauté contre le spam. Vous pouvez réessayer plus tard. » Avant : jamais vue (NOTICES_JS
@@ -523,6 +532,13 @@ class AccountLimited(StopRun):
     def __init__(self, message: str) -> None:
         super().__init__(f"Facebook limite les publications du compte (anti-spam) : « {message[:200]} »")
         self.message = message
+
+
+class PhotoUploadFailed(Exception):
+    """
+    Facebook refuse les affiches (UPLOAD_ERROR_RE) alors que rien n'est publié : avant le clic sur « Publier », ou après
+    avec la fenêtre de rédaction toujours ouverte (fermée = publiée). post_to_group refait la publication sans affiches.
+    """
 
 
 class GroupRestricted(Exception):
@@ -903,6 +919,18 @@ def attach_images(sb: SB, images: list[Path]) -> int:
     return count
 
 
+def _report_block(sb: SB, group_url: str, notices: list[str], baseline: list[str]) -> None:
+    """« Blocage » vu après le clic : messages apparus en entier + capture, AVANT de toucher à la page."""
+    for notice in (n for n in notices if n not in baseline):
+        print(f"  [DIAG] Message apparu après « Publier » : {share._clean(notice)[:300]}")
+    save_diagnostics(sb, group_url, "block")
+
+
+def _upload_error(notices: list[str]) -> str | None:
+    """Message de Facebook qui refuse les affiches jointes, sinon None."""
+    return next((n for n in notices if UPLOAD_ERROR_RE.search(share._fold(n))), None)
+
+
 def _pending_count(sb: SB) -> int:
     return int((fb._run_js(sb, PENDING_COUNT_JS, {"pending": PENDING_POST_PATTERN}) or {}).get("count", 0))
 
@@ -937,7 +965,12 @@ def publish(sb: SB, group_url: str, auto: bool, with_images: bool = False, on_pu
     deadline = time.monotonic() + (IMAGE_UPLOAD_TIMEOUT if with_images else PUBLISH_ENABLED_TIMEOUT)
     while button.get("disabled") and time.monotonic() < deadline:
         sb.sleep(1)
+        if with_images and (failure := _upload_error(_notices(sb)[1])):
+            raise PhotoUploadFailed(failure)
         button = fb._run_js(sb, PUBLISH_JS, {"publish": PUBLISH_LABELS}) or {}
+    # Affiches refusées : jamais « Publier » (rien n'est encore parti)
+    if with_images and (failure := _upload_error(_notices(sb)[1])):
+        raise PhotoUploadFailed(failure)
     if "x" not in button or button.get("disabled"):
         print("  [WARN] Bouton « Publier » introuvable ou désactivé (sujet obligatoire dans ce groupe ?)")
         save_diagnostics(sb, group_url, "not_published")
@@ -952,16 +985,26 @@ def publish(sb: SB, group_url: str, auto: bool, with_images: bool = False, on_pu
         sb.sleep(1)
         still_open, notices = _notices(sb)
         _check_account_limit(sb, notices, group_url)
+        # Affiches refusées après le clic, fenêtre de rédaction toujours ouverte : rien n'est publié
+        if with_images and still_open and (failure := _upload_error(notices)):
+            raise PhotoUploadFailed(failure)
         fresh = [share._fold(n) for n in notices if n not in baseline]
-        if blocked := next((n for n in fresh if BLOCK_RE.search(n)), None):
+        # Blocage seulement si la fenêtre de rédaction est encore ouverte (rien publié) ; fermée : traité plus bas
+        if still_open and (blocked := next((n for n in fresh if BLOCK_RE.search(n)), None)):
+            _report_block(sb, group_url, notices, baseline)
             discard_composer(sb)
             raise StopRun(f"Facebook bloque la publication : « {blocked[:150]} »")
         if not still_open:
             sb.sleep(NOTICE_WAIT)
             _, notices = _notices(sb)
             fresh = [share._fold(n) for n in notices if n not in baseline]
-            if blocked := next((n for n in fresh if BLOCK_RE.search(n)), None):
-                raise StopRun(f"Facebook bloque la publication : « {blocked[:150]} »")
+            # Fenêtre de rédaction fermée = publiée. Un message apparu ENSUITE (question de Facebook, règles du groupe
+            # « pas de spam »…) ne la rend pas « non publiée » : bug du 25/11/2026, StopRun ici, publication jamais
+            # enregistrée et mêmes offres republiées 9 min plus tard. Un vrai blocage arrête le groupe suivant
+            # (fenêtre encore ouverte, plus haut).
+            if next((n for n in fresh if BLOCK_RE.search(n)), None):
+                print("  [WARN] Publication faite, puis message de Facebook (enregistrée quand même, à vérifier) :")
+                _report_block(sb, group_url, notices, baseline)
             if any(PENDING_RE.search(n) for n in fresh) or _pending_count(sb) > pending_before:
                 return "pending"
             return "posted"
@@ -1002,7 +1045,19 @@ def post_to_group(sb: SB, group_url: str, text: str, auto: bool, images: list[Pa
             save_diagnostics(sb, group_url, "images")
     else:
         sb.sleep(LINK_PREVIEW_WAIT)
-    return publish(sb, group_url, auto, with_images=bool(images), on_publishing=on_publishing)
+    try:
+        return publish(sb, group_url, auto, with_images=bool(images), on_publishing=on_publishing)
+    except PhotoUploadFailed as exc:
+        print(f"  [WARN] Facebook refuse les affiches : « {share._clean(str(exc))[:200]} »")
+        save_diagnostics(sb, group_url, "photo_upload")
+        discard_composer(sb)
+        if not images:  # déjà le nouvel essai sans affiches : on n'insiste pas
+            return "upload_failed"
+        # Rien n'a été publié (fenêtre de rédaction encore ouverte) : un seul nouvel essai, texte seul (toutes les
+        # offres et leurs liens y sont). on_group_id=None : groupe déjà identifié à la première ouverture.
+        print("  [INFO] Nouvel essai sans affiches")
+        return post_to_group(sb, group_url, text, auto, None, anonymous=anonymous, on_group_id=None,
+                             on_publishing=on_publishing)
 
 
 # ---------------------------------------------------------------------------
@@ -1287,6 +1342,37 @@ def _blocked_until(group: dict[str, Any]) -> datetime | None:
     return None
 
 
+def _same_group_view(state: dict[str, dict[str, Any]], target: fb.GroupTarget, group: dict[str, Any]) -> dict[str, Any]:
+    """
+    Suivi d'un groupe vu à travers TOUTES ses adresses de la liste (nom personnalisé et id numérique) : dernière
+    publication la plus récente, offres déjà publiées réunies, blocage le plus long. Bug du 25/11/2026 : la ligne gardée
+    pour un groupe à deux adresses peut changer d'un lancement à l'autre (id numérique appris entre-temps) ; lues sur la
+    seule ligne gardée, ces protections étaient vides et les mêmes offres repartaient dans le même groupe.
+    """
+    identity = group_identity(target, group)
+    same = [other for gid, other in state.items() if gid != target.group_id
+            and group_identity(fb.GroupTarget(gid, str(other.get("url") or "")), other) == identity]
+    if not same:
+        return group
+    lines = [group, *same]
+    view = dict(group)
+    view["posted"] = {k: v for line in lines for k, v in (line.get("posted") or {}).items()}
+    last = [d for d in (_parse_iso(line.get("last_post_at")) for line in lines) if d]
+    if last:
+        view["last_post_at"] = max(last).isoformat(timespec="seconds")
+    blocks = [line["blocked"] for line in lines if line.get("blocked") and _blocked_until(line)]
+    if blocks:
+        view["blocked"] = max(blocks, key=lambda b: _parse_iso(b.get("until")) or datetime.min.astimezone())
+    return view
+
+
+def _parse_iso(value: Any) -> datetime | None:
+    with suppress(TypeError, ValueError):
+        parsed = datetime.fromisoformat(str(value))
+        return parsed if parsed.tzinfo else parsed.astimezone()
+    return None
+
+
 def plan(targets: list[fb.GroupTarget], offers: list[dict[str, Any]], state: dict[str, dict[str, Any]],
          settings: CountrySettings, args: argparse.Namespace, today: date, claims: dict[str, Owner],
          quota: int | None = None) -> list[Job]:
@@ -1302,6 +1388,7 @@ def plan(targets: list[fb.GroupTarget], offers: list[dict[str, Any]], state: dic
         if owner is not None and owner != (country.code, target.group_id):
             print(f"[WARN] {target.group_id} : même groupe que {owner[1]} ({owner[0]}) - ignoré")
             continue
+        group = _same_group_view(state, target, group)  # protections de toutes les adresses de ce groupe
         until = _blocked_until(group)
         if until and until > now and not args.retry_blocked:
             reason = RESTRICTION_LABELS.get(group["blocked"].get("reason"), group["blocked"].get("reason"))
@@ -1495,6 +1582,9 @@ def parse_args() -> argparse.Namespace:
     pool.add_argument("--recheck", action="store_true", help="--check-membership : revisite aussi les groupes déjà vérifiés")
     pool.add_argument("--membership-summary", action="store_true",
                       help="résumé des adhésions de chaque compte, sans navigateur (tous les pays par défaut)")
+    pool.add_argument("--join-assist", action="store_true",
+                      help="avec --account : ouvre un par un les groupes dont le compte n'est pas membre confirmé ; vous "
+                           "les rejoignez vous-même, puis ENTRÉE (adhésion revérifiée et enregistrée ; aucun clic du script)")
     args = parser.parse_args()
     if args.assisted and (args.auto or args.headless):
         parser.error("--assisted se relit dans la fenêtre Chrome : incompatible avec --auto / --headless")
@@ -1502,9 +1592,12 @@ def parse_args() -> argparse.Namespace:
     # Fenêtre visible pour relire (--assisted), sur demande (--visible) ou pour se connecter (--login)
     args.headless = not (args.assisted or args.visible or args.login)
     modes = [name for name, on in (("--check-membership", args.check_membership), ("--membership-summary",
-             args.membership_summary), ("--login", args.login), ("--preview", args.preview)) if on]
+             args.membership_summary), ("--join-assist", args.join_assist), ("--login", args.login),
+             ("--preview", args.preview)) if on]
     if len(modes) > 1:
         parser.error(f"{' et '.join(modes)} s'excluent")
+    if args.join_assist and not args.account:
+        parser.error("--join-assist demande --account <profil> (un compte à la fois conseillé)")
     if args.account and args.profile:
         parser.error("--account (pool de comptes) et --profile (fonctionnement actuel) s'excluent")
     if args.delay_min is None:
@@ -1515,7 +1608,8 @@ def parse_args() -> argparse.Namespace:
         parser.error("--delay-max doit être >= --delay-min")
     if sum(bool(x) for x in (args.country, args.countries, args.all_countries)) > 1:
         parser.error("--country, --countries et --all-countries s'excluent")
-    if (args.check_membership or args.membership_summary) and not (args.country or args.countries or args.all_countries):
+    if (args.check_membership or args.membership_summary or args.join_assist) and not (
+            args.country or args.countries or args.all_countries):
         args.all_countries = True  # vérification et résumé : tous les pays qui ont des groupes
     if args.all_countries:
         args.country_list = active_countries("share_groups")
@@ -1671,6 +1765,73 @@ def _chosen_accounts(accounts: list[account_pool.Account], args: argparse.Namesp
     return [acc for acc in accounts if not args.account or acc.profile in args.account]
 
 
+def _membership_entry(result: MembershipResult, target: fb.GroupTarget) -> dict[str, Any]:
+    """Entrée de share_membership.json pour une visite (vérification ou mode assisté)."""
+    entry: dict[str, Any] = {"status": result.status, "detail": result.detail, "url": target.group_url,
+                             "checked_at": datetime.now().astimezone().isoformat(timespec="seconds")}
+    if result.numeric_id:
+        entry["numeric_id"] = result.numeric_id
+    if result.restriction:
+        entry["restriction"] = {"reason": result.restriction.reason,
+                                "until": result.restriction.until.isoformat(timespec="seconds")}
+    return entry
+
+
+def join_assist(accounts: list[account_pool.Account], targets: dict[str, list[fb.GroupTarget]],
+                all_settings: dict[str, CountrySettings], args: argparse.Namespace) -> int:
+    """
+    --join-assist : pour chaque compte choisi, ouvre un par un (fenêtre visible) les groupes dont il n'est pas membre
+    confirmé ; l'UTILISATEUR rejoint le groupe lui-même (et répond aux questions des admins), puis ENTRÉE ; le script
+    revérifie alors l'adhésion en lecture seule et l'enregistre. Le script ne clique jamais : rejoindre reste humain
+    (règle de l'utilisateur, 24/11/2026 ; des demandes d'adhésion automatiques en masse = signal de spam).
+    """
+    if not sys.stdin.isatty():
+        print("[ERREUR] --join-assist demande un terminal (vous rejoignez chaque groupe, puis ENTRÉE).")
+        return 1
+    states, fallback = _pool_context(targets, all_settings)
+    try:
+        membership = account_pool.load_membership(MEMBERSHIP_FILE)
+    except account_pool.MembershipFileError as exc:
+        print(f"[ERREUR] {exc}")
+        return 1
+    for acc in _chosen_accounts(accounts, args):
+        memberships = account_pool.Memberships(states, fallback, membership)
+        todo = [(code, target, memberships.status(acc.profile, account_pool.group_key(code, target.group_id)))
+                for code, country_targets in targets.items() for target in country_targets]
+        todo = [item for item in todo if item[2] != account_pool.MEMBER]
+        if args.max_groups > 0:
+            todo = todo[: args.max_groups]
+        print(f"\n[INFO] Compte {acc.label} (profil {acc.profile}) : {len(todo)} groupe(s) sans adhésion confirmée")
+        if not todo:
+            continue
+        try:
+            with profile_session(acc.path, headless=False) as sb:
+                if not fb.is_logged_in(sb) and not fb.login_and_wait(sb):
+                    print("Abandon.")
+                    return 1
+                check_account_identity(acc.profile, sb)
+                for index, (code, target, status) in enumerate(todo, 1):
+                    key = account_pool.group_key(code, target.group_id)
+                    sb.goto(target.group_url)
+                    answer = _ask(f"\n  [{index}/{len(todo)}] {key} ({status}) : rejoignez le groupe dans Chrome "
+                                  f"(questions des admins comprises), puis ENTRÉE ; s = passer, q = arrêter : ")
+                    if answer == "q":
+                        print("[INFO] Arrêt demandé - ce qui est vérifié est enregistré.")
+                        return 0
+                    if answer == "s":
+                        continue
+                    result = membership_status(sb, target.group_url)  # lecture seule
+                    entry = _membership_entry(result, target)
+                    save_membership(acc.profile, {key: entry})
+                    membership = account_pool.merge_account_membership(membership, acc.profile, {key: entry})
+                    hint = "" if result.status == account_pool.MEMBER else (
+                        " - pas encore membre (demande en attente d'approbation ?) : revérifié par --check-membership")
+                    print(f"    -> {result.status} ({result.detail}){hint}")
+        except StopRun as exc:  # ProfileBusy, page de connexion, même compte Facebook qu'un autre profil
+            print(f"[STOP] {exc}")
+    return 0
+
+
 def check_memberships(accounts: list[account_pool.Account], targets: dict[str, list[fb.GroupTarget]],
                       all_settings: dict[str, CountrySettings], args: argparse.Namespace) -> int:
     """
@@ -1712,13 +1873,7 @@ def check_memberships(accounts: list[account_pool.Account], targets: dict[str, l
                         sb.sleep(random.uniform(args.delay_min, args.delay_max))
                     result = membership_status(sb, target.group_url)
                     key = account_pool.group_key(code, target.group_id)
-                    entry: dict[str, Any] = {"status": result.status, "detail": result.detail, "url": target.group_url,
-                                             "checked_at": datetime.now().astimezone().isoformat(timespec="seconds")}
-                    if result.numeric_id:
-                        entry["numeric_id"] = result.numeric_id
-                    if result.restriction:
-                        entry["restriction"] = {"reason": result.restriction.reason,
-                                                "until": result.restriction.until.isoformat(timespec="seconds")}
+                    entry = _membership_entry(result, target)
                     save_membership(acc.profile, {key: entry})
                     membership = account_pool.merge_account_membership(membership, acc.profile, {key: entry})
                     print(f"  [{index}/{len(visits)}] {key} -> {result.status} ({result.detail})")
@@ -2166,12 +2321,14 @@ def main() -> None:
         listed = ", ".join(acc.profile for acc in accounts) or "aucun"
         print(f"[ERREUR] --account : compte inconnu « {unknown[0]} » dans {Path(args.accounts_file).name} (comptes : {listed})")
         sys.exit(1)
-    if args.check_membership or args.membership_summary:
+    if args.check_membership or args.membership_summary or args.join_assist:
         targets = load_targets(selected, all_settings, args)[0]
         targets = {s.country.code: targets.get(s.country.code, []) for s in selected}
         try:
             if args.membership_summary:
                 exit_code = print_membership_summary(accounts, targets, all_settings, args)
+            elif args.join_assist:
+                exit_code = join_assist(accounts, targets, all_settings, args)
             else:
                 exit_code = check_memberships(accounts, targets, all_settings, args)
         except KeyboardInterrupt:

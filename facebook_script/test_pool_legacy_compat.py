@@ -191,13 +191,16 @@ class LegacyCompatTest(unittest.TestCase):
                     _check(self, name, golden_value(argv, real_run, accounts))
 
     def test_empty_shipped_accounts_file_keeps_legacy_output(self) -> None:
-        """Fichier de comptes livré (« accounts »: []) : sorties identiques à la référence."""
+        """Fichier de comptes tel que livré (« accounts »: []) : sorties identiques à la référence."""
         if UPDATE:
             self.skipTest("référence produite par les trois tests précédents")
-        shipped = Path(__file__).resolve().parent / "share_accounts.json"
-        for argv, name, real_run in GOLDEN_CASES:
-            with self.subTest(reference=name):
-                _check(self, name, golden_value(argv, real_run, shipped))
+        with tempfile.TemporaryDirectory() as tmp:  # jamais le vrai fichier : c'est la configuration de l'utilisateur
+            shipped = Path(tmp) / "share_accounts.json"
+            shipped.write_text(json.dumps({"_aide": ["..."], "defaults": {"max_groups_per_day": 0}, "accounts": []}),
+                               encoding="utf-8")
+            for argv, name, real_run in GOLDEN_CASES:
+                with self.subTest(reference=name):
+                    _check(self, name, golden_value(argv, real_run, shipped))
 
 
 if __name__ == "__main__":

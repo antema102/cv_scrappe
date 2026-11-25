@@ -376,6 +376,61 @@ class CheckMembershipsTest(PoolTestCase):
                          {"B": {"madagascar/g1": {"status": "member"}}, "A": {"madagascar/g1": {"status": "not_member"}}})
 
 
+class JoinAssistTest(CheckMembershipsTest):
+    """--join-assist : groupes non confirmés ouverts un par un ; l'utilisateur rejoint lui-même, puis ENTRÉE."""
+
+    def assist(self, answers: list[str], accounts: list[Any] | None = None, tty: bool = True, **kw: Any) -> tuple[int, str]:
+        self.opened: list[tuple[str, str]] = []
+        replies = iter(answers)
+        out = StringIO()
+        with mock.patch.object(FakeSB, "goto", lambda sb, url: self.opened.append((fb.PROFILE_DIR.name, url)), create=True), \
+                mock.patch.object(sys.stdin, "isatty", lambda: tty), \
+                mock.patch("builtins.input", lambda prompt="": next(replies)), \
+                mock.patch.object(pg, "_click", forbid), mock.patch.object(pg, "_press", forbid), \
+                mock.patch.object(pg, "_type_lines", forbid), mock.patch.object(pg, "fill_composer", forbid), \
+                mock.patch.object(fb, "login_and_wait", forbid), redirect_stdout(out):
+            code = pg.join_assist(accounts or [self.account("A", active=False)], self.targets, self.all_settings,
+                                  self.args(account=["A"], **kw))
+        return code, out.getvalue()
+
+    def test_opens_only_unconfirmed_groups(self) -> None:
+        self.membership_file.write_text(json.dumps({"A": {
+            "madagascar/g1": {"status": "member", "checked_at": ago(1)},
+            "madagascar/g2": {"status": "not_member", "checked_at": ago(1)}}}), encoding="utf-8")
+        with self.fake_status():
+            self.assist(["", "", ""])
+        self.assertEqual([url for _, url in self.opened], [f"https://www.facebook.com/groups/g{i}/" for i in (2, 3, 4)])
+
+    def test_rechecks_and_saves_after_enter(self) -> None:
+        with self.fake_status():
+            self.assist(["", "", "", ""])
+        saved = json.loads(self.membership_file.read_text(encoding="utf-8"))["A"]
+        self.assertEqual(sorted(saved), [f"madagascar/g{i}" for i in range(1, 5)])
+        self.assertEqual(saved["madagascar/g1"]["status"], "member")
+        self.assertEqual(len(self.visits), 4)  # une revérification (lecture seule) par groupe
+
+    def test_skip_and_quit(self) -> None:
+        with self.fake_status():
+            code, _ = self.assist(["s", "", "q"])
+        self.assertEqual(code, 0)
+        saved = json.loads(self.membership_file.read_text(encoding="utf-8"))["A"]
+        self.assertEqual(sorted(saved), ["madagascar/g2"])  # g1 passé, g3 : arrêt
+        self.assertEqual(len(self.opened), 3)  # g4 jamais ouvert
+        self.assertTrue(self.lock_free(self.profile("A")))
+
+    def test_requires_terminal(self) -> None:
+        with self.fake_status():
+            code, out = self.assist([], tty=False)
+        self.assertEqual(code, 1)
+        self.assertIn("terminal", out)
+        self.assertEqual(EVENTS, [])
+
+    def test_never_clicks(self) -> None:  # _click, _press, _type_lines, fill_composer, login_and_wait lèvent si appelés
+        with self.fake_status():
+            code, _ = self.assist(["", "", "", ""])
+        self.assertEqual(code, 0)
+
+
 class CliTest(PoolTestCase):
     def setUp(self) -> None:
         super().setUp()
@@ -416,8 +471,15 @@ class CliTest(PoolTestCase):
         self.assertEqual([c.code for c in self.parse("--check-membership").country_list], ["madagascar"])
         self.assertEqual([c.code for c in self.parse("--membership-summary").country_list], ["madagascar"])
 
+    def test_join_assist_options(self) -> None:
+        args = self.parse("--join-assist", "--account", "A")
+        self.assertEqual([c.code for c in args.country_list], ["madagascar"])  # tous les pays qui ont des groupes
+        with redirect_stderr(StringIO()), self.assertRaises(SystemExit):
+            self.parse("--join-assist")  # --account obligatoire
+
     def test_option_conflicts(self) -> None:
         for argv in (["--check-membership", "--preview"], ["--membership-summary", "--login"],
+                     ["--join-assist", "--account", "A", "--check-membership"],
                      ["--check-membership", "--membership-summary"], ["--account", "X", "--profile", "Y"]):
             with self.subTest(argv=argv), redirect_stderr(StringIO()), self.assertRaises(SystemExit):
                 self.parse(*argv)
@@ -448,6 +510,170 @@ class CliTest(PoolTestCase):
         self.assertIn("aucun compte", out)
 
 
+UPLOAD_RED_TEXT = "Impossible de télécharger vos fichiers :"  # sous « Publier », dans la fenêtre de rédaction
+UPLOAD_DIALOG = ("Impossible d’importer les photos\nDésolé, aucune nouvelle photo n’a pu être téléchargée. "
+                 "Veuillez réessayer.\nFermer")  # boîte de dialogue vue le 25/11/2026
+
+
+class PhotoUploadTest(unittest.TestCase):
+    """Affiches refusées par Facebook (« Impossible de télécharger vos fichiers », 25/11/2026)."""
+
+    def publish(self, before: list[str], after: list[str], open_after: bool = True) -> tuple[Any, list[str]]:
+        events: list[str] = []
+
+        def run_js(sb: Any, js: str, args: dict | None = None) -> Any:
+            if js is pg.NOTICES_JS:
+                clicked = "click" in events
+                return {"open": open_after if clicked else True, "notices": after if clicked else before}
+            if js is pg.PUBLISH_JS:
+                return {"open": True, "x": 10, "y": 20}
+            if js is pg.PENDING_COUNT_JS:
+                return {"count": 0}
+            raise AssertionError("script inattendu")
+
+        with mock.patch.object(fb, "_run_js", run_js), \
+                mock.patch.object(pg, "_click", lambda sb, x, y: events.append("click")), \
+                mock.patch.object(pg, "save_diagnostics", lambda sb, url, reason: events.append(f"diag:{reason}")), \
+                mock.patch.object(pg, "discard_composer", lambda sb: events.append("discard")), \
+                mock.patch.object(pg, "NOTICE_WAIT", 0), mock.patch.object(pg, "PUBLISH_IMAGES_TIMEOUT", 0.2), \
+                mock.patch.object(pg, "IMAGE_UPLOAD_TIMEOUT", 0.2):
+            try:
+                result: Any = pg.publish(FakeSB(), "https://www.facebook.com/groups/g1/", True, with_images=True,
+                                         on_publishing=lambda: events.append("publishing"))
+            except Exception as exc:  # noqa: BLE001 - le test regarde l'exception levée
+                result = exc
+        return result, events
+
+    def test_upload_error_before_click_nothing_published(self) -> None:
+        result, events = self.publish([UPLOAD_RED_TEXT], [])
+        self.assertIsInstance(result, pg.PhotoUploadFailed)
+        self.assertNotIn("click", events)  # jamais « Publier » avec des affiches refusées
+        self.assertNotIn("publishing", events)
+
+    def test_upload_error_after_click_composer_still_open(self) -> None:
+        result, events = self.publish([], [UPLOAD_DIALOG, UPLOAD_RED_TEXT])
+        self.assertIsInstance(result, pg.PhotoUploadFailed)
+        self.assertEqual(events[:2], ["publishing", "click"])
+
+    def test_upload_error_is_not_a_block(self) -> None:  # ni StopRun ni arrêt du profil
+        result, _ = self.publish([], [UPLOAD_DIALOG])
+        self.assertNotIsInstance(result, pg.StopRun)
+
+    def test_block_after_click_captured_before_discard(self) -> None:
+        result, events = self.publish([], ["Vous ne pouvez pas publier pour le moment. Réessayez plus tard."])
+        self.assertIsInstance(result, pg.StopRun)
+        self.assertLess(events.index("diag:block"), events.index("discard"))  # capture AVANT de vider la fenêtre
+
+    def test_question_after_published_post_is_not_a_block(self) -> None:
+        """
+        Bug du 25/11/2026 (offresdemploimadagascar, 14 h 03 et 14 h 12) : publication faite (fenêtre de rédaction
+        fermée), puis une question de Facebook contenant un mot de BLOCK_RE -> StopRun, publication jamais enregistrée,
+        mêmes offres republiées au lancement suivant.
+        """
+        question = "Règles du groupe\nPas de spam ni de publicité. Acceptez-vous de respecter ces règles ?\nOui"
+        result, events = self.publish([], [question], open_after=False)
+        self.assertEqual(result, "posted")  # publiée : enregistrée, offres marquées
+        self.assertIn("diag:block", events)  # message et capture gardés pour vérification
+        self.assertNotIn("discard", events)
+
+    def test_upload_error_patterns(self) -> None:
+        for text in (UPLOAD_RED_TEXT, UPLOAD_DIALOG, "Couldn't upload your files", "Unable to upload photos"):
+            self.assertTrue(pg.UPLOAD_ERROR_RE.search(share._fold(text)), text)
+        for text in ("Date limite : 30/11", "Votre publication est en attente d'approbation"):
+            self.assertFalse(pg.UPLOAD_ERROR_RE.search(share._fold(text)), text)
+
+    def post(self, outcomes: list[Any]) -> tuple[str, list[Any]]:
+        calls: list[Any] = []
+
+        def fake_publish(sb: Any, url: str, auto: bool, with_images: bool = False, on_publishing: Any = None) -> str:
+            calls.append(("publish", with_images))
+            outcome = outcomes.pop(0)
+            if isinstance(outcome, BaseException):
+                raise outcome
+            return outcome
+
+        with mock.patch.object(pg, "open_composer", lambda sb, url, on_group_id=None: calls.append(("open", on_group_id)) or "open"), \
+                mock.patch.object(pg, "set_anonymous", lambda sb: "on"), \
+                mock.patch.object(pg, "fill_composer", lambda sb, text: True), \
+                mock.patch.object(pg, "attach_images", lambda sb, images: calls.append(("attach", len(images))) or len(images)), \
+                mock.patch.object(pg, "publish", fake_publish), \
+                mock.patch.object(pg, "discard_composer", lambda sb: calls.append("discard")), \
+                mock.patch.object(pg, "save_diagnostics", lambda sb, url, reason: calls.append(f"diag:{reason}")), \
+                redirect_stdout(StringIO()):
+            status = pg.post_to_group(FakeSB(), "https://www.facebook.com/groups/g1/", "texte", True,
+                                      [Path("a.png"), Path("b.png")], on_group_id="id-callback")
+        return status, calls
+
+    def test_post_to_group_retries_once_without_images(self) -> None:
+        status, calls = self.post([pg.PhotoUploadFailed("refusées"), "posted"])
+        self.assertEqual(status, "posted")
+        self.assertEqual([c for c in calls if isinstance(c, tuple)],
+                         [("open", "id-callback"), ("attach", 2), ("publish", True), ("open", None), ("publish", False)])
+        self.assertIn("discard", calls)
+        self.assertIn("diag:photo_upload", calls)
+
+    def test_retry_failure_is_reported_not_looped(self) -> None:
+        status, calls = self.post([pg.PhotoUploadFailed("refusées"), pg.PhotoUploadFailed("encore")])
+        self.assertEqual(status, "upload_failed")
+        self.assertEqual(sum(1 for c in calls if c == ("open", None)), 1)  # un seul nouvel essai
+
+
+class SameGroupTwoAddressesTest(unittest.TestCase):
+    """
+    Bug du 25/11/2026 : recrutement.emploi.madagascar (ligne 7) et 414326263961327 (ligne 8) sont le même groupe.
+    L'adresse 8 publie à 13 h 42 ; au lancement suivant, la ligne 7 devient la ligne « gardée » (id numérique connu) et
+    ses protections (20 h, offres déjà publiées, blocage) étaient lues sur SA ligne, vide : republication tentée à 14 h 07.
+    """
+
+    A, B = "recrutement.emploi.madagascar", "414326263961327"
+
+    def plan(self, last_post_hours_ago: float, blocked_on_b: bool = False) -> tuple[list[Any], set[str]]:
+        offers = json.loads((DATA_DIR / "offers.json").read_text(encoding="utf-8"))
+        offers = [o for o in offers if o["companyCountry"] == "Madagascar"]
+        today = pg.date.today()
+        now = pg.datetime.now().astimezone()
+        at = (now - pg.timedelta(hours=last_post_hours_ago)).isoformat(timespec="seconds")
+        first_40 = share.select_offers(offers, {}, set(), 1, today, False)[0][:40]
+        state: dict[str, Any] = {
+            self.A: {"url": f"https://www.facebook.com/groups/{self.A}/", "posted": {}, "numeric_id": self.B,
+                     "history": [{"at": at, "status": "duplicate_group"}]},
+            self.B: {"url": f"https://www.facebook.com/groups/{self.B}/", "last_post_at": at, "numeric_id": self.B,
+                     "posted": {o["id"]: pg._posted_entry(o, share.DEFAULT_SITE_URL, at) for o in first_40},
+                     "history": [{"at": at, "status": "pending"}]},
+        }
+        if blocked_on_b:
+            state[self.B]["blocked"] = {"reason": "suspended", "until": (now + pg.timedelta(days=2)).isoformat(),
+                                        "since": at, "message": "suspendu"}
+        targets = [fb.GroupTarget(self.A, f"https://www.facebook.com/groups/{self.A}/"),
+                   fb.GroupTarget(self.B, f"https://www.facebook.com/groups/{self.B}/")]
+        claims, _ = pg.build_claims({"madagascar": targets}, {"madagascar": state})
+        country = COUNTRIES["madagascar"]
+        settings = pg.CountrySettings(country=country, profile=Path("p"), api_name="Madagascar", per_post=40,
+                                      min_offers=1, max_groups_per_day=0, groups_file=Path("g.txt"),
+                                      state_path=Path("s.json"))
+        args = argparse.Namespace(excluded_owners_file=str(DATA_DIR / "excluded_owners.txt"), min_days_left=1,
+                                  min_hours=20, max_groups=0, retry_blocked=False, single_link=False,
+                                  site_url=share.DEFAULT_SITE_URL)
+        with redirect_stdout(StringIO()):
+            jobs = pg.plan(targets, offers, state, settings, args, today, claims)
+        return jobs, {o["id"] for o in first_40}
+
+    def test_kept_line_flips_but_20h_rule_still_applies(self) -> None:
+        jobs, _ = self.plan(last_post_hours_ago=1)
+        self.assertEqual([job.target.group_id for job in jobs], [])  # publié il y a 1 h sous l'autre adresse
+
+    def test_offers_posted_under_other_address_never_reposted(self) -> None:
+        jobs, already = self.plan(last_post_hours_ago=30)
+        self.assertEqual([job.target.group_id for job in jobs], [self.A])
+        self.assertFalse({o["id"] for o in jobs[0].offers} & already)
+        self.assertEqual(len(jobs[0].offers), 5)  # 45 offres - 40 déjà publiées dans ce groupe
+
+    def test_block_on_other_address_applies(self) -> None:
+        jobs, _ = self.plan(last_post_hours_ago=30, blocked_on_b=True)
+        self.assertEqual(jobs, [])
+
+
+DATA_DIR = Path(__file__).resolve().parent / "test_data" / "pool_legacy"
 DATA = Path(__file__).resolve().parent / "test_data" / "pool_legacy"
 POOL_COUNTRIES = ("madagascar", "cameroun", "ghana")
 EN_HEADERS = ("JOB OFFERS", "job openings", "Looking for a job", "Now hiring")

@@ -34,8 +34,13 @@ class AccountsTest(unittest.TestCase):
     def test_missing_file_gives_empty_list(self) -> None:
         self.assertEqual(ap.load_accounts(self.root / "absent.json", self.root), [])
 
-    def test_shipped_file_is_empty_and_pool_off(self) -> None:
-        accounts = ap.load_accounts(SCRIPT_DIR / "share_accounts.json", self.root)
+    def test_real_accounts_file_is_valid(self) -> None:
+        """Le vrai share_accounts.json (configuration de l'utilisateur, quel que soit son contenu) se lit sans erreur."""
+        ap.load_accounts(SCRIPT_DIR / "share_accounts.json", self.root)
+
+    def test_empty_accounts_list_pool_off(self) -> None:  # forme du fichier livré
+        self.write({"_aide": ["..."], "defaults": {"max_groups_per_day": 0}, "accounts": []})
+        accounts = ap.load_accounts(self.file, self.root)
         self.assertEqual(accounts, [])
         self.assertFalse(ap.pool_enabled(accounts))
 
