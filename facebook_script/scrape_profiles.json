@@ -15,18 +15,20 @@
     "Rien n'est jamais créé, copié ni supprimé à partir de ce fichier : seulement lu."
   ],
   "_transition": [
-    "État au 26/11/2026 : tous les pays sur my_custom_profile_facebook, donc l'un après l'autre (comme avant).",
-    "EXCEPTION TEMPORAIRE voulue : Tunisie, Madagascar et Maurice partagent le profil du Cameroun (même compte",
-    "  Facebook), jamais en même temps, jusqu'à la création de leur compte dédié.",
+    "État au 26/11/2026 au soir : madagascar sur son propre profil (my_custom_profile_facebook_madagascar, compte",
+    "  dédié, vérifié avec profile_inventory.py --live : session connectée, membre des 6 groupes scrapés) ; il tourne",
+    "  en parallèle des autres pays.",
+    "EXCEPTION TEMPORAIRE voulue : Cameroun, Maurice, Sénégal et Tunisie partagent my_custom_profile_facebook (même",
+    "  compte Facebook), l'un après l'autre, jusqu'à la création de leur compte dédié.",
     "Bascules prévues, une ligne à changer chacune, après vérification (profile_inventory.py --live) :",
-    "  senegal    -> my_custom_profile_facebook_share_10  après reconnexion manuelle sur le serveur",
-    "  madagascar -> my_custom_profile_facebook_madagascar  nouveau compte (prioritaire : pays le plus long)",
     "  maurice    -> my_custom_profile_facebook_maurice     nouveau compte",
-    "  tunisie    -> my_custom_profile_facebook_tunisie     nouveau compte"
+    "  tunisie    -> my_custom_profile_facebook_tunisie     nouveau compte",
+    "  senegal    -> profil dédié à décider (my_custom_profile_facebook_share_10 reste un compte de publication)",
+    "Fait le 26/11/2026 : madagascar -> my_custom_profile_facebook_madagascar (nouveau compte)."
   ],
   "countries": {
     "cameroun": "my_custom_profile_facebook",
-    "madagascar": "my_custom_profile_facebook",
+    "madagascar": "my_custom_profile_facebook_madagascar",
     "maurice": "my_custom_profile_facebook",
     "senegal": "my_custom_profile_facebook",
     "tunisie": "my_custom_profile_facebook"
