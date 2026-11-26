@@ -889,8 +889,21 @@ def _get_ocr_engine() -> Any:
             print("[WARN] OCR indisponible (pip install rapidocr onnxruntime) : emails/téléphones des images non lus")
             return None
         # "error" : ni journal de chargement des modèles ni "The text detection result is empty" par photo sans texte
-        _ocr_engine = RapidOCR(params={"Global.log_level": "error"})
+        params: dict[str, Any] = {"Global.log_level": "error"}
+        threads = ocr_threads()
+        if threads:  # run_daily.py : plusieurs pays en parallèle se partagent les cœurs (défaut onnxruntime : tous)
+            params["EngineConfig.onnxruntime.intra_op_num_threads"] = threads
+            params["EngineConfig.onnxruntime.inter_op_num_threads"] = 1
+        _ocr_engine = RapidOCR(params=params)
     return _ocr_engine
+
+
+def ocr_threads() -> int:
+    """Threads de calcul de l'OCR (variable FB_OCR_THREADS, posée par run_daily.py) ; 0 = tous les cœurs."""
+    try:
+        return max(0, int(os.getenv("FB_OCR_THREADS", "0")))
+    except ValueError:
+        return 0
 
 
 def image_on_disk(image: dict[str, Any]) -> bool:
@@ -1311,6 +1324,15 @@ def _session_active(sb: SB) -> bool:
     if not any(getattr(cookie, "name", "") == "c_user" for cookie in cookies):
         return False
     return not _is_auth_wall(_page_state(sb))
+
+
+def facebook_user_id(sb: SB) -> str:
+    """Identifiant du compte Facebook connecté (cookie c_user, comme _session_active), "" si absent ou illisible."""
+    try:
+        cookies = sb.cdp.get_all_cookies()
+    except Exception:
+        return ""
+    return next((str(getattr(c, "value", "")) for c in cookies if getattr(c, "name", "") == "c_user"), "")
 
 
 def is_logged_in(sb: SB) -> bool:

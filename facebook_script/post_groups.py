@@ -121,6 +121,7 @@ from typing import Any
 
 import account_pool
 import fb_dates
+import scrape_profiles
 import scraper as fb
 import share
 import visuals
@@ -241,6 +242,7 @@ ACCOUNT_LIMIT_RE = re.compile(
 ACCOUNT_BLOCK_HOURS = 24  # aucun lancement pendant 24 h : celui du lendemain 8 h est sauté (repris le surlendemain)
 ACCOUNT_BLOCK_FILE = share.OUTPUT_DIR / "account_block.json"  # {profil: {until, since, message}}
 ACCOUNT_IDS_FILE = share.OUTPUT_DIR / "share_account_ids.json"  # {profil: identifiant Facebook (cookie c_user)}
+SCRAPE_ACCOUNTS_FILE = scrape_profiles.ACCOUNTS_FILE  # comptes du scraping (pages.py) : jamais utilisés pour publier
 ACCOUNTS_FILE = fb.SCRIPT_DIR / "share_accounts.json"  # pool de comptes (account_pool.py) ; vide = fonctionnement actuel
 MEMBERSHIP_FILE = share.OUTPUT_DIR / "share_membership.json"  # adhésions vues par --check-membership
 MEMBERSHIP_LOCK = share.OUTPUT_DIR / ".share_membership.lock"  # écriture de MEMBERSHIP_FILE (relire, fusionner, écrire)
@@ -1648,7 +1650,11 @@ def profile_session(profile_dir: Path, headless: bool) -> Iterator[SB]:
     Chrome sur un profil de partage, sous verrou (spec §5.7) : verrou pris AVANT toute action sur le profil (fermeture
     des Chrome orphelins comprise), tenu pendant toute l'utilisation, relâché APRÈS la fermeture de Chrome — aussi sur
     exception. Profil déjà tenu (autre publication, vérification, --login) -> ProfileBusy, jamais d'attente.
+    Profil du scraping (scrape_profiles.json, my_custom_profile_facebook) -> StopRun : jamais ouvert pour publier.
     """
+    if scrape_profiles.is_scraping_profile(profile_dir):
+        raise StopRun(f"profil {profile_dir.name} réservé au scraping (scrape_profiles.json) : jamais ouvert par "
+                      f"post_groups.py - retirez-le de share_accounts.json / share_countries.json")
     with ExitStack() as stack:
         try:
             stack.enter_context(fb.run_lock(profile_lock_path(profile_dir)))
@@ -1687,6 +1693,10 @@ def check_account_identity(profile: str, sb: SB) -> None:
     if other:
         raise StopRun(f"même compte Facebook que le profil {other} : un compte Facebook = un seul profil (dossier de "
                       f"profil copié ?) - profil {profile} arrêté")
+    scraping = scrape_profiles.scraping_account_owner(user_id, profile, SCRAPE_ACCOUNTS_FILE)
+    if scraping:
+        raise StopRun(f"compte Facebook {user_id} enregistré pour le scraping (profil {scraping}, scrape_accounts.json) "
+                      f": un compte ne publie et ne scrape jamais en même temps - profil {profile} arrêté")
     if ids.get(profile) != user_id:
         ids[profile] = user_id
         share._write_json_atomic(ACCOUNT_IDS_FILE, ids)
@@ -2077,6 +2087,8 @@ def active_accounts(accounts: list[account_pool.Account], all_settings: dict[str
         paused = _account_block_until(acc.profile)
         if not acc.active:
             inactive[acc.profile] = "désactivé"
+        elif scrape_profiles.is_scraping_profile(acc.profile):  # ses groupes vont aux autres membres, jamais perdus
+            inactive[acc.profile] = "profil du scraping (scrape_profiles.json) : à retirer de share_accounts.json"
         elif args.account and acc.profile not in args.account:
             inactive[acc.profile] = "non choisi (--account)"
         elif not acc.path.exists():
