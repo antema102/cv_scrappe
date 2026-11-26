@@ -6,14 +6,15 @@ module.exports = {
       name: "daily-scraper",
       cwd: __dirname,
       script: "python",
-      args: "run_daily.py --at 19:00",  // chaque jour à 19 h (heure de Madagascar, TZ ci-dessous), même après un redémarrage
+      // chaque jour à 19 h heure de Madagascar (--tz), même après un redémarrage. Pas de variable TZ : sous Windows,
+      // Python ne comprend pas « Indian/Antananarivo » et se met en UTC (19 h devenait 22 h à Madagascar)
+      args: "run_daily.py --at 19:00 --tz Indian/Antananarivo",
       interpreter: "none",
       autorestart: true,
       watch: false,
       env: {
         PYTHONUNBUFFERED: "1",
         PYTHONIOENCODING: "utf-8",
-        TZ: "Indian/Antananarivo",
       },
       out_file: "logs/daily-scraper.out.log",
       error_file: "logs/daily-scraper.err.log",

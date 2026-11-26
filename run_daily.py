@@ -27,8 +27,12 @@ a expiré, il s'arrête (pas d'attente de connexion manuelle) — reconnecter le
 puis laisser le cycle suivant reprendre.
 
 Planification :
-    - Avec --at HH:MM (PM2 : --at 19:00, TZ=Indian/Antananarivo) : chaque jour à cette heure, même après un
-      redémarrage (un cycle de plus de 24 h saute un jour au lieu de décaler l'horaire).
+    - Avec --at HH:MM (PM2 : --at 19:00) : chaque jour à cette heure, même après un redémarrage (un cycle de
+      plus de 24 h saute un jour au lieu de décaler l'horaire). Lancement manqué depuis moins de
+      MISSED_RUN_GRACE (serveur ou PM2 arrêté à l'heure prévue, cycle interrompu) : rattrapé au démarrage.
+    - Heures dans le fuseau --tz (défaut Indian/Antananarivo, heure de Madagascar), quel que soit celui du
+      serveur (Astrakhan, UTC+4). Ne jamais passer par la variable d'environnement TZ : sous Windows, Python
+      ne comprend pas un nom IANA et se met en UTC (bug du 25/11/2026 : « 19:00 » attendu à 22 h à Madagascar).
     - Premier lancement à minuit (ou tout de suite avec --now).
     - Le lancement suivant est prévu 24 h après le début du cycle.
     - Si le cycle dure plus de 24 h, le lancement suivant a lieu dès la fin du
@@ -44,6 +48,7 @@ Utilisation :
     python run_daily.py --now    # premier cycle immédiatement
     python run_daily.py --once   # un seul cycle puis quitte (test)
     python run_daily.py --stall-minutes 45
+    python run_daily.py --at 19:00 --tz Indian/Antananarivo
 """
 
 from __future__ import annotations
@@ -56,10 +61,11 @@ import sys
 import threading
 import time
 from contextlib import suppress
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone, tzinfo
 from datetime import time as dtime
 from pathlib import Path
 from typing import BinaryIO
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import psutil
 
@@ -70,6 +76,11 @@ from countries import active_countries  # noqa: E402
 FACEBOOK_PROFILE = PROJECT_ROOT / "my_custom_profile_facebook"
 SCHEDULE_FILE = PROJECT_ROOT / "downloaded_files" / "daily_schedule.json"
 INTERVAL = timedelta(hours=24)
+# Lancement --at manqué depuis moins longtemps (serveur redémarré, cycle interrompu) : rattrapé au démarrage
+MISSED_RUN_GRACE = timedelta(hours=12)
+DEFAULT_TZ = "Indian/Antananarivo"
+# Fuseaux sans heure d'été utilisables sans le paquet tzdata (Windows n'a pas de base IANA pour zoneinfo)
+FIXED_ZONES = {"Indian/Antananarivo": timedelta(hours=3), "UTC": timedelta(0)}
 # Phase silencieuse la plus longue d'un lancement sain : un appel IA (180 s x 4 essais + attentes)
 DEFAULT_STALL_MINUTES = 30
 STALL_RETRIES = 2
@@ -90,9 +101,27 @@ def steps() -> list[tuple[str, list[str], Path | None]]:
 _output_lock = threading.Lock()
 
 
+def schedule_zone(name: str) -> tzinfo:
+    """Fuseau --tz : base IANA si disponible (tzdata), sinon FIXED_ZONES ; ValueError si inconnu."""
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        if name in FIXED_ZONES:
+            return timezone(FIXED_ZONES[name], name)
+        raise ValueError(f"fuseau inconnu « {name} » (sous Windows : pip install tzdata, ou {', '.join(FIXED_ZONES)})")
+
+
+ZONE: tzinfo = schedule_zone(DEFAULT_TZ)
+
+
+def now() -> datetime:
+    """Heure actuelle dans le fuseau --tz (jamais l'heure locale du serveur ni la variable TZ)."""
+    return datetime.now(ZONE)
+
+
 def log(message: str) -> None:
     with _output_lock:
-        print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] {message}", flush=True)
+        print(f"[{now():%Y-%m-%d %H:%M:%S}] {message}", flush=True)
 
 
 def _forward(pipe: BinaryIO, sink: BinaryIO, last_output: list[float]) -> None:
@@ -174,7 +203,7 @@ def _run_watched(cmd: list[str], profile_dir: Path | None, stall_seconds: float)
 
 
 def next_midnight() -> datetime:
-    return datetime.combine(datetime.now().date() + timedelta(days=1), datetime.min.time())
+    return datetime.combine(now().date() + timedelta(days=1), datetime.min.time(), tzinfo=ZONE)
 
 
 def parse_at(value: str) -> dtime:
@@ -187,16 +216,18 @@ def parse_at(value: str) -> dtime:
 
 def next_at(at: dtime, after: datetime) -> datetime:
     """Prochain HH:MM strictement après `after` (aujourd'hui s'il n'est pas passé, sinon demain)."""
-    candidate = datetime.combine(after.date(), at)
+    candidate = datetime.combine(after.date(), at, tzinfo=after.tzinfo)
     return candidate if candidate > after else candidate + timedelta(days=1)
 
 
 def load_next_run() -> datetime | None:
     try:
         data = json.loads(SCHEDULE_FILE.read_text(encoding="utf-8"))
-        return datetime.fromisoformat(data["next_run"])
+        planned = datetime.fromisoformat(data["next_run"])
     except (OSError, ValueError, KeyError):
         return None
+    # Ancien format sans fuseau : heure du fuseau --tz
+    return planned.replace(tzinfo=ZONE) if planned.tzinfo is None else planned.astimezone(ZONE)
 
 
 def save_next_run(next_run: datetime) -> None:
@@ -208,8 +239,10 @@ def save_next_run(next_run: datetime) -> None:
 
 
 def wait_until(target: datetime) -> None:
-    log(f"Prochain lancement : {target:%Y-%m-%d %H:%M:%S}")
-    while (remaining := (target - datetime.now()).total_seconds()) > 0:
+    server = target.astimezone()  # heure du serveur, pour comparer avec les horodatages de PM2
+    log(f"Prochain lancement : {target:%Y-%m-%d %H:%M:%S} ({target.tzname()}) "
+        f"= {server:%Y-%m-%d %H:%M:%S} heure du serveur")
+    while (remaining := (target - now()).total_seconds()) > 0:
         time.sleep(min(remaining, 60))
 
 
@@ -239,8 +272,10 @@ def main() -> int:
     parser.add_argument("--now", action="store_true", help="lancer le premier cycle immédiatement")
     parser.add_argument("--once", action="store_true", help="un seul cycle immédiat puis quitter")
     parser.add_argument("--at", metavar="HH:MM", default=None,
-                        help="lancement chaque jour à cette heure (heure locale du serveur), même après un redémarrage "
+                        help="lancement chaque jour à cette heure (fuseau --tz), même après un redémarrage "
                              "(défaut : minuit au premier lancement, puis 24 h après le début de chaque cycle)")
+    parser.add_argument("--tz", default=DEFAULT_TZ,
+                        help=f"fuseau des heures (--at, minuit, journal), défaut {DEFAULT_TZ} (heure de Madagascar)")
     parser.add_argument(
         "--stall-minutes", type=float, default=DEFAULT_STALL_MINUTES,
         help=f"arrête et relance une étape qui n'écrit plus rien depuis N minutes (défaut {DEFAULT_STALL_MINUTES})",
@@ -251,24 +286,36 @@ def main() -> int:
         at = parse_at(args.at) if args.at else None
     except ValueError as exc:
         parser.error(f"--at : {exc}")
+    global ZONE
+    try:
+        ZONE = schedule_zone(args.tz)
+    except ValueError as exc:
+        parser.error(f"--tz : {exc}")
 
     if args.once:
         run_cycle(stall_seconds)
         return 0
 
     if args.now:
-        next_run = datetime.now()
+        next_run = now()
     elif at:
-        next_run = next_at(at, datetime.now())  # heure fixe : ni minuit ni l'ancien horaire enregistré
+        current = now()
+        planned = load_next_run()
+        if planned is not None and current - MISSED_RUN_GRACE < planned <= current:
+            # Heure prévue passée sans cycle terminé (serveur ou PM2 arrêté, cycle interrompu) : rattrapage
+            log(f"Lancement prévu à {planned:%Y-%m-%d %H:%M} manqué : rattrapage immédiat")
+            next_run = current
+        else:
+            next_run = next_at(at, current)  # heure fixe : ni minuit ni un ancien horaire enregistré
     else:
         next_run = load_next_run() or next_midnight()
     save_next_run(next_run)
 
     while True:
         wait_until(next_run)
-        cycle_start = datetime.now()
+        cycle_start = now()
         run_cycle(stall_seconds)
-        cycle_end = datetime.now()
+        cycle_end = now()
 
         if at:
             # Tous les jours à la même heure : prochain HH:MM après la fin du cycle (un cycle de plus de 24 h saute
