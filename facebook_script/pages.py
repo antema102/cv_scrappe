@@ -73,7 +73,7 @@ import re
 import sys
 import time
 import traceback
-from contextlib import redirect_stdout, suppress
+from contextlib import ExitStack, redirect_stdout, suppress
 from io import StringIO
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
@@ -82,6 +82,7 @@ from typing import Any
 from urllib.parse import parse_qs, parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 import ai_checks
+import scrape_profiles
 import scraper as fb
 from ai_extractor import (
     COMPANY_TYPES, DEFAULT_BASE_URL, DEFAULT_MODEL, OFFER_TYPES, PROMPT_VERSION, AiError, AiExtractor, load_dotenv, mask_secret,
@@ -1604,10 +1605,26 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--dump-html", action="store_true", help="HTML brut de chaque publication dans downloaded_files/facebook_html/")
     parser.add_argument("--login", action="store_true", help="Propose la connexion manuelle même si une session est détectée")
+    parser.add_argument(
+        "--login-only", action="store_true",
+        help="Ouvre seulement Chrome sur le profil du pays : vérifie (ou connecte) la session, enregistre le compte "
+             "Facebook du profil, puis s'arrête (ni scraping, ni IA, ni envoi)",
+    )
     parser.add_argument("--headless", action="store_true", help="Sans fenêtre (profil déjà connecté)")
+    parser.add_argument(
+        "--profile", type=_profile_arg, default=None, metavar="DOSSIER",
+        help="Profil Chrome du scraping, à la racine du projet (défaut : facebook_script/scrape_profiles.json, "
+             f"sinon {scrape_profiles.DEFAULT_PROFILE}) ; un seul pays",
+    )
+    parser.add_argument(
+        "--accept-account", action="store_true",
+        help="Accepte que le compte Facebook connecté dans le profil ait changé depuis le dernier lancement",
+    )
     args = parser.parse_args()
     if sum(bool(x) for x in (args.country, args.countries, args.all_countries)) > 1:
         parser.error("--country, --countries et --all-countries s'excluent")
+    if args.login_only and (args.push_only or args.skip_scrape):
+        parser.error("--login-only ouvre Chrome : incompatible avec --push-only / --skip-scrape")
     if args.all_countries:
         args.country_list = active_countries("pages", "groups")
         if not args.country_list:
@@ -1616,7 +1633,16 @@ def parse_args() -> argparse.Namespace:
         args.country_list = args.countries or [args.country or COUNTRIES["madagascar"]]
     if len(args.country_list) > 1 and (args.url or args.group_url or args.pages_file or args.groups_file):
         parser.error("--url / --group-url / --pages-file / --groups-file : un seul pays à la fois")
+    if len(args.country_list) > 1 and args.profile:
+        parser.error("--profile : un seul pays à la fois (un profil = le compte Facebook d'un pays)")
     return args
+
+
+def _profile_arg(value: str) -> str:
+    try:
+        return scrape_profiles.check_profile_name(value)
+    except scrape_profiles.ProfileConfigError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from None
 
 
 def _country_arg(value: str) -> CountryProfile:
@@ -1676,9 +1702,108 @@ def group_scrape_options(args: argparse.Namespace) -> fb.ScrapeOptions:
     )
 
 
+def scrape_profile(args: argparse.Namespace, country: CountryProfile, mapping: dict[str, str]) -> Path:
+    """Profil Chrome du scraping de ce pays : --profile, sinon scrape_profiles.json, sinon le profil historique."""
+    return scrape_profiles.profile_dir(args.profile) if args.profile else scrape_profiles.profile_for(country, mapping)
+
+
+def _waiting_lock(path: Path, timeout: float = 60.0) -> ExitStack:
+    """Verrou court (lecture-écriture d'un petit fichier partagé entre pays) : attend au lieu d'échouer."""
+    deadline = time.monotonic() + timeout
+    while True:
+        stack = ExitStack()
+        try:
+            stack.enter_context(fb.run_lock(path))
+            return stack
+        except fb.RunAlreadyActive:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(0.2)
+
+
+def _publishing_conflict(user_id: str, profile: str) -> str:
+    """
+    Profil de post_groups.py encore déclaré dans ses réglages et connecté au même compte Facebook, sinon "" (un compte
+    ne publie et ne scrape jamais en même temps). Les anciens profils de publication retirés des réglages sont signalés.
+    """
+    try:
+        share_ids = json.loads(scrape_profiles.SHARE_ACCOUNT_IDS_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        share_ids = {}
+    publishing = scrape_profiles.share_profiles()
+    for owner in scrape_profiles.share_account_owners(share_ids if isinstance(share_ids, dict) else {}, user_id):
+        if owner.casefold() in publishing:
+            return owner
+        if owner.casefold() == profile.casefold():
+            print(f"[INFO] Profil {profile} : ancien compte de publication, retiré des réglages de post_groups.py")
+        else:
+            print(f"[INFO] Le compte Facebook {user_id} a publié avec le profil {owner}, retiré des réglages de "
+                  f"post_groups.py")
+    return ""
+
+
+def bind_profile_account(sb: SB, country: CountryProfile, accept_change: bool) -> bool:
+    """
+    Compte Facebook connecté dans le profil (cookie c_user) : faux (pays arrêté, rien enregistré) s'il publie encore
+    (profil de post_groups.py) ; sinon enregistré dans scrape_accounts.json, faux s'il est déjà celui d'un autre profil
+    de scraping ou si le compte du profil a changé.
+    """
+    profile = fb.PROFILE_DIR.name
+    user_id = fb.facebook_user_id(sb)
+    if not user_id:
+        print(f"[WARN] Compte Facebook du profil {profile} illisible (cookie c_user) : association au pays non vérifiée")
+        return True
+    owner = _publishing_conflict(user_id, profile)
+    if owner:  # vérifié AVANT d'enregistrer : sinon post_groups.py refuserait ensuite ce compte de publication
+        print(f"[ERREUR] Le compte Facebook {user_id} du profil {profile} publie encore dans les groupes "
+              f"(post_groups.py, profil {owner}) : scraping de {country.name} arrêté - un compte ne publie et ne "
+              f"scrape jamais en même temps")
+        return False
+    path = pages_dir() / scrape_profiles.ACCOUNTS_FILE_NAME
+    try:
+        with _waiting_lock(path.with_name(".scrape_accounts.lock")):  # plusieurs pays en parallèle (run_daily.py)
+            try:
+                data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+            except ValueError:
+                print(f"[ERREUR] {path} illisible : corrigez-le ou supprimez-le (il sera recréé)")
+                return False
+            stamp = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+            updated = scrape_profiles.bind_account(data, profile, country.code, user_id, accept_change, stamp)
+            fb._write_json_atomic(path, updated)
+    except scrape_profiles.AccountMismatch as exc:
+        print(f"[ERREUR] {exc} - scraping de {country.name} arrêté")
+        return False
+    except fb.RunAlreadyActive:  # verrou tenu quelques millisecondes d'habitude : jamais confondu avec .run_<pays>.lock
+        print(f"[ERREUR] {path.name} verrouillé depuis plus d'une minute : compte du profil {profile} non vérifié, "
+              f"scraping de {country.name} arrêté")
+        return False
+    print(f"[INFO] Compte Facebook {user_id} (profil {profile}) -> {country.name}")
+    return True
+
+
 def run_scraping(
     targets: list[PageTarget], groups: list[fb.GroupTarget], args: argparse.Namespace, country: CountryProfile
-) -> None:
+) -> bool:
+    """Faux si le scraping n'a pas pu se faire (profil introuvable ou occupé, session expirée, compte différent)."""
+    profile = fb.PROFILE_DIR
+    if args.headless and not profile.is_dir():
+        print(f"[ERREUR] Profil Chrome {profile.name} introuvable : connectez le compte Facebook de {country.name} avec\n"
+              f"  python facebook_script/pages.py --login-only --country {country.code}")
+        return False
+    with ExitStack() as stack:
+        try:  # même verrou que post_groups.py : jamais deux Chrome sur ce profil (l'autre échouerait après ~2 min)
+            stack.enter_context(fb.run_lock(scrape_profiles.profile_lock_path(profile, fb.OUTPUT_DIR / "facebook_share")))
+        except fb.RunAlreadyActive:
+            print(f"[ERREUR] Profil Chrome {profile.name} déjà ouvert par un autre lancement (pages.py, post_groups.py "
+                  f"ou --login) : scraping de {country.name} sauté")
+            return False
+        return _scrape_with_profile(targets, groups, args, country)
+
+
+def _scrape_with_profile(
+    targets: list[PageTarget], groups: list[fb.GroupTarget], args: argparse.Namespace, country: CountryProfile
+) -> bool:
+    print(f"[INFO] Profil Chrome du scraping : {fb.PROFILE_DIR.name}")
     fb.PROFILE_DIR.mkdir(parents=True, exist_ok=True)
     fb.close_orphan_chromes(fb.PROFILE_DIR)  # avant les Preferences : un Chrome encore ouvert les réécrirait
     fb._reset_profile_exit_state(fb.PROFILE_DIR)
@@ -1687,9 +1812,13 @@ def run_scraping(
         logged_in = fb.is_logged_in(sb)
         if args.headless and (args.login or not logged_in):
             print("[ERREUR] Profil Facebook non connecté : relancez sans --headless pour vous connecter.")
-            return
+            return False
         if (args.login or not logged_in) and not fb.login_and_wait(sb):
-            return
+            return False
+        if not bind_profile_account(sb, country, args.accept_account):
+            return False
+        if args.login_only:
+            return True
         total = len(targets) + len(groups)
         for index, target in enumerate(targets, 1):
             print(f"\n[{index}/{total}] Page {target.page_id}")
@@ -1700,6 +1829,7 @@ def run_scraping(
             page_id = register_group(group, country)  # puis analysé, consolidé et envoyé comme une page
             fetch_group_images(sb, group, page_id, args)
             _print_stats(stats, args.max_age_days)
+    return True
 
 
 def fetch_group_images(sb: SB, group: fb.GroupTarget, page_id: str, args: argparse.Namespace) -> None:
@@ -1728,11 +1858,15 @@ def _push(args: argparse.Namespace, country: CountryProfile, api_url: str) -> No
         print("[ERREUR] SCRAPER_API_URL est vide : envoi au backend désactivé.")
 
 
-def _run(args: argparse.Namespace, country: CountryProfile, api_url: str) -> None:
+def _run(args: argparse.Namespace, country: CountryProfile, api_url: str) -> bool:
+    """Faux si une étape a échoué (le reste de la chaîne tourne quand même sur le cache, comme avant)."""
     if args.push_only:
         _push(args, country, api_url)
-        return
+        return True
+    if args.login_only:
+        return run_scraping([], [], args, country)
 
+    ok = True
     if args.skip_scrape and not args.no_groups:  # groupes déjà collectés par scraper.py : les faire connaître au pipeline
         _, groups = _drop_listed_elsewhere(country, [], fb.load_targets(args.group_url, Path(args.groups_file)))
         for group in groups:
@@ -1746,8 +1880,8 @@ def _run(args: argparse.Namespace, country: CountryProfile, api_url: str) -> Non
         if not targets and not groups:
             print(f"[ERREUR] Rien à scraper : passez --url / --group-url ou ajoutez des liens dans "
                   f"{args.pages_file} ou {args.groups_file}")
-            return
-        run_scraping(targets, groups, args, country)
+            return False
+        ok = run_scraping(targets, groups, args, country)
 
     if not args.no_ai:
         api_key = os.getenv("OPENAI_API_KEY", "")
@@ -1770,6 +1904,7 @@ def _run(args: argparse.Namespace, country: CountryProfile, api_url: str) -> Non
                 keep_unverified=args.keep_unverified)
     if args.push:
         _push(args, country, api_url)
+    return ok
 
 
 def main() -> None:
@@ -1779,6 +1914,13 @@ def main() -> None:
     load_dotenv(fb.PROJECT_ROOT / ".env", fb.PROJECT_ROOT / "backend" / ".env")
     args = parse_args()
     api_url = os.getenv("SCRAPER_API_URL", DEFAULT_API_URL)
+    mapping: dict[str, str] = {}
+    if not (args.profile or args.push_only or args.skip_scrape):
+        try:  # jamais de repli sur un autre profil : un pays sur le mauvais profil = le mauvais compte Facebook
+            mapping = scrape_profiles.load_mapping()
+        except scrape_profiles.ProfileConfigError as exc:
+            print(f"[ERREUR] {exc}")
+            sys.exit(1)
     many = len(args.country_list) > 1
     failed: list[str] = []
     for index, country in enumerate(args.country_list, 1):
@@ -1787,9 +1929,11 @@ def main() -> None:
         country_args = argparse.Namespace(**vars(args))
         country_args.pages_file = args.pages_file or str(list_file(country, "pages"))
         country_args.groups_file = args.groups_file or str(list_file(country, "groups"))
+        fb.PROFILE_DIR = scrape_profile(args, country, mapping)  # lu par run_scraping et login_and_wait
         try:
             with run_lock(pages_dir() / f".run_{country.code}.lock"):
-                _run(country_args, country, api_url)
+                if not _run(country_args, country, api_url):
+                    failed.append(country.code)
         except RunAlreadyActive:
             print(f"[ERREUR] Un autre lancement de pages.py ({country.code}) est déjà en cours : attendez sa fin "
                   f"(deux lancements simultanés écraseraient les mêmes fichiers).")
@@ -1803,8 +1947,9 @@ def main() -> None:
             traceback.print_exc()
             print(f"[ERREUR] {country.code} : lancement en échec, pays suivant")
             failed.append(country.code)
-    if many and failed:
-        print(f"\n[ERREUR] Pays en échec : {', '.join(failed)}")
+    if failed:  # code de sortie lu par run_daily.py (bilan du cycle)
+        if many:
+            print(f"\n[ERREUR] Pays en échec : {', '.join(failed)}")
         sys.exit(1)
 
 
