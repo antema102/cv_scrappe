@@ -518,13 +518,16 @@ UPLOAD_DIALOG = ("Impossible d’importer les photos\nDésolé, aucune nouvelle 
 class PhotoUploadTest(unittest.TestCase):
     """Affiches refusées par Facebook (« Impossible de télécharger vos fichiers », 25/11/2026)."""
 
-    def publish(self, before: list[str], after: list[str], open_after: bool = True) -> tuple[Any, list[str]]:
+    def publish(self, before: list[str], after: list[str], open_after: bool = True, questionnaire_after: bool = False,
+                questionnaire_before: bool = False) -> tuple[Any, list[str]]:
         events: list[str] = []
 
         def run_js(sb: Any, js: str, args: dict | None = None) -> Any:
             if js is pg.NOTICES_JS:
+                assert args == {"questionnaire": pg.QUESTIONNAIRE_PATTERN}, args
                 clicked = "click" in events
-                return {"open": open_after if clicked else True, "notices": after if clicked else before}
+                return {"open": open_after if clicked else True, "notices": after if clicked else before,
+                        "questionnaire": questionnaire_after if clicked else questionnaire_before}
             if js is pg.PUBLISH_JS:
                 return {"open": True, "x": 10, "y": 20}
             if js is pg.PENDING_COUNT_JS:
@@ -575,6 +578,38 @@ class PhotoUploadTest(unittest.TestCase):
         self.assertEqual(result, "posted")  # publiée : enregistrée, offres marquées
         self.assertIn("diag:block", events)  # message et capture gardés pour vérification
         self.assertNotIn("discard", events)
+
+    def test_membership_questionnaire_after_publish_is_pending(self) -> None:
+        """
+        Bugs du 28/11/2026 : publication créée (« en attente » dans le fil), puis le questionnaire de participation du
+        groupe. 10 h 27 (share_6, membre) : ses zones de réponse faisaient croire la fenêtre de rédaction ouverte et sa
+        règle « standards de la communauté » passait pour un blocage -> StopRun du compte, tentative « stopped ».
+        12 h 13-12 h 34 (share_11, non membre) : fenêtre de rédaction restée dans la page sous le panneau -> 120 s
+        d'attente puis « not_published ». Offres jamais marquées dans les deux cas : doublon au cycle suivant.
+        NOTICES_JS validé dans un vrai Chrome sur des fausses pages des deux variantes.
+        """
+        result, events = self.publish([], [], open_after=True, questionnaire_after=True)
+        self.assertEqual(result, "pending")  # offres marquées : pas de doublon au cycle suivant
+        self.assertNotIn("discard", events)
+        self.assertNotIn("diag:block", events)
+        self.assertNotIn("diag:not_published", events)
+
+    def test_questionnaire_already_there_before_publish_proves_nothing(self) -> None:
+        result, events = self.publish([], [], open_after=True, questionnaire_before=True, questionnaire_after=True)
+        self.assertEqual(result, "not_published")  # fenêtre jamais fermée : comportement d'avant
+        self.assertIn("diag:not_published", events)
+
+    def test_questionnaire_pattern(self) -> None:
+        pattern = re.compile(pg.QUESTIONNAIRE_PATTERN, re.I)
+        for text in ("Avis sur la participation",
+                     "Vous êtes quasiment prêt à publier et commenter. Aidez les admins à mieux vous connaître en "
+                     "répondant à ces questions.",
+                     "Participation questions", "Help admins get to know you by answering these questions."):
+            self.assertTrue(pattern.search(text), text)
+        for text in ("Créer une publication", "Publier", "Règles de groupe des admins",
+                     "Ne pas publier dès publications qui ne respectent pas les standards de la communauté.",
+                     "Votre publication est en attente d'approbation", "1. Comptable — Société X Date limite : 30/11"):
+            self.assertFalse(pattern.search(text), text)
 
     def test_upload_error_patterns(self) -> None:
         for text in (UPLOAD_RED_TEXT, UPLOAD_DIALOG, "Couldn't upload your files", "Unable to upload photos"):

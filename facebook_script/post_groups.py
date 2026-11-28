@@ -223,6 +223,16 @@ BLOCK_RE = re.compile(
     r"community standards|reessayez plus tard|try again later|nous avons supprime|we removed"
 )
 PENDING_RE = re.compile(r"en attente|pending|approbation|approval|examin|review")
+# Questionnaire d'adhésion du groupe (28/11/2026, « Recherche d'emplois au Cameroun », compte share_6) : juste après
+# « Publier », Facebook ouvre « Avis sur la participation — Vous êtes quasiment prêt à publier et commenter. Aidez les
+# admins à mieux vous connaître en répondant à ces questions », avec des zones « Écrivez une réponse… » (contenteditable,
+# role=textbox) et les règles du groupe ; la publication est pourtant déjà créée (« en attente d'approbation » dans le
+# fil). Avant : ces zones faisaient croire la fenêtre de rédaction encore ouverte, et la règle « Ne pas publier des
+# publications qui ne respectent pas les standards de la communauté » passait pour un blocage (BLOCK_RE) -> StopRun du
+# compte (8 groupes non servis), tentative « stopped », offres non marquées : même publication refaite le lendemain.
+# Ce questionnaire n'est jamais rempli par le script (adhésion = l'utilisateur, --join-assist).
+QUESTIONNAIRE_PATTERN = (r"avis sur la participation|en r[ée]pondant [àa] ces questions|participation questions|"
+                         r"answer(?:ing)? (?:these|the) questions|membership questions")
 # Affiches refusées par Facebook (texte plié, 25/11/2026) : « Impossible de télécharger vos fichiers : <groupe>_1.png et
 # <groupe>_2.png » en rouge sous « Publier », puis après le clic la boîte « Impossible d'importer les photos — Désolé,
 # aucune nouvelle photo n'a pu être téléchargée. Veuillez réessayer. » ; la fenêtre de rédaction reste ouverte (rien
@@ -410,12 +420,23 @@ PUBLISH_JS = r"""
 """
 
 # Textes des boîtes de dialogue / alertes (erreurs, « en attente d'approbation ») et messages de la fenêtre de
-# rédaction hors texte de la publication (limite anti-spam du compte)
+# rédaction hors texte de la publication (limite anti-spam du compte). Le questionnaire de participation du groupe
+# (QUESTIONNAIRE_PATTERN) n'est jamais un message de Facebook : ses textes sont ignorés, sa présence signalée par
+# questionnaire. open = une zone de texte dans une boîte de dialogue (inchangé : la fenêtre de rédaction reste souvent
+# dans la page sous le questionnaire, et les questions ont elles aussi des zones de texte).
 NOTICES_JS = r"""
 (() => {
+  const ARGS = __ARGS__;
+  const questionnaire = ARGS.questionnaire ? new RegExp(ARGS.questionnaire, 'i') : null;
+  const textbox = 'div[contenteditable="true"][role="textbox"]';
   const notices = new Set();
+  let asked = false;
   for (const el of document.querySelectorAll('[role="dialog"], [role="alertdialog"], [role="alert"], [role="status"]')) {
-    const box = el.querySelector('div[contenteditable="true"][role="textbox"]');
+    if (questionnaire && questionnaire.test(el.innerText || '')) {
+      asked = true;  // questions, case « Rejoindre », règles du groupe : rien à lire ici (jamais un message de Facebook)
+      continue;
+    }
+    const box = el.querySelector(textbox);
     if (box) {
       // Fenêtre de rédaction : ses messages (« Nous limitons le nombre de fois… » sous « Publier »), jamais le texte
       // de la publication (« Date limite » ferait un faux blocage)
@@ -429,7 +450,8 @@ NOTICES_JS = r"""
     const text = (el.innerText || '').trim();
     if (text) notices.add(text.slice(0, 300));
   }
-  return JSON.stringify({open: !!document.querySelector('div[role="dialog"] div[contenteditable="true"][role="textbox"]'), notices: [...notices]});
+  return JSON.stringify({open: !!document.querySelector('div[role="dialog"] ' + textbox), questionnaire: asked,
+                         notices: [...notices]});
 })()
 """
 
@@ -850,9 +872,14 @@ def discard_composer(sb: SB) -> None:
         sb.sleep(1)
 
 
+def _notice_state(sb: SB) -> dict[str, Any]:
+    """{open, questionnaire, notices} lus par NOTICES_JS."""
+    return fb._run_js(sb, NOTICES_JS, {"questionnaire": QUESTIONNAIRE_PATTERN}) or {}
+
+
 def _notices(sb: SB) -> tuple[bool, list[str]]:
     """(fenêtre de rédaction ouverte, messages : boîtes de dialogue / alertes + messages de la fenêtre de rédaction)."""
-    state = fb._run_js(sb, NOTICES_JS) or {}
+    state = _notice_state(sb)
     return bool(state.get("open")), list(state.get("notices") or [])
 
 
@@ -943,7 +970,9 @@ def publish(sb: SB, group_url: str, auto: bool, with_images: bool = False, on_pu
     sur la limite anti-spam du compte (déjà affichée avant le clic, ou apparue après).
     on_publishing() est appelé juste AVANT le clic sur « Publier » (marqueur « publishing » du suivi).
     """
-    _, baseline = _notices(sb)
+    start = _notice_state(sb)
+    baseline = list(start.get("notices") or [])
+    questionnaire_before = bool(start.get("questionnaire"))  # déjà là avant « Publier » : ne prouve rien
     _check_account_limit(sb, baseline, group_url)
     # « En attente d'approbation » s'affiche dans la publication elle-même, pas dans une alerte : compté avant / après
     pending_before = _pending_count(sb)
@@ -985,7 +1014,16 @@ def publish(sb: SB, group_url: str, auto: bool, with_images: bool = False, on_pu
     deadline = time.monotonic() + (PUBLISH_IMAGES_TIMEOUT if with_images else PUBLISH_TIMEOUT)
     while time.monotonic() < deadline:
         sb.sleep(1)
-        still_open, notices = _notices(sb)
+        state = _notice_state(sb)
+        still_open, notices = bool(state.get("open")), list(state.get("notices") or [])
+        # Questionnaire de participation apparu après « Publier » (QUESTIONNAIRE_PATTERN, 28/11/2026) : Facebook ne
+        # l'ouvre qu'une fois la publication créée (vue « en attente d'approbation » dans le fil, membre ou non, la
+        # fenêtre de rédaction restant parfois dans la page dessous). Enregistrée « en attente », offres marquées :
+        # mieux vaut rater une publication que la doubler. Le questionnaire n'est jamais rempli par le script.
+        if state.get("questionnaire") and not questionnaire_before:
+            print("  [INFO] Questionnaire de participation du groupe après « Publier » : publication faite, en attente "
+                  "(questionnaire laissé sans réponse)")
+            return "pending"
         _check_account_limit(sb, notices, group_url)
         # Affiches refusées après le clic, fenêtre de rédaction toujours ouverte : rien n'est publié
         if with_images and still_open and (failure := _upload_error(notices)):
